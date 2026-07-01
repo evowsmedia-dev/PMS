@@ -16,7 +16,6 @@ import { DocumentDiagram } from "@/components/document-diagram";
 import { CreateTaskFromSelection } from "@/components/create-task-from-selection";
 import { CreateCommentFromSelection } from "@/components/create-comment-from-selection";
 import { DocumentDetailShell } from "@/components/document-detail-shell";
-import { AddFlowDocumentButton } from "@/components/add-flow-document-button";
 
 export default async function DocumentDetailPage({
   params,
@@ -46,7 +45,6 @@ export default async function DocumentDetailPage({
   const projectRole = await getProjectRole(session.user.id, projectId);
   const roleCtx = { systemRole: session.user.systemRole };
   const canEdit = can(roleCtx, "document.edit", projectRole);
-  const isProcessFlow = doc.templateId === "rfid-process-flow" || doc.parentDocumentId !== null;
 
   const members = await prisma.projectMember.findMany({
     where: { projectId, role: { in: ["OWNER", "PO", "BA"] } },
@@ -92,12 +90,6 @@ export default async function DocumentDetailPage({
                 <p className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
                   {doc.description}
                 </p>
-              ) : null}
-
-              {isProcessFlow && canEdit ? (
-                <div className="flex justify-end">
-                  <AddFlowDocumentButton projectId={projectId} moduleId={moduleId} docId={docId} />
-                </div>
               ) : null}
             </CardContent>
           </Card>
