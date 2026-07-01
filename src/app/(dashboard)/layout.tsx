@@ -1,24 +1,8 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import {
-  LayoutDashboard,
-  ListChecks,
-  Activity,
-  FolderKanban,
-  UserRound,
-  ShieldCheck,
-} from "lucide-react";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { LogoutButton } from "@/components/logout-button";
-
-const NAV_ITEMS = [
-  { href: "/dashboard/overview", label: "Tổng quan", icon: LayoutDashboard },
-  { href: "/dashboard/my-tasks", label: "Nhiệm vụ của tôi", icon: ListChecks },
-  { href: "/dashboard/activity", label: "Hoạt động", icon: Activity },
-  { href: "/projects", label: "Dự án", icon: FolderKanban },
-  { href: "/dashboard/profile", label: "Hồ sơ cá nhân", icon: UserRound },
-];
+import { AppSidebar } from "@/components/app-sidebar";
 
 export default async function DashboardLayout({
   children,
@@ -39,35 +23,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex min-h-screen">
-      <aside className="hidden w-64 shrink-0 border-r bg-sidebar text-sidebar-foreground md:flex md:flex-col">
-        <div className="flex items-center gap-2 border-b p-4">
-          <div className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground font-bold">
-            E
-          </div>
-          <span className="font-semibold">PMS</span>
-        </div>
-        <nav className="flex-1 space-y-1 p-3">
-          {NAV_ITEMS.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="flex items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-            >
-              <item.icon className="size-4" />
-              {item.label}
-            </Link>
-          ))}
-          {isAdmin ? (
-            <Link
-              href="/admin/users"
-              className="flex items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-            >
-              <ShieldCheck className="size-4" />
-              Quản trị hệ thống
-            </Link>
-          ) : null}
-        </nav>
-      </aside>
+      <AppSidebar isAdmin={isAdmin} />
 
       <div className="flex flex-1 flex-col">
         <header className="flex items-center justify-between border-b bg-background px-4 py-3">

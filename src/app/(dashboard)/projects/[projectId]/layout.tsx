@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { ProjectIcon } from "@/lib/validation/icons";
-import { ModuleSidebar } from "@/components/module-sidebar";
+import { ProjectDocumentsNav } from "@/components/project-documents-nav";
 
 export default async function ProjectLayout({
   children,
@@ -47,6 +47,17 @@ export default async function ProjectLayout({
     projectRole,
   );
 
+  const grouped = await prisma.document.groupBy({
+    by: ["moduleId", "category"],
+    where: { projectId, deletedAt: null },
+    _count: true,
+  });
+  const categoryCounts: Record<string, Partial<Record<string, number>>> = {};
+  for (const row of grouped) {
+    categoryCounts[row.moduleId] ??= {};
+    categoryCounts[row.moduleId][row.category] = row._count;
+  }
+
   return (
     <div className="flex flex-col gap-4 md:flex-row">
       <aside className="w-full shrink-0 space-y-4 md:w-56">
@@ -62,13 +73,23 @@ export default async function ProjectLayout({
           <Link href={`/projects/${project.id}/overview`} className="block rounded-md px-2 py-1.5 hover:bg-accent">
             Dashboard dự án
           </Link>
+        </nav>
+
+        <ProjectDocumentsNav
+          projectId={project.id}
+          modules={project.modules}
+          canManage={canManageModules}
+          categoryCounts={categoryCounts}
+        />
+
+        <nav className="space-y-0.5 text-sm">
           {canEditSettings ? (
             <Link
               href={`/projects/${project.id}/settings/edit`}
               className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent"
             >
               <Settings className="size-3.5" />
-              Cài đặt
+              Thông tin chung
             </Link>
           ) : null}
           <Link
@@ -79,12 +100,6 @@ export default async function ProjectLayout({
             Export JSON
           </Link>
         </nav>
-
-        <ModuleSidebar
-          projectId={project.id}
-          modules={project.modules}
-          canManage={canManageModules}
-        />
       </aside>
 
       <div className="min-w-0 flex-1">{children}</div>
