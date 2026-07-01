@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 import { toast } from "sonner";
 import { Plus, Upload } from "lucide-react";
@@ -32,13 +33,15 @@ export function DocumentDiagram({
   const [uploading, setUploading] = useState(false);
   const [pending, startTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
 
   function apply() {
     const value = url.trim();
     const titleValue = title.trim() || DEFAULT_TITLE;
-    startTransition(() =>
-      setDocumentDiagramUrlAction(projectId, moduleId, docId, value || null, titleValue),
-    );
+    startTransition(async () => {
+      await setDocumentDiagramUrlAction(projectId, moduleId, docId, value || null, titleValue);
+      router.refresh();
+    });
     setEditing(false);
   }
 
@@ -60,6 +63,7 @@ export function DocumentDiagram({
       setUrl(blob.url);
       const titleValue = title.trim() || DEFAULT_TITLE;
       await setDocumentDiagramUrlAction(projectId, moduleId, docId, blob.url, titleValue);
+      router.refresh();
       toast.success("Đã tải ảnh sơ đồ lên.");
       setEditing(false);
     } catch (error) {

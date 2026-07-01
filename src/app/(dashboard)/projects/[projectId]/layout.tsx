@@ -5,8 +5,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
-import { ProjectIcon } from "@/lib/validation/icons";
 import { ProjectDocumentsNav } from "@/components/project-documents-nav";
+import { SetPageHeader } from "@/components/page-header-context";
 
 export default async function ProjectLayout({
   children,
@@ -70,15 +70,8 @@ export default async function ProjectLayout({
 
   return (
     <div className="flex flex-col gap-4 md:flex-row">
+      <SetPageHeader title={project.name} subtitle={project.code} />
       <aside className="w-full shrink-0 space-y-4 md:w-56">
-        <div>
-          <div className="flex items-center gap-2">
-            <ProjectIcon name={project.icon} className="size-5 text-primary" />
-            <h1 className="font-semibold">{project.name}</h1>
-          </div>
-          <p className="text-xs text-muted-foreground">{project.code}</p>
-        </div>
-
         <nav className="space-y-0.5 text-sm">
           <Link href={`/projects/${project.id}/overview`} className="block rounded-md px-2 py-1.5 hover:bg-accent">
             Dashboard dự án

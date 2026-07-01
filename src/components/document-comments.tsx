@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -39,14 +40,16 @@ export function DocumentComments({
   const [, startTransition] = useTransition();
   const { quote, setQuote } = useQuote();
   const formRef = useRef<HTMLFormElement>(null);
+  const router = useRouter();
 
   useEffect(() => {
     if (state.error) toast.error(state.error);
     if (state.success) {
       setQuote(null);
       formRef.current?.reset();
+      router.refresh();
     }
-  }, [state, setQuote]);
+  }, [state, setQuote, router]);
 
   return (
     <div className="space-y-3">
@@ -77,15 +80,16 @@ export function DocumentComments({
                   <Checkbox
                     checked={c.resolved}
                     onCheckedChange={(checked) =>
-                      startTransition(() =>
-                        resolveCommentAction(
+                      startTransition(async () => {
+                        await resolveCommentAction(
                           projectId,
                           moduleId,
                           docId,
                           c.id,
                           checked === true,
-                        ),
-                      )
+                        );
+                        router.refresh();
+                      })
                     }
                   />
                   Đã xử lý

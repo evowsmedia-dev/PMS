@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -47,6 +48,7 @@ export function TaskStatusSelect({
   canEdit: boolean;
 }) {
   const [, startTransition] = useTransition();
+  const router = useRouter();
 
   return (
     <Select
@@ -55,6 +57,7 @@ export function TaskStatusSelect({
       onValueChange={(value) =>
         startTransition(async () => {
           await changeTaskStatusAction(projectId, moduleId, taskId, value);
+          router.refresh();
           toast.success("Đã cập nhật trạng thái.");
         })
       }
@@ -89,6 +92,7 @@ export function TaskAssigneeSelect({
   canReassign: boolean;
 }) {
   const [, startTransition] = useTransition();
+  const router = useRouter();
 
   return (
     <Select
@@ -97,6 +101,7 @@ export function TaskAssigneeSelect({
       onValueChange={(value) =>
         startTransition(async () => {
           await reassignTaskAction(projectId, moduleId, taskId, value === "unassigned" ? "" : value);
+          router.refresh();
           toast.success("Đã gán lại người thực hiện.");
         })
       }
@@ -131,10 +136,12 @@ export function TaskComments({
 }) {
   const action = addTaskCommentAction.bind(null, projectId, moduleId, taskId);
   const [state, formAction, pending] = useActionState(action, initialState);
+  const router = useRouter();
 
   useEffect(() => {
     if (state.error) toast.error(state.error);
-  }, [state]);
+    if (state.success) router.refresh();
+  }, [state, router]);
 
   return (
     <div className="space-y-3">

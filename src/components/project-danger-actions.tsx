@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +25,7 @@ export function ArchiveProjectButton({
   isArchived: boolean;
 }) {
   const [pending, startTransition] = useTransition();
+  const router = useRouter();
 
   return (
     <Button
@@ -33,6 +35,7 @@ export function ArchiveProjectButton({
       onClick={() =>
         startTransition(async () => {
           await archiveProjectAction(projectId);
+          router.refresh();
           toast.success(isArchived ? "Đã bỏ lưu trữ dự án." : "Đã lưu trữ dự án.");
         })
       }

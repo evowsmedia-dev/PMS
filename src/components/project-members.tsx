@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,11 +33,15 @@ interface Member {
 export function AddMemberForm({ projectId }: { projectId: string }) {
   const action = addMemberAction.bind(null, projectId);
   const [state, formAction, pending] = useActionState(action, initialState);
+  const router = useRouter();
 
   useEffect(() => {
-    if (state.success) toast.success(state.success);
+    if (state.success) {
+      toast.success(state.success);
+      router.refresh();
+    }
     if (state.error) toast.error(state.error);
-  }, [state]);
+  }, [state, router]);
 
   return (
     <form action={formAction} className="flex flex-wrap items-end gap-2">
@@ -70,6 +75,7 @@ export function MemberList({
   members: Member[];
 }) {
   const [, startTransition] = useTransition();
+  const router = useRouter();
 
   return (
     <div className="divide-y">
@@ -83,7 +89,10 @@ export function MemberList({
             <Select
               defaultValue={m.role}
               onValueChange={(role) =>
-                startTransition(() => changeMemberRoleAction(projectId, m.id, role))
+                startTransition(async () => {
+                  await changeMemberRoleAction(projectId, m.id, role);
+                  router.refresh();
+                })
               }
             >
               <SelectTrigger className="w-32">
@@ -101,7 +110,12 @@ export function MemberList({
               type="button"
               variant="ghost"
               size="icon"
-              onClick={() => startTransition(() => removeMemberAction(projectId, m.id))}
+              onClick={() =>
+                startTransition(async () => {
+                  await removeMemberAction(projectId, m.id);
+                  router.refresh();
+                })
+              }
             >
               <Trash2 className="size-4" />
             </Button>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,10 +37,12 @@ const createUserInitialState: CreateUserState = {};
 export function CreateUserDialog() {
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState(createUserAction, createUserInitialState);
+  const router = useRouter();
 
   useEffect(() => {
     if (state.error) toast.error(state.error);
-  }, [state.error]);
+    if (state.tempPassword) router.refresh();
+  }, [state, router]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -105,6 +108,7 @@ interface UserRow {
 export function AdminUserRow({ user }: { user: UserRow }) {
   const [, startTransition] = useTransition();
   const [resetPassword, setResetPassword] = useState<string | null>(null);
+  const router = useRouter();
 
   return (
     <tr className="border-t">
@@ -116,7 +120,10 @@ export function AdminUserRow({ user }: { user: UserRow }) {
         <Select
           defaultValue={user.systemRole}
           onValueChange={(role) =>
-            startTransition(() => changeUserSystemRoleAction(user.id, role))
+            startTransition(async () => {
+              await changeUserSystemRoleAction(user.id, role);
+              router.refresh();
+            })
           }
         >
           <SelectTrigger className="w-32">
@@ -141,7 +148,12 @@ export function AdminUserRow({ user }: { user: UserRow }) {
           type="button"
           size="sm"
           variant="outline"
-          onClick={() => startTransition(() => toggleUserActiveAction(user.id))}
+          onClick={() =>
+            startTransition(async () => {
+              await toggleUserActiveAction(user.id);
+              router.refresh();
+            })
+          }
         >
           {user.isActive ? "Khóa" : "Mở khóa"}
         </Button>

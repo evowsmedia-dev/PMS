@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   DndContext,
   closestCorners,
@@ -114,6 +115,7 @@ export function KanbanBoard({
 }) {
   const [tasks, setTasks] = useState(initialTasks);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+  const router = useRouter();
 
   const columns = TASK_STATUS_ORDER.map((status) => ({
     status,
@@ -149,6 +151,7 @@ export function KanbanBoard({
         body: JSON.stringify({ status: targetColumn }),
       });
       if (!res.ok) throw new Error("Request failed");
+      router.refresh();
     } catch {
       setTasks((prev) =>
         prev.map((t) => (t.id === activeTask.id ? { ...t, status: previousStatus } : t)),

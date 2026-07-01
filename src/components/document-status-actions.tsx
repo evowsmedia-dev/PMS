@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -68,10 +69,12 @@ export function DocumentStatusActions({
   const [pending, startTransition] = useTransition();
   const [submitOpen, setSubmitOpen] = useState(false);
   const [reviewerId, setReviewerId] = useState<string>("");
+  const router = useRouter();
 
   function changeStatus(newStatus: DocStatus) {
     startTransition(async () => {
       await changeDocumentStatusAction(projectId, moduleId, docId, newStatus);
+      router.refresh();
       toast.success("Đã cập nhật trạng thái.");
     });
   }
@@ -85,6 +88,7 @@ export function DocumentStatusActions({
       const result = await submitDocumentForReviewAction(projectId, moduleId, docId, reviewerId);
       if (result.error) toast.error(result.error);
       else {
+        router.refresh();
         toast.success(result.success ?? "Đã gửi duyệt.");
         setSubmitOpen(false);
       }

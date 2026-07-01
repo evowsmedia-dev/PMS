@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { upload } from "@vercel/blob/client";
@@ -227,9 +228,16 @@ export function DocumentEditForm({
         </div>
       </div>
 
-      <Button type="submit" disabled={pending}>
-        {pending ? "Đang lưu..." : "Lưu (tạo phiên bản mới)"}
-      </Button>
+      <div className="flex gap-2">
+        <Button type="submit" disabled={pending}>
+          {pending ? "Đang lưu..." : "Lưu (tạo phiên bản mới)"}
+        </Button>
+        <Button asChild type="button" variant="outline" disabled={pending}>
+          <Link href={`/projects/${projectId}/modules/${moduleId}/documents/${docId}`}>
+            Hủy chỉnh sửa
+          </Link>
+        </Button>
+      </div>
     </form>
   );
 }

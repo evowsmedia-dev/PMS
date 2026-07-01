@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 import { toast } from "sonner";
 import { FileText, Image as ImageIcon, FileSpreadsheet, Link as LinkIcon, Trash2, Upload } from "lucide-react";
@@ -57,6 +58,7 @@ export function DocumentAttachments({
   const [uploading, setUploading] = useState(false);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [, startTransition] = useTransition();
+  const router = useRouter();
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -74,6 +76,7 @@ export function DocumentAttachments({
         mimeType: file.type,
         sizeBytes: file.size,
       });
+      router.refresh();
       toast.success("Đã tải lên tệp đính kèm.");
     } catch (error) {
       toast.error(
@@ -129,7 +132,10 @@ export function DocumentAttachments({
                       formData,
                     );
                     if (result.error) toast.error(result.error);
-                    else setLinkDialogOpen(false);
+                    else {
+                      router.refresh();
+                      setLinkDialogOpen(false);
+                    }
                   }}
                   className="space-y-3"
                 >
@@ -169,9 +175,10 @@ export function DocumentAttachments({
                     size="icon"
                     className="size-6 shrink-0"
                     onClick={() =>
-                      startTransition(() =>
-                        deleteAttachmentAction(projectId, moduleId, docId, a.id),
-                      )
+                      startTransition(async () => {
+                        await deleteAttachmentAction(projectId, moduleId, docId, a.id);
+                        router.refresh();
+                      })
                     }
                   >
                     <Trash2 className="size-3.5" />

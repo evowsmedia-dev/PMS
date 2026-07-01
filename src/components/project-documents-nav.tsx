@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   DndContext,
   closestCenter,
@@ -128,7 +128,7 @@ function DocumentRow({
 }
 
 /** Renders a document row; if it has sibling flow documents grouped under it,
- * also renders a collapsible secondary submenu listing them. */
+ * also renders a secondary submenu listing them. */
 function DocumentGroup({
   projectId,
   moduleId,
@@ -142,39 +142,24 @@ function DocumentGroup({
   flows: DocumentItem[];
   canDelete: boolean;
 }) {
-  const [expanded, setExpanded] = useState(true);
-
   if (flows.length === 0) {
     return <DocumentRow projectId={projectId} moduleId={moduleId} doc={doc} canDelete={canDelete} />;
   }
 
   return (
     <div>
-      <div className="flex items-center gap-0.5">
-        <button
-          type="button"
-          className="p-0.5 text-muted-foreground"
-          onClick={() => setExpanded((v) => !v)}
-        >
-          {expanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
-        </button>
-        <div className="min-w-0 flex-1">
-          <DocumentRow projectId={projectId} moduleId={moduleId} doc={doc} canDelete={canDelete} />
-        </div>
+      <DocumentRow projectId={projectId} moduleId={moduleId} doc={doc} canDelete={canDelete} />
+      <div className="ml-4 space-y-0.5 border-l pl-2">
+        {flows.map((flow) => (
+          <DocumentRow
+            key={flow.id}
+            projectId={projectId}
+            moduleId={moduleId}
+            doc={flow}
+            canDelete={canDelete}
+          />
+        ))}
       </div>
-      {expanded ? (
-        <div className="ml-4 space-y-0.5 border-l pl-2">
-          {flows.map((flow) => (
-            <DocumentRow
-              key={flow.id}
-              projectId={projectId}
-              moduleId={moduleId}
-              doc={flow}
-              canDelete={canDelete}
-            />
-          ))}
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -244,6 +229,7 @@ function SortableModuleRow({
   const [name, setName] = useState(module.name);
   const [expanded, setExpanded] = useState(true);
   const [, startTransition] = useTransition();
+  const router = useRouter();
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -283,7 +269,10 @@ function SortableModuleRow({
             onChange={(e) => setName(e.target.value)}
             onBlur={() => {
               setRenaming(false);
-              startTransition(() => renameModuleAction(projectId, module.id, name));
+              startTransition(async () => {
+                await renameModuleAction(projectId, module.id, name);
+                router.refresh();
+              });
             }}
             onKeyDown={(e) => {
               if (e.key === "Enter") e.currentTarget.blur();
@@ -328,7 +317,10 @@ function SortableModuleRow({
                   <AlertDialogCancel>Hủy</AlertDialogCancel>
                   <AlertDialogAction
                     onClick={() =>
-                      startTransition(() => deleteModuleAction(projectId, module.id))
+                      startTransition(async () => {
+                        await deleteModuleAction(projectId, module.id);
+                        router.refresh();
+                      })
                     }
                   >
                     Xóa
@@ -368,6 +360,7 @@ export function ProjectDocumentsNav({
   mainModuleId: string | null;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [items, setItems] = useState(modules.filter((m) => m.id !== mainModuleId));
   const [dialogOpen, setDialogOpen] = useState(false);
   const sensors = useSensors(useSensor(PointerSensor));
@@ -382,13 +375,13 @@ export function ProjectDocumentsNav({
     reorderModulesAction(
       projectId,
       next.map((m) => m.id),
-    );
+    ).then(() => router.refresh());
   }
 
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between px-1">
-        <p className="text-xs font-semibold uppercase text-muted-foreground">📂 Tài liệu</p>
+        <p className="flex-1 rounded-md px-2 py-1.5 text-sm">Tài liệu</p>
         {canManage ? (
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
@@ -403,6 +396,7 @@ export function ProjectDocumentsNav({
               <form
                 action={async (formData) => {
                   await createModuleAction(projectId, {}, formData);
+                  router.refresh();
                   setDialogOpen(false);
                 }}
                 className="space-y-4"
