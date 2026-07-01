@@ -47,6 +47,7 @@ import {
   deleteModuleAction,
   reorderModulesAction,
 } from "@/lib/actions/modules";
+import { deleteDocumentAction } from "@/lib/actions/documents";
 
 interface ModuleItem {
   id: string;
@@ -62,12 +63,15 @@ function DocumentList({
   projectId,
   moduleId,
   documents,
+  canDelete,
 }: {
   projectId: string;
   moduleId: string;
   documents: DocumentItem[];
+  canDelete: boolean;
 }) {
   const pathname = usePathname();
+  const [, startTransition] = useTransition();
 
   if (documents.length === 0) {
     return (
@@ -81,16 +85,54 @@ function DocumentList({
         const href = `/projects/${projectId}/modules/${moduleId}/documents/${doc.id}`;
         const active = pathname === href;
         return (
-          <Link
+          <div
             key={doc.id}
-            href={href}
-            className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-xs hover:bg-accent ${
-              active ? "bg-accent font-medium text-accent-foreground" : "text-muted-foreground"
+            className={`group flex items-center gap-1 rounded-md ${
+              active ? "bg-accent text-accent-foreground" : ""
             }`}
           >
-            <FileText className="size-3 shrink-0" />
-            <span className="truncate">{doc.title}</span>
-          </Link>
+            <Link
+              href={href}
+              className={`flex flex-1 items-center gap-1.5 px-2 py-1 text-xs hover:bg-accent ${
+                active ? "font-medium" : "text-muted-foreground"
+              }`}
+            >
+              <FileText className="size-3 shrink-0" />
+              <span className="truncate">{doc.title}</span>
+            </Link>
+            {canDelete ? (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="hidden size-5 shrink-0 group-hover:flex"
+                  >
+                    <Trash2 className="size-3" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Xóa tài liệu &quot;{doc.title}&quot;?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Tài liệu sẽ bị ẩn khỏi danh sách (soft delete), lịch sử phiên bản vẫn được giữ.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Hủy</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() =>
+                        startTransition(() => deleteDocumentAction(projectId, moduleId, doc.id))
+                      }
+                    >
+                      Xóa
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            ) : null}
+          </div>
         );
       })}
     </div>
@@ -102,12 +144,14 @@ function SortableModuleRow({
   projectId,
   active,
   canManage,
+  canDeleteDocuments,
   documents,
 }: {
   module: ModuleItem;
   projectId: string;
   active: boolean;
   canManage: boolean;
+  canDeleteDocuments: boolean;
   documents: DocumentItem[];
 }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
@@ -214,7 +258,12 @@ function SortableModuleRow({
       </div>
 
       {expanded ? (
-        <DocumentList projectId={projectId} moduleId={module.id} documents={documents} />
+        <DocumentList
+          projectId={projectId}
+          moduleId={module.id}
+          documents={documents}
+          canDelete={canDeleteDocuments}
+        />
       ) : null}
     </div>
   );
@@ -224,12 +273,14 @@ export function ProjectDocumentsNav({
   projectId,
   modules,
   canManage,
+  canDeleteDocuments,
   documentsByModule,
   mainModuleId,
 }: {
   projectId: string;
   modules: ModuleItem[];
   canManage: boolean;
+  canDeleteDocuments: boolean;
   documentsByModule: Record<string, DocumentItem[]>;
   mainModuleId: string | null;
 }) {
@@ -288,6 +339,7 @@ export function ProjectDocumentsNav({
           projectId={projectId}
           moduleId={mainModuleId}
           documents={documentsByModule[mainModuleId] ?? []}
+          canDelete={canDeleteDocuments}
         />
       ) : null}
 
@@ -301,6 +353,7 @@ export function ProjectDocumentsNav({
                 projectId={projectId}
                 active={pathname.includes(`/modules/${module.id}/`)}
                 canManage={canManage}
+                canDeleteDocuments={canDeleteDocuments}
                 documents={documentsByModule[module.id] ?? []}
               />
             ))}

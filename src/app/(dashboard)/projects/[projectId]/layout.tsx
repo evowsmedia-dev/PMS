@@ -46,6 +46,11 @@ export default async function ProjectLayout({
     "project.editSettings",
     projectRole,
   );
+  const canDeleteDocuments = can(
+    { systemRole: session.user.systemRole },
+    "document.delete",
+    projectRole,
+  );
 
   const allDocuments = await prisma.document.findMany({
     where: { projectId, deletedAt: null },
@@ -82,6 +87,7 @@ export default async function ProjectLayout({
           projectId={project.id}
           modules={project.modules}
           canManage={canManageModules}
+          canDeleteDocuments={canDeleteDocuments}
           documentsByModule={documentsByModule}
           mainModuleId={mainModuleId}
         />

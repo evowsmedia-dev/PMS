@@ -181,13 +181,17 @@ export async function setDocumentDiagramUrlAction(
   moduleId: string,
   docId: string,
   url: string | null,
+  title?: string | null,
 ) {
   const session = await auth();
   if (!session?.user) return;
 
   if (!(await assertCanEdit(session.user.id, session.user.systemRole, projectId))) return;
 
-  await prisma.document.update({ where: { id: docId }, data: { diagramUrl: url } });
+  await prisma.document.update({
+    where: { id: docId },
+    data: { diagramUrl: url, ...(title !== undefined ? { diagramTitle: title } : {}) },
+  });
 
   await logAudit({
     actorId: session.user.id,

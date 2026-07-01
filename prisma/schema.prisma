@@ -214,6 +214,7 @@ model Document {
   currentContent   String
   currentVersionNo Int         @default(1)
   diagramUrl       String?
+  diagramTitle     String?
 
   authorId String
   author   User   @relation("DocumentAuthor", fields: [authorId], references: [id])

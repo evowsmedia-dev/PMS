@@ -53,7 +53,7 @@ export default async function DocumentDetailPage({
           <Card>
             <CardContent className="space-y-4 pt-6">
               <div>
-                <h1 className="text-2xl font-bold">{doc.title}</h1>
+                <h1 className="text-[24px] font-bold">{doc.title}</h1>
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                   <Badge>{DOC_STATUS_LABEL[doc.status]}</Badge>
                   <span>{doc.author.fullName}</span>
@@ -79,6 +79,7 @@ export default async function DocumentDetailPage({
             moduleId={moduleId}
             docId={docId}
             diagramUrl={doc.diagramUrl}
+            diagramTitle={doc.diagramTitle}
             canEdit={canEdit}
           />
 
