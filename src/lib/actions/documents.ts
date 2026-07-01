@@ -8,6 +8,7 @@ import { can } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { logAudit } from "@/lib/audit";
 import { documentFormSchema } from "@/lib/validation/document";
+import { DOC_TEMPLATES } from "@/lib/document-templates";
 import type { ActionState } from "@/lib/actions/profile";
 import type { DocStatus } from "@/generated/prisma/enums";
 
@@ -36,6 +37,7 @@ export async function createDocumentAction(
     return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   }
   const values = parsed.data;
+  const templateId = String(formData.get("templateId") ?? "").trim() || null;
   let docId = "";
 
   await prisma.$transaction(async (tx) => {
@@ -49,6 +51,7 @@ export async function createDocumentAction(
         description: values.description || null,
         currentContent: values.content || "",
         authorId: session.user.id,
+        templateId,
       },
     });
     docId = doc.id;
@@ -79,6 +82,77 @@ export async function createDocumentAction(
 
   revalidatePath(`/projects/${projectId}/modules/${moduleId}/documents`);
   redirect(`/projects/${projectId}/modules/${moduleId}/documents/${docId}`);
+}
+
+/** Adds another process-flow document to the same flow group as `docId`
+ * (grouped under docId's root, or docId itself if it has no parent). */
+export async function createFlowDocumentAction(
+  projectId: string,
+  moduleId: string,
+  docId: string,
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await auth();
+  if (!session?.user) return { error: "Bạn cần đăng nhập." };
+
+  const projectRole = await getProjectRole(session.user.id, projectId);
+  if (!can({ systemRole: session.user.systemRole }, "document.create", projectRole)) {
+    return { error: "Bạn không có quyền tạo tài liệu." };
+  }
+
+  const title = String(formData.get("title") ?? "").trim();
+  if (!title) return { error: "Vui lòng nhập tiêu đề sơ đồ quy trình." };
+
+  const doc = await prisma.document.findUnique({ where: { id: docId } });
+  if (!doc) return { error: "Không tìm thấy tài liệu." };
+
+  const rootId = doc.parentDocumentId ?? doc.id;
+  const template = DOC_TEMPLATES["rfid-process-flow"];
+  let newDocId = "";
+
+  await prisma.$transaction(async (tx) => {
+    const created = await tx.document.create({
+      data: {
+        projectId,
+        moduleId,
+        title,
+        category: doc.category,
+        role: doc.role,
+        currentContent: template.content,
+        templateId: "rfid-process-flow",
+        parentDocumentId: rootId,
+        authorId: session.user.id,
+      },
+    });
+    newDocId = created.id;
+    await tx.documentVersion.create({
+      data: {
+        documentId: created.id,
+        versionNo: 1,
+        title: created.title,
+        category: created.category,
+        role: created.role,
+        status: created.status,
+        description: created.description,
+        content: created.currentContent,
+        editedById: session.user.id,
+        changeNote: "Tạo mới",
+      },
+    });
+  });
+
+  await logAudit({
+    actorId: session.user.id,
+    action: "CREATE",
+    entityType: "Document",
+    entityId: newDocId,
+    projectId,
+    metadata: { title, parentDocumentId: rootId },
+  });
+
+  revalidatePath(`/projects/${projectId}/modules/${moduleId}/documents`);
+  redirect(`/projects/${projectId}/modules/${moduleId}/documents/${newDocId}`);
 }
 
 async function assertCanEdit(userId: string, systemRole: string, projectId: string) {

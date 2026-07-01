@@ -43,6 +43,7 @@ export function DocumentCreateForm({
 
   return (
     <form action={formAction} className="space-y-4">
+      <input type="hidden" name="templateId" value={templateId === "blank" ? "" : templateId} />
       <div className="space-y-2">
         <Label htmlFor="title">Tiêu đề</Label>
         <Input id="title" name="title" required placeholder="VD: Đặc tả API" />

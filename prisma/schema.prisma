@@ -215,9 +215,14 @@ model Document {
   currentVersionNo Int         @default(1)
   diagramUrl       String?
   diagramTitle     String?
+  templateId       String?
 
   authorId String
   author   User   @relation("DocumentAuthor", fields: [authorId], references: [id])
+
+  parentDocumentId String?
+  parentDocument    Document?  @relation("DocumentFlows", fields: [parentDocumentId], references: [id])
+  childDocuments    Document[] @relation("DocumentFlows")
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -232,6 +237,7 @@ model Document {
 
   @@index([projectId, moduleId, category, status])
   @@index([projectId, moduleId, role])
+  @@index([parentDocumentId])
 }
 
 model DocumentVersion {

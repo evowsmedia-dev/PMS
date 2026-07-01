@@ -49,13 +49,20 @@ export default async function ProjectLayout({
 
   const allDocuments = await prisma.document.findMany({
     where: { projectId, deletedAt: null },
-    select: { id: true, title: true, moduleId: true },
+    select: { id: true, title: true, moduleId: true, parentDocumentId: true },
     orderBy: { title: "asc" },
   });
-  const documentsByModule: Record<string, { id: string; title: string }[]> = {};
+  const documentsByModule: Record<
+    string,
+    { id: string; title: string; parentDocumentId: string | null }[]
+  > = {};
   for (const doc of allDocuments) {
     documentsByModule[doc.moduleId] ??= [];
-    documentsByModule[doc.moduleId].push({ id: doc.id, title: doc.title });
+    documentsByModule[doc.moduleId].push({
+      id: doc.id,
+      title: doc.title,
+      parentDocumentId: doc.parentDocumentId,
+    });
   }
 
   const mainModuleId =

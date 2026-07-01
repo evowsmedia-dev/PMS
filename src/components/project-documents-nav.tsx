@@ -57,6 +57,126 @@ interface ModuleItem {
 interface DocumentItem {
   id: string;
   title: string;
+  parentDocumentId: string | null;
+}
+
+function DocumentRow({
+  projectId,
+  moduleId,
+  doc,
+  canDelete,
+}: {
+  projectId: string;
+  moduleId: string;
+  doc: DocumentItem;
+  canDelete: boolean;
+}) {
+  const pathname = usePathname();
+  const [, startTransition] = useTransition();
+  const href = `/projects/${projectId}/modules/${moduleId}/documents/${doc.id}`;
+  const active = pathname === href;
+
+  return (
+    <div
+      className={`group flex items-center gap-1 rounded-md ${
+        active ? "bg-accent text-accent-foreground" : ""
+      }`}
+    >
+      <Link
+        href={href}
+        className={`flex flex-1 items-center gap-1.5 px-2 py-1 text-xs hover:bg-accent ${
+          active ? "font-medium" : "text-muted-foreground"
+        }`}
+      >
+        <FileText className="size-3 shrink-0" />
+        <span className="truncate">{doc.title}</span>
+      </Link>
+      {canDelete ? (
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="hidden size-5 shrink-0 group-hover:flex"
+            >
+              <Trash2 className="size-3" />
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Xóa tài liệu &quot;{doc.title}&quot;?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tài liệu sẽ bị ẩn khỏi danh sách (soft delete), lịch sử phiên bản vẫn được giữ.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Hủy</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() =>
+                  startTransition(() => deleteDocumentAction(projectId, moduleId, doc.id))
+                }
+              >
+                Xóa
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      ) : null}
+    </div>
+  );
+}
+
+/** Renders a document row; if it has sibling flow documents grouped under it,
+ * also renders a collapsible secondary submenu listing them. */
+function DocumentGroup({
+  projectId,
+  moduleId,
+  doc,
+  flows,
+  canDelete,
+}: {
+  projectId: string;
+  moduleId: string;
+  doc: DocumentItem;
+  flows: DocumentItem[];
+  canDelete: boolean;
+}) {
+  const [expanded, setExpanded] = useState(true);
+
+  if (flows.length === 0) {
+    return <DocumentRow projectId={projectId} moduleId={moduleId} doc={doc} canDelete={canDelete} />;
+  }
+
+  return (
+    <div>
+      <div className="flex items-center gap-0.5">
+        <button
+          type="button"
+          className="p-0.5 text-muted-foreground"
+          onClick={() => setExpanded((v) => !v)}
+        >
+          {expanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
+        </button>
+        <div className="min-w-0 flex-1">
+          <DocumentRow projectId={projectId} moduleId={moduleId} doc={doc} canDelete={canDelete} />
+        </div>
+      </div>
+      {expanded ? (
+        <div className="ml-4 space-y-0.5 border-l pl-2">
+          {flows.map((flow) => (
+            <DocumentRow
+              key={flow.id}
+              projectId={projectId}
+              moduleId={moduleId}
+              doc={flow}
+              canDelete={canDelete}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function DocumentList({
@@ -70,10 +190,17 @@ function DocumentList({
   documents: DocumentItem[];
   canDelete: boolean;
 }) {
-  const pathname = usePathname();
-  const [, startTransition] = useTransition();
+  const roots = documents.filter((d) => !d.parentDocumentId);
+  const flowsByParent = new Map<string, DocumentItem[]>();
+  for (const d of documents) {
+    if (d.parentDocumentId) {
+      const arr = flowsByParent.get(d.parentDocumentId) ?? [];
+      arr.push(d);
+      flowsByParent.set(d.parentDocumentId, arr);
+    }
+  }
 
-  if (documents.length === 0) {
+  if (roots.length === 0) {
     return (
       <p className="ml-5 border-l pl-2 text-xs text-muted-foreground">Chưa có tài liệu.</p>
     );
@@ -81,60 +208,16 @@ function DocumentList({
 
   return (
     <div className="ml-5 space-y-0.5 border-l pl-2">
-      {documents.map((doc) => {
-        const href = `/projects/${projectId}/modules/${moduleId}/documents/${doc.id}`;
-        const active = pathname === href;
-        return (
-          <div
-            key={doc.id}
-            className={`group flex items-center gap-1 rounded-md ${
-              active ? "bg-accent text-accent-foreground" : ""
-            }`}
-          >
-            <Link
-              href={href}
-              className={`flex flex-1 items-center gap-1.5 px-2 py-1 text-xs hover:bg-accent ${
-                active ? "font-medium" : "text-muted-foreground"
-              }`}
-            >
-              <FileText className="size-3 shrink-0" />
-              <span className="truncate">{doc.title}</span>
-            </Link>
-            {canDelete ? (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="hidden size-5 shrink-0 group-hover:flex"
-                  >
-                    <Trash2 className="size-3" />
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Xóa tài liệu &quot;{doc.title}&quot;?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Tài liệu sẽ bị ẩn khỏi danh sách (soft delete), lịch sử phiên bản vẫn được giữ.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Hủy</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={() =>
-                        startTransition(() => deleteDocumentAction(projectId, moduleId, doc.id))
-                      }
-                    >
-                      Xóa
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            ) : null}
-          </div>
-        );
-      })}
+      {roots.map((doc) => (
+        <DocumentGroup
+          key={doc.id}
+          projectId={projectId}
+          moduleId={moduleId}
+          doc={doc}
+          flows={flowsByParent.get(doc.id) ?? []}
+          canDelete={canDelete}
+        />
+      ))}
     </div>
   );
 }
