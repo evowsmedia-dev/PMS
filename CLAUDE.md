@@ -35,3 +35,5 @@ Everything — markup, styles, data, and logic — lives in this one file:
 - `PMS sitemap.txt` — the full intended route/page tree (e.g. `/dashboard`, `/projects/:projectId/modules/:moduleId/documents/:docId`, `/admin/*`) and page-by-page field lists, again ahead of what the prototype implements.
 
 When asked to implement a feature, check whether it already exists in `PMS index.html` before assuming it needs to be built from scratch, and cross-reference the relevant `FR-*` section in `REQUIREMENTS_PHASE1.md` or the matching route in `PMS sitemap.txt` for expected fields/behavior.
+
+@AGENTS.md
