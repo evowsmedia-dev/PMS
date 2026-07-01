@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ERP Document Hub",
+  title: "PMS",
   description: "Quản lý tài liệu và tiến độ dự án",
 };
 

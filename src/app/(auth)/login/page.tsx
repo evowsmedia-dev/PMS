@@ -18,7 +18,7 @@ export default async function LoginPage({
   return (
     <Card className="w-full max-w-sm">
       <CardHeader>
-        <CardTitle className="text-xl">ERP Document Hub</CardTitle>
+        <CardTitle className="text-xl">PMS</CardTitle>
         <CardDescription>Đăng nhập để tiếp tục</CardDescription>
       </CardHeader>
       <CardContent>

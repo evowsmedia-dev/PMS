@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-A single-file static HTML prototype/mockup for "ERP Document Hub" (`PMS index.html`), plus two planning documents (`REQUIREMENTS_PHASE1.md`, `PMS sitemap.txt`) that describe the *intended* full product. The prototype implements only a subset of what the planning docs describe — treat the requirements/sitemap as the target spec, not as a description of current code.
+A single-file static HTML prototype/mockup for "PMS" (`PMS index.html`), plus two planning documents (`REQUIREMENTS_PHASE1.md`, `PMS sitemap.txt`) that describe the *intended* full product. The prototype implements only a subset of what the planning docs describe — treat the requirements/sitemap as the target spec, not as a description of current code.
 
 There is no build system, package manager, server, or database. The prototype is entirely client-side: open `PMS index.html` directly in a browser (or serve it with any static file server) to run it.
 

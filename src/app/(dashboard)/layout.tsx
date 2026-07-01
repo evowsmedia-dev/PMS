@@ -44,7 +44,7 @@ export default async function DashboardLayout({
           <div className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground font-bold">
             E
           </div>
-          <span className="font-semibold">ERP Document Hub</span>
+          <span className="font-semibold">PMS</span>
         </div>
         <nav className="flex-1 space-y-1 p-3">
           {NAV_ITEMS.map((item) => (

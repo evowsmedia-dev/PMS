@@ -29,7 +29,7 @@ export default async function AdminSettingsPage() {
         </CardHeader>
         <CardContent>
           <SystemSettingsForm
-            systemName={get("systemName") || "ERP Document Hub"}
+            systemName={get("systemName") || "PMS"}
             systemEmail={get("systemEmail")}
             logoUrl={get("logoUrl")}
           />

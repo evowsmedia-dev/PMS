@@ -1,4 +1,4 @@
-# ERP Document Hub
+# PMS
 
 Multi-project document & task management app — Next.js (App Router) + PostgreSQL (Prisma) + NextAuth + Vercel Blob.
 

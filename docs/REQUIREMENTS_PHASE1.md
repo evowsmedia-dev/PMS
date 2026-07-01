@@ -1,5 +1,5 @@
 # REQUIREMENTS.md
-# ERP Document Hub - Functional Requirements (Phase 1)
+# PMS - Functional Requirements (Phase 1)
 
 > Phiên bản này tập trung vào các chức năng quan trọng (Core Features) để triển khai MVP.
 
