@@ -20,8 +20,8 @@ const STORAGE_KEY = "pms:sidebar-collapsed";
 const NAV_ITEMS = [
   { href: "/dashboard/overview", label: "Tổng quan", icon: LayoutDashboard },
   { href: "/dashboard/my-tasks", label: "Nhiệm vụ của tôi", icon: ListChecks },
-  { href: "/dashboard/activity", label: "Hoạt động", icon: Activity },
   { href: "/projects", label: "Dự án", icon: FolderKanban },
+  { href: "/dashboard/activity", label: "Hoạt động", icon: Activity },
   { href: "/dashboard/profile", label: "Hồ sơ cá nhân", icon: UserRound },
 ];
 
