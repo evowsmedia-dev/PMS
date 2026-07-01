@@ -219,14 +219,16 @@ export function ProjectDocumentsNav({
   modules,
   canManage,
   categoryCounts,
+  mainModuleId,
 }: {
   projectId: string;
   modules: ModuleItem[];
   canManage: boolean;
   categoryCounts: Record<string, Partial<Record<string, number>>>;
+  mainModuleId: string | null;
 }) {
   const pathname = usePathname();
-  const [items, setItems] = useState(modules);
+  const [items, setItems] = useState(modules.filter((m) => m.id !== mainModuleId));
   const [dialogOpen, setDialogOpen] = useState(false);
   const sensors = useSensors(useSensor(PointerSensor));
 
@@ -256,7 +258,7 @@ export function ProjectDocumentsNav({
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Thêm phân hệ mới</DialogTitle>
+                <DialogTitle>Thêm loại tài liệu mới</DialogTitle>
               </DialogHeader>
               <form
                 action={async (formData) => {
@@ -265,7 +267,7 @@ export function ProjectDocumentsNav({
                 }}
                 className="space-y-4"
               >
-                <Input name="name" placeholder="Tên phân hệ" required />
+                <Input name="name" placeholder="Tên loại tài liệu" required />
                 <DialogFooter>
                   <Button type="submit">Tạo</Button>
                 </DialogFooter>
@@ -274,6 +276,14 @@ export function ProjectDocumentsNav({
           </Dialog>
         ) : null}
       </div>
+
+      {mainModuleId ? (
+        <CategoryList
+          projectId={projectId}
+          moduleId={mainModuleId}
+          counts={categoryCounts[mainModuleId] ?? {}}
+        />
+      ) : null}
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={items.map((m) => m.id)} strategy={verticalListSortingStrategy}>

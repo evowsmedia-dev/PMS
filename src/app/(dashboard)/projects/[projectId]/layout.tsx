@@ -58,6 +58,9 @@ export default async function ProjectLayout({
     categoryCounts[row.moduleId][row.category] = row._count;
   }
 
+  const mainModuleId =
+    project.modules.find((m) => m.name === "Tài liệu chung")?.id ?? project.modules[0]?.id ?? null;
+
   return (
     <div className="flex flex-col gap-4 md:flex-row">
       <aside className="w-full shrink-0 space-y-4 md:w-56">
@@ -80,6 +83,7 @@ export default async function ProjectLayout({
           modules={project.modules}
           canManage={canManageModules}
           categoryCounts={categoryCounts}
+          mainModuleId={mainModuleId}
         />
 
         <nav className="space-y-0.5 text-sm">

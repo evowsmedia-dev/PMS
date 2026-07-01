@@ -3,6 +3,8 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { upload } from "@vercel/blob/client";
+import { Bold, Italic, Heading2, Table2, ImagePlus, List } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +23,9 @@ import type { ActionState } from "@/lib/actions/profile";
 
 const initialState: ActionState = {};
 const AUTOSAVE_DELAY_MS = 12_000;
+
+const TABLE_SNIPPET =
+  "\n| TT | Bước | Mô tả |\n| --- | --- | --- |\n| 1 | Bước 1 | Mô tả bước 1 |\n| 2 | Bước 2 | Mô tả bước 2 |\n";
 
 export function DocumentEditForm({
   projectId,
@@ -43,7 +48,10 @@ export function DocumentEditForm({
   const [state, formAction, pending] = useActionState(action, initialState);
   const [content, setContent] = useState(initial.content);
   const [autosaveStatus, setAutosaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [uploadingImage, setUploadingImage] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (state.error) toast.error(state.error);
@@ -65,6 +73,55 @@ export function DocumentEditForm({
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, []);
+
+  function wrapSelection(before: string, after: string = before) {
+    const el = textareaRef.current;
+    if (!el) return;
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const selected = content.slice(start, end);
+    const next = content.slice(0, start) + before + selected + after + content.slice(end);
+    handleContentChange(next);
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(start + before.length, start + before.length + selected.length);
+    });
+  }
+
+  function insertAtCursor(snippet: string) {
+    const el = textareaRef.current;
+    if (!el) {
+      handleContentChange(content + snippet);
+      return;
+    }
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const next = content.slice(0, start) + snippet + content.slice(end);
+    handleContentChange(next);
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(start + snippet.length, start + snippet.length);
+    });
+  }
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingImage(true);
+    try {
+      const blob = await upload(file.name, file, {
+        access: "public",
+        handleUploadUrl: "/api/upload",
+      });
+      insertAtCursor(`\n![${file.name}](${blob.url})\n`);
+      toast.success("Đã chèn ảnh vào nội dung.");
+    } catch (error) {
+      toast.error(`Tải ảnh thất bại: ${(error as Error).message}`);
+    } finally {
+      setUploadingImage(false);
+      if (imageInputRef.current) imageInputRef.current.value = "";
+    }
+  }
 
   return (
     <form action={formAction} className="space-y-4">
@@ -112,14 +169,53 @@ export function DocumentEditForm({
       </div>
 
       <div className="flex items-center justify-between">
-        <Label>Nội dung (Markdown)</Label>
+        <Label>Nội dung</Label>
         <span className="text-xs text-muted-foreground">
           {autosaveStatus === "saving" && "Đang tự động lưu..."}
           {autosaveStatus === "saved" && "Đã tự động lưu"}
         </span>
       </div>
+
+      <div className="flex flex-wrap items-center gap-1 rounded-md border bg-muted/30 p-1">
+        <Button type="button" variant="ghost" size="icon" className="size-7" title="In đậm" onClick={() => wrapSelection("**")}>
+          <Bold className="size-3.5" />
+        </Button>
+        <Button type="button" variant="ghost" size="icon" className="size-7" title="In nghiêng" onClick={() => wrapSelection("*")}>
+          <Italic className="size-3.5" />
+        </Button>
+        <Button type="button" variant="ghost" size="icon" className="size-7" title="Tiêu đề" onClick={() => insertAtCursor("\n## Tiêu đề\n")}>
+          <Heading2 className="size-3.5" />
+        </Button>
+        <Button type="button" variant="ghost" size="icon" className="size-7" title="Danh sách" onClick={() => insertAtCursor("\n- Mục 1\n- Mục 2\n")}>
+          <List className="size-3.5" />
+        </Button>
+        <Button type="button" variant="ghost" size="icon" className="size-7" title="Chèn bảng" onClick={() => insertAtCursor(TABLE_SNIPPET)}>
+          <Table2 className="size-3.5" />
+        </Button>
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleImageUpload}
+        />
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-7"
+          title="Chèn ảnh"
+          disabled={uploadingImage}
+          onClick={() => imageInputRef.current?.click()}
+        >
+          <ImagePlus className="size-3.5" />
+        </Button>
+        {uploadingImage ? <span className="text-xs text-muted-foreground">Đang tải ảnh...</span> : null}
+      </div>
+
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <Textarea
+          ref={textareaRef}
           name="content"
           rows={16}
           className="font-mono text-sm"
