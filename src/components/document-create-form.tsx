@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ import {
 import { DOC_CATEGORY_LABEL } from "@/lib/validation/document";
 import { createDocumentAction } from "@/lib/actions/documents";
 import type { ActionState } from "@/lib/actions/profile";
+import { DOC_TEMPLATES, type DocTemplateId } from "@/lib/document-templates";
 
 const initialState: ActionState = {};
 
@@ -28,10 +29,17 @@ export function DocumentCreateForm({
 }) {
   const action = createDocumentAction.bind(null, projectId, moduleId);
   const [state, formAction, pending] = useActionState(action, initialState);
+  const [templateId, setTemplateId] = useState<DocTemplateId>("blank");
+  const [content, setContent] = useState("");
 
   useEffect(() => {
     if (state.error) toast.error(state.error);
   }, [state]);
+
+  function applyTemplate(id: DocTemplateId) {
+    setTemplateId(id);
+    setContent(DOC_TEMPLATES[id].content);
+  }
 
   return (
     <form action={formAction} className="space-y-4">
@@ -79,8 +87,35 @@ export function DocumentCreateForm({
       </div>
 
       <div className="space-y-2">
+        <Label htmlFor="template">Mẫu tài liệu</Label>
+        <Select value={templateId} onValueChange={(v) => applyTemplate(v as DocTemplateId)}>
+          <SelectTrigger id="template" className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(DOC_TEMPLATES).map(([value, template]) => (
+              <SelectItem key={value} value={value}>
+                {template.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Chọn mẫu để tự động điền khung nội dung (bảng bước, actor, RFID...), bạn chỉ cần điền
+          thông tin vào chỗ trống.
+        </p>
+      </div>
+
+      <div className="space-y-2">
         <Label htmlFor="content">Nội dung (Markdown)</Label>
-        <Textarea id="content" name="content" rows={10} className="font-mono text-sm" />
+        <Textarea
+          id="content"
+          name="content"
+          rows={10}
+          className="font-mono text-sm"
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+        />
       </div>
 
       <Button type="submit" disabled={pending}>
