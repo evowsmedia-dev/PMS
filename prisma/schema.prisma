@@ -330,6 +330,7 @@ model Task {
   relatedDocumentId String?
   relatedDocument   Document? @relation(fields: [relatedDocumentId], references: [id])
   sourceHighlight   String?
+  isReviewRequest   Boolean   @default(false)
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt

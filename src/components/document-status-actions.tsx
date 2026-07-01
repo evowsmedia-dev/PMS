@@ -1,7 +1,7 @@
 "use client";
 
+import { useState, useTransition } from "react";
 import Link from "next/link";
-import { useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,14 +15,39 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { changeDocumentStatusAction, deleteDocumentAction } from "@/lib/actions/documents";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  changeDocumentStatusAction,
+  deleteDocumentAction,
+  submitDocumentForReviewAction,
+} from "@/lib/actions/documents";
 import type { DocStatus } from "@/generated/prisma/enums";
+
+interface Approver {
+  id: string;
+  fullName: string;
+}
 
 export function DocumentStatusActions({
   projectId,
   moduleId,
   docId,
   status,
+  approvers,
   canSubmitReview,
   canApprove,
   canArchive,
@@ -33,6 +58,7 @@ export function DocumentStatusActions({
   moduleId: string;
   docId: string;
   status: DocStatus;
+  approvers: Approver[];
   canSubmitReview: boolean;
   canApprove: boolean;
   canArchive: boolean;
@@ -40,6 +66,8 @@ export function DocumentStatusActions({
   canDelete: boolean;
 }) {
   const [pending, startTransition] = useTransition();
+  const [submitOpen, setSubmitOpen] = useState(false);
+  const [reviewerId, setReviewerId] = useState<string>("");
 
   function changeStatus(newStatus: DocStatus) {
     startTransition(async () => {
@@ -48,12 +76,60 @@ export function DocumentStatusActions({
     });
   }
 
+  function submitForReview() {
+    if (!reviewerId) {
+      toast.error("Vui lòng chọn người duyệt.");
+      return;
+    }
+    startTransition(async () => {
+      const result = await submitDocumentForReviewAction(projectId, moduleId, docId, reviewerId);
+      if (result.error) toast.error(result.error);
+      else {
+        toast.success(result.success ?? "Đã gửi duyệt.");
+        setSubmitOpen(false);
+      }
+    });
+  }
+
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap justify-end gap-2">
       {status === "DRAFT" && canSubmitReview ? (
-        <Button size="sm" disabled={pending} onClick={() => changeStatus("REVIEW")}>
-          Gửi duyệt
-        </Button>
+        <Dialog open={submitOpen} onOpenChange={setSubmitOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm" disabled={pending}>
+              Gửi duyệt
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Chọn người duyệt</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <Select value={reviewerId} onValueChange={setReviewerId}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Chọn người duyệt..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {approvers.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.fullName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {approvers.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  Dự án chưa có thành viên nào có quyền phê duyệt (OWNER/PO/BA).
+                </p>
+              ) : null}
+            </div>
+            <DialogFooter>
+              <Button onClick={submitForReview} disabled={pending || !reviewerId}>
+                Gửi duyệt
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       ) : null}
       {status === "REVIEW" && canApprove ? (
         <Button size="sm" disabled={pending} onClick={() => changeStatus("APPROVED")}>

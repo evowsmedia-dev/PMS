@@ -254,6 +254,65 @@ export async function changeDocumentStatusAction(
   revalidatePath(`/projects/${projectId}/modules/${moduleId}/documents`);
 }
 
+/** Submits a DRAFT document for review, assigning it to a chosen approver
+ * via a Task so it surfaces in their "Nhiệm vụ của tôi" list. */
+export async function submitDocumentForReviewAction(
+  projectId: string,
+  moduleId: string,
+  docId: string,
+  reviewerId: string,
+): Promise<ActionState> {
+  const session = await auth();
+  if (!session?.user) return { error: "Bạn cần đăng nhập." };
+
+  const doc = await prisma.document.findUnique({ where: { id: docId } });
+  if (!doc) return { error: "Không tìm thấy tài liệu." };
+  if (doc.status !== "DRAFT") return { error: "Tài liệu không ở trạng thái nháp." };
+
+  const projectRole = await getProjectRole(session.user.id, projectId);
+  if (!can({ systemRole: session.user.systemRole }, "document.submitReview", projectRole)) {
+    return { error: "Bạn không có quyền gửi duyệt tài liệu này." };
+  }
+
+  const reviewer = await prisma.user.findUnique({ where: { id: reviewerId } });
+  if (!reviewer) return { error: "Không tìm thấy người được chọn." };
+  const reviewerRole = await getProjectRole(reviewerId, projectId);
+  if (!can({ systemRole: reviewer.systemRole }, "document.approve", reviewerRole)) {
+    return { error: "Người được chọn không có quyền phê duyệt." };
+  }
+
+  await prisma.$transaction([
+    prisma.document.update({ where: { id: docId }, data: { status: "REVIEW" } }),
+    prisma.task.create({
+      data: {
+        projectId,
+        moduleId,
+        title: `Phê duyệt tài liệu: ${doc.title}`,
+        status: "TODO",
+        priority: "HIGH",
+        assigneeId: reviewerId,
+        createdById: session.user.id,
+        relatedDocumentId: docId,
+        isReviewRequest: true,
+      },
+    }),
+  ]);
+
+  await logAudit({
+    actorId: session.user.id,
+    action: "STATUS_CHANGE",
+    entityType: "Document",
+    entityId: docId,
+    projectId,
+    metadata: { from: "DRAFT", to: "REVIEW", reviewerId },
+  });
+
+  revalidatePath(`/projects/${projectId}/modules/${moduleId}/documents/${docId}`);
+  revalidatePath(`/projects/${projectId}/modules/${moduleId}/documents`);
+  revalidatePath(`/dashboard/my-tasks`);
+  return { success: "Đã gửi duyệt tài liệu." };
+}
+
 export async function deleteDocumentAction(
   projectId: string,
   moduleId: string,

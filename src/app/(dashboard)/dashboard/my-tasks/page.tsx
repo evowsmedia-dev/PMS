@@ -48,6 +48,13 @@ export default async function MyTasksPage({
     take: 100,
   });
 
+  function taskHref(task: (typeof tasks)[number]) {
+    if (task.isReviewRequest && task.relatedDocumentId) {
+      return `/projects/${task.project.id}/modules/${task.module.id}/documents/${task.relatedDocumentId}`;
+    }
+    return `/projects/${task.project.id}/modules/${task.module.id}/tasks/${task.id}`;
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
@@ -63,17 +70,18 @@ export default async function MyTasksPage({
       ) : (
         <div className="space-y-2">
           {tasks.map((task) => (
-            <Link
-              key={task.id}
-              href={`/projects/${task.project.id}/modules/${task.module.id}/tasks/${task.id}`}
-            >
+            <Link key={task.id} href={taskHref(task)}>
               <Card className="transition hover:shadow-sm">
                 <CardContent className="flex flex-wrap items-center justify-between gap-2 p-3">
                   <div>
-                    <p className="font-medium">{task.title}</p>
+                    <p className="font-medium">
+                      {task.isReviewRequest ? "📝 " : ""}
+                      {task.title}
+                    </p>
                     <p className="text-xs text-muted-foreground">{task.project.name}</p>
                   </div>
                   <div className="flex items-center gap-2">
+                    {task.isReviewRequest ? <Badge>Cần phê duyệt</Badge> : null}
                     <Badge variant="outline">{TASK_PRIORITY_LABEL[task.priority]}</Badge>
                     {task.dueDate ? (
                       <span className="text-xs text-muted-foreground">

@@ -46,24 +46,44 @@ export default async function DocumentDetailPage({
   const roleCtx = { systemRole: session.user.systemRole };
   const canEdit = can(roleCtx, "document.edit", projectRole);
 
+  const members = await prisma.projectMember.findMany({
+    where: { projectId, role: { in: ["OWNER", "PO", "BA"] } },
+    include: { user: { select: { id: true, fullName: true } } },
+  });
+  const approvers = members.map((m) => ({ id: m.user.id, fullName: m.user.fullName }));
+
   return (
     <DocumentDetailShell>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <Card>
             <CardContent className="space-y-4 pt-6">
-              <div>
-                <h1 className="text-[24px] font-bold">{doc.title}</h1>
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                  <Badge>{DOC_STATUS_LABEL[doc.status]}</Badge>
-                  <span>{doc.author.fullName}</span>
-                  <span>·</span>
-                  <span>{DOC_CATEGORY_LABEL[doc.category]}</span>
-                  <span>·</span>
-                  <Badge variant="outline">{doc.role}</Badge>
-                  <span>·</span>
-                  <span>{doc.updatedAt.toLocaleDateString("vi-VN")}</span>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h1 className="text-[24px] font-bold">{doc.title}</h1>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                    <Badge>{DOC_STATUS_LABEL[doc.status]}</Badge>
+                    <span>{doc.author.fullName}</span>
+                    <span>·</span>
+                    <span>{DOC_CATEGORY_LABEL[doc.category]}</span>
+                    <span>·</span>
+                    <Badge variant="outline">{doc.role}</Badge>
+                    <span>·</span>
+                    <span>{doc.updatedAt.toLocaleDateString("vi-VN")}</span>
+                  </div>
                 </div>
+                <DocumentStatusActions
+                  projectId={projectId}
+                  moduleId={moduleId}
+                  docId={docId}
+                  status={doc.status}
+                  approvers={approvers}
+                  canSubmitReview={can(roleCtx, "document.submitReview", projectRole)}
+                  canApprove={can(roleCtx, "document.approve", projectRole)}
+                  canArchive={can(roleCtx, "document.archive", projectRole)}
+                  canEdit={canEdit}
+                  canDelete={can(roleCtx, "document.delete", projectRole)}
+                />
               </div>
 
               {doc.description ? (
@@ -155,22 +175,6 @@ export default async function DocumentDetailPage({
               </CardContent>
             </Card>
           ) : null}
-
-          <Card>
-            <CardContent className="pt-6">
-              <DocumentStatusActions
-                projectId={projectId}
-                moduleId={moduleId}
-                docId={docId}
-                status={doc.status}
-                canSubmitReview={can(roleCtx, "document.submitReview", projectRole)}
-                canApprove={can(roleCtx, "document.approve", projectRole)}
-                canArchive={can(roleCtx, "document.archive", projectRole)}
-                canEdit={canEdit}
-                canDelete={can(roleCtx, "document.delete", projectRole)}
-              />
-            </CardContent>
-          </Card>
 
           <Card>
             <CardContent className="pt-6">
