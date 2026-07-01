@@ -1,0 +1,1448 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>📁 ERP Document Hub – Quản lý tài liệu dự án</title>
+    <!-- Tailwind + Font Awesome -->
+    <script src="https://cdn.tailwindcss.com">
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <style>
+        body {
+            background: #f1f5f9;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+        .sidebar {
+            background: #0f172a;
+            min-height: 100vh;
+            transition: all 0.3s;
+        }
+        .sidebar-item {
+            cursor: pointer;
+            transition: background 0.2s;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .sidebar-item:hover {
+            background: #1e293b;
+        }
+        .sidebar-item.active {
+            background: #3b82f6;
+            color: white;
+        }
+        .project-card {
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .project-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.1);
+        }
+        .badge-status {
+            padding: 4px 12px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .doc-row {
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .doc-row:hover {
+            background: #f8fafc;
+        }
+        .modal-overlay {
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+        }
+        .modal-box {
+            max-width: 700px;
+            width: 90%;
+        }
+        .form-box {
+            max-width: 600px;
+            width: 90%;
+        }
+        .filter-btn {
+            transition: all 0.15s;
+            border: 1px solid transparent;
+        }
+        .filter-btn.active {
+            background-color: #3b82f6 !important;
+            color: white !important;
+            border-color: #3b82f6;
+        }
+        .filter-btn:hover:not(.active) {
+            background-color: #e2e8f0;
+        }
+        .scrollable {
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+        .scrollable::-webkit-scrollbar {
+            width: 4px;
+        }
+        .scrollable::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+        .btn-danger {
+            background-color: #ef4444;
+            color: white;
+        }
+        .btn-danger:hover {
+            background-color: #dc2626;
+        }
+        /* Lock screen */
+        .lock-screen {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(8px);
+        }
+        .lock-box {
+            background: white;
+            padding: 2rem;
+            border-radius: 1.5rem;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        /* Comment box */
+        .comment-item {
+            border-bottom: 1px solid #e5e7eb;
+            padding: 0.75rem 0;
+        }
+        .comment-item:last-child {
+            border-bottom: none;
+        }
+        .comment-author {
+            font-weight: 600;
+            color: #1f2937;
+        }
+        .comment-time {
+            font-size: 0.7rem;
+            color: #9ca3af;
+        }
+        .folder-tree {
+            font-size: 0.85rem;
+        }
+        .folder-tree .folder {
+            font-weight: 600;
+            color: #2563eb;
+        }
+        .folder-tree .file {
+            padding-left: 1.5rem;
+            color: #475569;
+        }
+        .folder-tree .file .role-tag {
+            font-size: 0.6rem;
+            background: #e2e8f0;
+            padding: 0 6px;
+            border-radius: 10px;
+            color: #475569;
+            margin-left: 6px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- =========== LOCK SCREEN =========== -->
+    <div id="lockScreen" class="lock-screen">
+        <div class="lock-box text-center">
+            <i class="fa-solid fa-lock text-5xl text-blue-500 mb-4"></i>
+            <h2 class="text-2xl font-bold text-gray-800">🔐 ERP Documents</h2>
+            <p class="text-gray-500 text-sm mb-6">Nhập mật khẩu để tiếp tục</p>
+            <form id="loginForm" onsubmit="handleLogin(event)">
+                <input type="password" id="passwordInput" placeholder="Mật khẩu" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none" />
+                <button type="submit" class="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg transition">Đăng nhập</button>
+            </form>
+            <p id="loginError" class="text-red-500 text-sm mt-2 hidden">❌ Mật khẩu không đúng</p>
+        </div>
+    </div>
+
+    <!-- =========== LAYOUT CHÍNH =========== -->
+    <div class="flex flex-col md:flex-row min-h-screen" id="mainApp" style="display:none;">
+
+        <!-- ====== SIDEBAR ====== -->
+        <aside class="sidebar w-full md:w-64 p-4 text-white flex-shrink-0">
+            <div class="flex items-center gap-3 mb-6 border-b border-gray-700 pb-4 cursor-pointer" onclick="goHome()">
+                <i class="fa-solid fa-cubes text-2xl text-blue-400"></i>
+                <span class="text-xl font-bold tracking-tight">ERP<span class="text-blue-400">Docs</span></span>
+            </div>
+
+            <div class="flex justify-between items-center mb-3">
+                <p class="text-gray-400 text-xs uppercase tracking-wider">Phân hệ</p>
+                <button onclick="showCreateModuleForm()" class="text-xs text-blue-400 hover:text-blue-300 transition">
+                    <i class="fa-regular fa-plus"></i> Thêm
+                </button>
+            </div>
+            <nav id="moduleList" class="space-y-1">
+                <!-- Render bằng JS -->
+            </nav>
+
+            <div class="mt-6 border-t border-gray-700 pt-4">
+                <p class="text-xs text-gray-400">
+                    <i class="fa-regular fa-circle-check text-green-400 mr-1"></i>
+                    <span id="totalProjects">0</span> dự án
+                </p>
+            </div>
+        </aside>
+
+        <!-- ====== NỘI DUNG CHÍNH ====== -->
+        <main class="flex-1 p-4 md:p-6 overflow-x-auto">
+
+            <!-- Header -->
+            <div class="flex flex-wrap justify-between items-center mb-4">
+                <h1 id="pageTitle" class="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                    <i class="fa-regular fa-folder-open text-blue-500"></i>
+                    <span id="currentModuleName">Chọn phân hệ</span>
+                </h1>
+                <div class="flex gap-2">
+                    <button id="backToModules" onclick="goHome()" class="hidden text-sm bg-gray-200 hover:bg-gray-300 px-3 py-1.5 rounded-lg transition flex items-center gap-1">
+                        <i class="fa-regular fa-arrow-left"></i> Quay lại phân hệ
+                    </button>
+                    <button id="backToProjects" onclick="backToProjects()" class="hidden text-sm bg-gray-200 hover:bg-gray-300 px-3 py-1.5 rounded-lg transition flex items-center gap-1">
+                        <i class="fa-regular fa-arrow-left"></i> Quay lại
+                    </button>
+                    <button id="addProjectBtn" onclick="showCreateProjectForm()" class="hidden text-sm bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition">
+                        <i class="fa-regular fa-plus mr-1"></i> Thêm dự án
+                    </button>
+                    <button id="addDocBtn" onclick="showCreateDocumentForm()" class="hidden text-sm bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 transition">
+                        <i class="fa-regular fa-plus mr-1"></i> Thêm tài liệu
+                    </button>
+                </div>
+            </div>
+
+            <!-- Empty state -->
+            <div id="emptyState" class="hidden text-center py-20">
+                <i class="fa-regular fa-cubes text-6xl text-gray-300 mb-4"></i>
+                <p class="text-gray-500 text-lg">Vui lòng chọn một phân hệ từ sidebar để bắt đầu.</p>
+            </div>
+
+            <!-- Project Area -->
+            <div id="projectArea" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
+                <!-- Render JS -->
+            </div>
+
+            <!-- Document Area (danh sách) -->
+            <div id="docArea" class="hidden">
+                <div id="docStats" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4"></div>
+
+                <!-- Bộ lọc danh mục (7 nhóm theo cấu trúc /docs) -->
+                <div class="flex flex-wrap gap-2 mb-2">
+                    <button onclick="filterDocByCategory('all')" class="filter-btn active px-3 py-1.5 text-sm rounded-full bg-gray-200 text-gray-700" data-cat="all">📂 Tất cả</button>
+                    <button onclick="filterDocByCategory('management')" class="filter-btn px-3 py-1.5 text-sm rounded-full bg-gray-200 text-gray-700" data-cat="management">📋 01-Quản lý</button>
+                    <button onclick="filterDocByCategory('requirements')" class="filter-btn px-3 py-1.5 text-sm rounded-full bg-gray-200 text-gray-700" data-cat="requirements">📝 02-Yêu cầu</button>
+                    <button onclick="filterDocByCategory('technical')" class="filter-btn px-3 py-1.5 text-sm rounded-full bg-gray-200 text-gray-700" data-cat="technical">⚙️ 03-Kỹ thuật</button>
+                    <button onclick="filterDocByCategory('testing')" class="filter-btn px-3 py-1.5 text-sm rounded-full bg-gray-200 text-gray-700" data-cat="testing">🧪 04-Kiểm thử</button>
+                    <button onclick="filterDocByCategory('tasks')" class="filter-btn px-3 py-1.5 text-sm rounded-full bg-gray-200 text-gray-700" data-cat="tasks">📊 05-Tiến độ</button>
+                    <button onclick="filterDocByCategory('knowledge')" class="filter-btn px-3 py-1.5 text-sm rounded-full bg-gray-200 text-gray-700" data-cat="knowledge">📚 06-Kiến thức</button>
+                    <button onclick="filterDocByCategory('history')" class="filter-btn px-3 py-1.5 text-sm rounded-full bg-gray-200 text-gray-700" data-cat="history">📜 07-Lịch sử</button>
+                </div>
+
+                <div class="flex flex-wrap gap-2 mb-3">
+                    <button onclick="filterDocByRole('all')" class="filter-btn active px-3 py-1.5 text-sm rounded-full bg-gray-200 text-gray-700" data-role="all">👥 Tất cả</button>
+                    <button onclick="filterDocByRole('PO')" class="filter-btn px-3 py-1.5 text-sm rounded-full bg-gray-200 text-gray-700" data-role="PO">🎯 PO</button>
+                    <button onclick="filterDocByRole('BA')" class="filter-btn px-3 py-1.5 text-sm rounded-full bg-gray-200 text-gray-700" data-role="BA">📊 BA</button>
+                    <button onclick="filterDocByRole('Dev')" class="filter-btn px-3 py-1.5 text-sm rounded-full bg-gray-200 text-gray-700" data-role="Dev">💻 Dev</button>
+                    <button onclick="filterDocByRole('Tester')" class="filter-btn px-3 py-1.5 text-sm rounded-full bg-gray-200 text-gray-700" data-role="Tester">🔍 Tester</button>
+                    <button onclick="filterDocByRole('All')" class="filter-btn px-3 py-1.5 text-sm rounded-full bg-gray-200 text-gray-700" data-role="All">🌟 All</button>
+                </div>
+
+                <div class="bg-white p-3 rounded-xl shadow-sm mb-4 flex flex-col md:flex-row gap-3 items-center">
+                    <div class="relative w-full md:w-1/2">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-400"></i>
+                        <input type="text" id="searchInput" onkeyup="searchDocs()" placeholder="Tìm kiếm tiêu đề hoặc tác giả..." class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none" />
+                    </div>
+                    <div class="flex gap-2 w-full md:w-auto">
+                        <span class="text-sm text-gray-500 self-center"><i class="fa-regular fa-file-lines mr-1"></i> <span id="docCount">0</span> tài liệu</span>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tiêu đề</th>
+                                    <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">Danh mục</th>
+                                    <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vai trò</th>
+                                    <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trạng thái</th>
+                                    <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cập nhật</th>
+                                </tr>
+                            </thead>
+                            <tbody id="docTableBody" class="divide-y divide-gray-200"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-400 mt-3 text-center">💡 Nhấp vào dòng để xem chi tiết</p>
+            </div>
+
+            <!-- ====== TRANG XEM CHI TIẾT TÀI LIỆU (2 cột) ====== -->
+            <div id="docViewPage" class="hidden">
+                <button onclick="closeDocView()" class="mb-4 text-sm bg-gray-200 hover:bg-gray-300 px-3 py-1.5 rounded-lg transition flex items-center gap-1">
+                    <i class="fa-regular fa-arrow-left"></i> Quay lại danh sách
+                </button>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Cột trái: nội dung chính -->
+                    <div class="lg:col-span-2 bg-white rounded-xl shadow-sm p-6">
+                        <h2 id="docViewTitle" class="text-2xl font-bold text-gray-800"></h2>
+                        <div class="flex flex-wrap items-center gap-3 mt-2">
+                            <span id="docViewStatus" class="badge-status"></span>
+                            <span class="text-sm text-gray-500"><i class="fa-regular fa-user mr-1"></i> <span id="docViewAuthor"></span></span>
+                            <span class="text-sm text-gray-500"><i class="fa-regular fa-folder mr-1"></i> <span id="docViewCategory"></span></span>
+                            <span class="text-sm text-gray-500"><i class="fa-regular fa-calendar mr-1"></i> <span id="docViewDate"></span></span>
+                        </div>
+
+                        <!-- Nội dung chi tiết -->
+                        <div class="my-4 p-4 bg-gray-50 rounded-lg">
+                            <p class="text-gray-700 text-sm whitespace-pre-wrap" id="docViewDescription"></p>
+                        </div>
+
+                        <!-- Lịch sử thay đổi -->
+                        <div class="border-t border-gray-100 pt-3">
+                            <p class="text-xs font-semibold text-gray-400 uppercase">📜 Lịch sử thay đổi</p>
+                            <ul id="docViewHistory" class="text-sm text-gray-600 mt-2 space-y-1 list-disc list-inside"></ul>
+                        </div>
+
+                        <!-- Các nút hành động -->
+                        <div id="docViewActions" class="flex flex-wrap gap-3 mt-4 pt-4 border-t border-gray-200"></div>
+                    </div>
+
+                    <!-- Cột phải: Nhận xét / Ghi chú -->
+                    <div class="bg-white rounded-xl shadow-sm p-6">
+                        <h3 class="font-semibold text-gray-800 flex items-center gap-2"><i class="fa-regular fa-comment"></i> Nhận xét & Ghi chú</h3>
+                        <div id="commentList" class="mt-3 max-h-96 overflow-y-auto space-y-2">
+                            <!-- Danh sách comment -->
+                        </div>
+                        <form id="commentForm" onsubmit="addComment(event)" class="mt-4">
+                            <textarea id="commentInput" rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 outline-none" placeholder="Viết nhận xét..."></textarea>
+                            <button type="submit" class="mt-2 w-full bg-blue-500 hover:bg-blue-600 text-white py-1.5 rounded-lg text-sm transition">Gửi nhận xét</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- MODAL TẠO MỚI (Module, Project, Document)                     -->
+    <!-- ============================================================ -->
+    <div id="createModal" class="fixed inset-0 z-50 modal-overlay hidden flex items-center justify-center p-4" onclick="if(event.target===this) closeModal('createModal')">
+        <div class="form-box bg-white rounded-2xl shadow-2xl p-6 relative max-h-[90vh] overflow-y-auto">
+            <button onclick="closeModal('createModal')" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-xl"><i class="fa-regular fa-circle-xmark"></i></button>
+            <h2 id="createModalTitle" class="text-xl font-bold text-gray-800 mb-4"></h2>
+            <form id="createForm" onsubmit="handleCreateSubmit(event)" class="space-y-4">
+                <div id="formFields"></div>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition">Tạo mới</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- MODAL SỬA TÀI LIỆU                                            -->
+    <!-- ============================================================ -->
+    <div id="editModal" class="fixed inset-0 z-50 modal-overlay hidden flex items-center justify-center p-4" onclick="if(event.target===this) closeModal('editModal')">
+        <div class="form-box bg-white rounded-2xl shadow-2xl p-6 relative max-h-[90vh] overflow-y-auto">
+            <button onclick="closeModal('editModal')" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-xl"><i class="fa-regular fa-circle-xmark"></i></button>
+            <h2 class="text-xl font-bold text-gray-800 mb-4">✏️ Chỉnh sửa tài liệu</h2>
+            <form id="editForm" onsubmit="saveEditDocument(event)" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Tiêu đề</label>
+                    <input type="text" id="editDocTitle" required class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Danh mục</label>
+                    <select id="editDocCategory" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none">
+                        <option value="management">01-Quản lý</option>
+                        <option value="requirements">02-Yêu cầu</option>
+                        <option value="technical">03-Kỹ thuật</option>
+                        <option value="testing">04-Kiểm thử</option>
+                        <option value="tasks">05-Tiến độ</option>
+                        <option value="knowledge">06-Kiến thức</option>
+                        <option value="history">07-Lịch sử</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Vai trò phụ trách</label>
+                    <select id="editDocRole" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none">
+                        <option value="PO">PO</option>
+                        <option value="BA">BA</option>
+                        <option value="Dev">Dev</option>
+                        <option value="Tester">Tester</option>
+                        <option value="All">All</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Mô tả ngắn</label>
+                    <textarea id="editDocDesc" rows="3" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Nội dung chi tiết</label>
+                    <textarea id="editDocContent" rows="6" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"></textarea>
+                </div>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition">Cập nhật</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // ================================================================
+        // 1. DỮ LIỆU MẪU – ĐẦY ĐỦ THEO CẤU TRÚC /docs
+        // ================================================================
+
+        // Helper: tạo timestamp
+        function ts(daysAgo) {
+            const d = new Date();
+            d.setDate(d.getDate() - (daysAgo || 0));
+            return d.toISOString().slice(0, 10);
+        }
+
+        // Helper: tạo lịch sử
+        function makeHistory(messages) {
+            return messages.map((msg, i) => ({
+                time: ts(i * 2) + ' ' + (8 + i * 2).toString().padStart(2, '0') + ':00',
+                message: msg
+            }));
+        }
+
+        // Các template nội dung cho từng loại tài liệu
+        const DOC_TEMPLATES = {
+
+            // ---- 01-Project-Management ----
+            'vision': (pName) => ({
+                title: 'vision.md',
+                category: 'management',
+                role: 'PO',
+                status: 'approved',
+                author: 'PO Team',
+                date: ts(5),
+                description: `Tầm nhìn và mục tiêu chiến lược cho dự án "${pName}"`,
+                content: `# Tầm nhìn dự án: ${pName}\n\n## Mục tiêu tổng thể\n- Cung cấp giải pháp toàn diện cho ${pName}.\n- Tăng hiệu quả vận hành lên 30%.\n- Giảm thời gian xử lý xuống còn 2 ngày.\n\n## Phạm vi\n- Module A, B, C.\n- Tích hợp với hệ thống hiện có.\n\n## Các bên liên quan\n- PO, BA, Dev, Tester, End-users.`
+            }),
+
+            'project-plan': (pName) => ({
+                title: 'project-plan.md',
+                category: 'management',
+                role: 'PO',
+                status: 'approved',
+                author: 'PO Team',
+                date: ts(4),
+                description: `Kế hoạch triển khai dự án "${pName}"`,
+                content: `# Kế hoạch dự án: ${pName}\n\n## Mốc thời gian\n- **Tuần 1-2**: Khảo sát & Phân tích\n- **Tuần 3-4**: Thiết kế giải pháp\n- **Tuần 5-8**: Phát triển\n- **Tuần 9**: Kiểm thử\n- **Tuần 10**: Triển khai\n\n## Nguồn lực\n- 2 Dev, 1 BA, 1 Tester, 1 PO.\n\n## Rủi ro\n- Chậm tiến độ do thay đổi yêu cầu.`
+            }),
+
+            'meeting-minutes': (pName) => ({
+                title: 'meeting-minutes.md',
+                category: 'management',
+                role: 'BA',
+                status: 'approved',
+                author: 'BA Team',
+                date: ts(3),
+                description: `Biên bản họp định kỳ dự án "${pName}"`,
+                content: `# Biên bản họp - ${pName}\n\n**Ngày**: ${ts(3)}\n**Thành phần**: PO, BA, Dev Lead, Tester Lead\n\n## Nội dung\n1. Cập nhật tiến độ sprint hiện tại.\n2. Thảo luận về yêu cầu thay đổi từ khách hàng.\n3. Lên kế hoạch cho sprint tiếp theo.\n\n## Quyết định\n- Phê duyệt thiết kế database.\n- Ưu tiên xử lý lỗi thanh toán.`
+            }),
+
+            // ---- 02-Requirements ----
+            'brd-customer': (pName) => ({
+                title: 'brd-customer.md',
+                category: 'requirements',
+                role: 'BA',
+                status: 'approved',
+                author: 'BA Team',
+                date: ts(6),
+                description: `Đặc tả yêu cầu nghiệp vụ từ khách hàng cho "${pName}"`,
+                content: `# BRD - ${pName}\n\n## Yêu cầu chức năng\n- **F1**: Đăng nhập / phân quyền.\n- **F2**: Quản lý danh mục.\n- **F3**: Tạo / cập nhật / xóa bản ghi.\n- **F4**: Báo cáo thống kê.\n\n## Yêu cầu phi chức năng\n- Hiệu năng: < 2s response.\n- Bảo mật: mã hóa dữ liệu nhạy cảm.`
+            }),
+
+            'functional-spec': (pName) => ({
+                title: 'functional-spec.md',
+                category: 'requirements',
+                role: 'BA',
+                status: 'approved',
+                author: 'BA Team',
+                date: ts(5),
+                description: `Đặc tả kỹ thuật chức năng cho "${pName}"`,
+                content: `# Functional Specification - ${pName}\n\n## Use Cases\n- **UC01**: Người dùng tạo đơn hàng.\n- **UC02**: Quản trị viên phê duyệt.\n- **UC03**: Hệ thống gửi thông báo.\n\n## Luồng dữ liệu\n- Input → Validation → Processing → Output.\n\n## Giao diện\n- Mockup được đính kèm trong tài liệu riêng.`
+            }),
+
+            'solution-proposal-approved': (pName) => ({
+                title: 'solution-proposal-approved.md',
+                category: 'requirements',
+                role: 'BA',
+                status: 'approved',
+                author: 'BA + Dev',
+                date: ts(4),
+                description: `Đề xuất giải pháp đã được phê duyệt cho "${pName}"`,
+                content: `# Giải pháp được phê duyệt - ${pName}\n\n## Phương án lựa chọn\n- Sử dụng microservices.\n- Database: PostgreSQL.\n- Frontend: React + Tailwind.\n- Backend: Node.js + Express.\n\n## Lý do\n- Mở rộng linh hoạt.\n- Cộng đồng hỗ trợ tốt.\n- Phù hợp với nguồn lực hiện có.`
+            }),
+
+            // ---- 03-Technical ----
+            'architecture-overview': (pName) => ({
+                title: '01-architecture-overview.md',
+                category: 'technical',
+                role: 'Dev',
+                status: 'approved',
+                author: 'Dev Team',
+                date: ts(5),
+                description: `Tổng quan kiến trúc hệ thống cho "${pName}"`,
+                content: `# Kiến trúc tổng thể - ${pName}\n\n## Các thành phần\n- **API Gateway**: xác thực, định tuyến.\n- **Service A**: quản lý dữ liệu core.\n- **Service B**: xử lý nghiệp vụ.\n- **Message Queue**: RabbitMQ.\n- **Database**: PostgreSQL.\n\n## Sơ đồ\n[Client] → [Gateway] → [Service A/B] → [DB]`
+            }),
+
+            'database-schema': (pName) => ({
+                title: '02-database-schema.md',
+                category: 'technical',
+                role: 'Dev',
+                status: 'approved',
+                author: 'Dev Team',
+                date: ts(4),
+                description: `Thiết kế database cho "${pName}"`,
+                content: `# Database Schema - ${pName}\n\n## Bảng chính\n- **users** (id, name, email, role)\n- **projects** (id, name, description, created_at)\n- **documents** (id, title, category, role, status, author, date, content)\n- **comments** (id, doc_id, author, text, time)\n\n## Quan hệ\n- users 1--n projects\n- projects 1--n documents\n- documents 1--n comments`
+            }),
+
+            'api-specification': (pName) => ({
+                title: '03-api-specification.md',
+                category: 'technical',
+                role: 'Dev',
+                status: 'review',
+                author: 'Dev Team',
+                date: ts(3),
+                description: `Đặc tả API cho "${pName}"`,
+                content: `# API Specification - ${pName}\n\n## Endpoints\n- **GET /api/projects** - danh sách dự án\n- **POST /api/projects** - tạo mới\n- **GET /api/projects/:id** - chi tiết\n- **PUT /api/projects/:id** - cập nhật\n- **DELETE /api/projects/:id** - xóa\n\n## Authentication\n- Bearer token JWT.\n\n## Response format\n\`\`\`json\n{ "status": "success", "data": {...} }\n\`\`\``
+            }),
+
+            'setup-guide': (pName) => ({
+                title: '04-setup-guide.md',
+                category: 'technical',
+                role: 'Dev',
+                status: 'approved',
+                author: 'Dev Team',
+                date: ts(2),
+                description: `Hướng dẫn cài đặt và chạy dự án "${pName}"`,
+                content: `# Setup Guide - ${pName}\n\n## Yêu cầu\n- Node.js v18+\n- PostgreSQL v15+\n- Git\n\n## Các bước\n1. Clone repository\n2. \`npm install\`\n3. Tạo file .env với cấu hình DB\n4. \`npm run migrate\`\n5. \`npm run dev\`\n\n## Biến môi trường\n\`\`\`env\nPORT=3000\nDB_URL=postgresql://localhost:5432/erp\nJWT_SECRET=secret\n\`\`\``
+            }),
+
+            // ---- 04-Testing ----
+            'test-strategy': (pName) => ({
+                title: 'test-strategy.md',
+                category: 'testing',
+                role: 'Tester',
+                status: 'approved',
+                author: 'Tester Team',
+                date: ts(5),
+                description: `Chiến lược kiểm thử cho "${pName}"`,
+                content: `# Chiến lược kiểm thử - ${pName}\n\n## Các cấp độ\n- Unit test (Jest)\n- Integration test (Supertest)\n- E2E (Cypress)\n\n## Công cụ\n- Jest + React Testing Library\n- Supertest\n- Cypress\n\n## Kế hoạch\n- Chạy tự động trên CI/CD.\n- Báo cáo kết quả hàng ngày.`
+            }),
+
+            'test-cases': (pName) => ({
+                title: 'test-cases.md',
+                category: 'testing',
+                role: 'Tester',
+                status: 'review',
+                author: 'Tester Team',
+                date: ts(3),
+                description: `Các test case cho "${pName}"`,
+                content: `# Test Cases - ${pName}\n\n## TC01: Đăng nhập thành công\n- Input: user + pass đúng\n- Expected: redirect đến dashboard\n\n## TC02: Đăng nhập thất bại\n- Input: sai mật khẩu\n- Expected: hiển thị lỗi\n\n## TC03: Tạo mới project\n- Input: tên hợp lệ\n- Expected: project xuất hiện trong danh sách`
+            }),
+
+            'bug-reports': (pName) => ({
+                title: 'bug-reports.md',
+                category: 'testing',
+                role: 'Tester',
+                status: 'draft',
+                author: 'Tester Team',
+                date: ts(1),
+                description: `Báo cáo lỗi phát hiện trong "${pName}"`,
+                content: `# Bug Reports - ${pName}\n\n## BUG-001: Lỗi hiển thị danh sách\n- **Mức độ**: Trung bình\n- **Mô tả**: Khi tải trang, danh sách hiển thị trống.\n- **Tái hiện**: Tải lại trang nhiều lần.\n- **Trạng thái**: Đang xử lý.\n\n## BUG-002: API trả về sai mã lỗi\n- **Mức độ**: Cao\n- **Mô tả**: Khi xóa không thành công, API trả về 200 thay vì 400.\n- **Trạng thái**: Đã sửa.`
+            }),
+
+            // ---- 05-Tasks-and-Progress ----
+            'wbs-work-breakdown': (pName) => ({
+                title: 'wbs-work-breakdown.md',
+                category: 'tasks',
+                role: 'PO',
+                status: 'approved',
+                author: 'PO Team',
+                date: ts(5),
+                description: `Phân rã công việc (WBS) cho "${pName}"`,
+                content: `# WBS - ${pName}\n\n## 1. Khảo sát\n- 1.1 Phỏng vấn stakeholders\n- 1.2 Phân tích hiện trạng\n\n## 2. Thiết kế\n- 2.1 Kiến trúc tổng thể\n- 2.2 Database schema\n- 2.3 Giao diện UI\n\n## 3. Phát triển\n- 3.1 Backend API\n- 3.2 Frontend\n- 3.3 Tích hợp\n\n## 4. Kiểm thử\n- 4.1 Unit test\n- 4.2 Integration test\n- 4.3 UAT`
+            }),
+
+            'sprint-board': (pName) => ({
+                title: 'sprint-board.md',
+                category: 'tasks',
+                role: 'All',
+                status: 'review',
+                author: 'All Team',
+                date: ts(2),
+                description: `Bảng theo dõi tiến độ sprint của "${pName}"`,
+                content: `# Sprint Board - ${pName}\n\n## Sprint hiện tại (Sprint 3)\n- **To Do**: 5 tasks\n- **In Progress**: 3 tasks\n- **Review**: 2 tasks\n- **Done**: 8 tasks\n\n## Tasks\n- [ ] Tối ưu query database\n- [ ] Xử lý lỗi timeout\n- [x] Hoàn thành API login\n- [x] Thiết kế giao diện dashboard`
+            }),
+
+            // ---- 06-Knowledge ----
+            'glossary': (pName) => ({
+                title: 'glossary.md',
+                category: 'knowledge',
+                role: 'BA',
+                status: 'approved',
+                author: 'BA Team',
+                date: ts(7),
+                description: `Từ điển thuật ngữ cho "${pName}"`,
+                content: `# Glossary - ${pName}\n\n- **BPMN**: Business Process Model and Notation – ký hiệu mô hình hóa quy trình nghiệp vụ.\n- **CRUD**: Create, Read, Update, Delete – bốn thao tác cơ bản.\n- **JWT**: JSON Web Token – tiêu chuẩn mở cho token.\n- **ORM**: Object-Relational Mapping – kỹ thuật ánh xạ đối tượng.\n- **UAT**: User Acceptance Testing – kiểm thử chấp nhận người dùng.`
+            }),
+
+            'coding-style-guide': (pName) => ({
+                title: 'coding-style-guide.md',
+                category: 'knowledge',
+                role: 'Dev',
+                status: 'approved',
+                author: 'Dev Team',
+                date: ts(4),
+                description: `Hướng dẫn coding style cho "${pName}"`,
+                content: `# Coding Style Guide - ${pName}\n\n## Quy tắc chung\n- Sử dụng ESLint + Prettier.\n- Đặt tên biến rõ ràng, có nghĩa.\n- Viết comment cho các hàm phức tạp.\n- Tuân thủ nguyên tắc DRY.\n\n## JavaScript\n- Dùng camelCase cho biến/hàm.\n- Dùng PascalCase cho class/component.\n- Sử dụng const/let, tránh var.\n\n## CSS\n- Sử dụng Tailwind classes.\n- Tránh inline style.`
+            }),
+
+            // ---- 07-History-and-Decisions ----
+            'changelog': (pName) => ({
+                title: 'CHANGELOG.md',
+                category: 'history',
+                role: 'All',
+                status: 'approved',
+                author: 'All Team',
+                date: ts(1),
+                description: `Nhật ký thay đổi của "${pName}"`,
+                content: `# CHANGELOG - ${pName}\n\n## [1.2.0] - ${ts(1)}\n### Added\n- Chức năng xuất báo cáo PDF.\n- Hỗ trợ đa ngôn ngữ.\n\n### Fixed\n- Sửa lỗi hiển thị biểu đồ.\n- Tối ưu hiệu năng tải trang.\n\n### Changed\n- Nâng cấp version thư viện.\n\n## [1.1.0] - ${ts(5)}\n### Added\n- Module quản lý người dùng.\n- Tích hợp logging.`
+            }),
+
+            'adr-001': (pName) => ({
+                title: 'adr/adr-001-choose-database.md',
+                category: 'history',
+                role: 'All',
+                status: 'approved',
+                author: 'Dev + BA',
+                date: ts(6),
+                description: `ADR-001: Lựa chọn database cho "${pName}"`,
+                content: `# ADR-001: Lựa chọn Database - ${pName}\n\n## Bối cảnh\nCần chọn database phù hợp cho dự án.\n\n## Lựa chọn\n- **PostgreSQL**: SQL, ACID, hỗ trợ JSON, performance tốt.\n\n## Lý do\n- Đáp ứng yêu cầu giao dịch.\n- Dễ mở rộng.\n- Cộng đồng mạnh.\n\n## Hệ quả\n- Dev team cần nắm vững SQL.\n- Chi phí hosting có thể cao hơn NoSQL.`
+            })
+        };
+
+        // Danh sách template keys cho từng danh mục
+        const CATEGORY_TEMPLATES = {
+            management: ['vision', 'project-plan', 'meeting-minutes'],
+            requirements: ['brd-customer', 'functional-spec', 'solution-proposal-approved'],
+            technical: ['architecture-overview', 'database-schema', 'api-specification', 'setup-guide'],
+            testing: ['test-strategy', 'test-cases', 'bug-reports'],
+            tasks: ['wbs-work-breakdown', 'sprint-board'],
+            knowledge: ['glossary', 'coding-style-guide'],
+            history: ['changelog', 'adr-001']
+        };
+
+        // Hàm sinh bộ tài liệu cho một dự án
+        function generateProjectDocs(projectName, projectDesc) {
+            const docs = [];
+            for (const [cat, keys] of Object.entries(CATEGORY_TEMPLATES)) {
+                for (const key of keys) {
+                    const templateFn = DOC_TEMPLATES[key];
+                    if (templateFn) {
+                        const doc = templateFn(projectName);
+                        // Ghi đè mô tả nếu có projectDesc
+                        if (projectDesc && !doc.description.includes(projectName)) {
+                            doc.description = `${doc.description} – ${projectDesc}`;
+                        }
+                        // Đảm bảo category khớp
+                        doc.category = cat;
+                        docs.push(doc);
+                    }
+                }
+            }
+            return docs;
+        }
+
+        // ---- DỮ LIỆU ERP CHÍNH ----
+        let erpData = [{
+            id: 'hr',
+            name: 'Quản trị Nhân sự',
+            icon: 'fa-regular fa-user',
+            projects: [{
+                id: 'hr-recruit',
+                name: 'Tuyển dụng 2026',
+                description: 'Xây dựng quy trình tuyển dụng, hồ sơ ứng viên',
+                documents: generateProjectDocs('Tuyển dụng 2026', 'Quy trình tuyển dụng toàn diện')
+            }, {
+                id: 'hr-onboard',
+                name: 'Quản lý Nhân viên & Onboarding',
+                description: 'Quản lý hồ sơ nhân viên, chấm công, đào tạo',
+                documents: generateProjectDocs('Onboarding & HR', 'Quản lý nhân sự và đào tạo')
+            }]
+        }, {
+            id: 'sales',
+            name: 'Quản lý Bán hàng',
+            icon: 'fa-regular fa-chart-line',
+            projects: [{
+                id: 'sales-order',
+                name: 'Đơn hàng & Bán lẻ',
+                description: 'Xử lý đơn hàng, giỏ hàng, thanh toán',
+                documents: generateProjectDocs('Bán hàng & Đơn hàng', 'Quy trình bán hàng và thanh toán')
+            }, {
+                id: 'sales-customer',
+                name: 'Quản lý Khách hàng (CRM)',
+                description: 'Hồ sơ khách hàng, lịch sử mua hàng, chăm sóc',
+                documents: generateProjectDocs('CRM & Khách hàng', 'Quản lý quan hệ khách hàng')
+            }]
+        }, {
+            id: 'production',
+            name: 'Quản lý Sản xuất',
+            icon: 'fa-regular fa-industry',
+            projects: [{
+                id: 'prod-material',
+                name: 'Quản lý Nguyên vật liệu',
+                description: 'Theo dõi kho, nhập xuất, tồn kho',
+                documents: generateProjectDocs('Quản lý nguyên vật liệu', 'Kiểm soát tồn kho và nhập xuất')
+            }, {
+                id: 'prod-plan',
+                name: 'Lập kế hoạch Sản xuất',
+                description: 'Lên lịch sản xuất, theo dõi tiến độ',
+                documents: generateProjectDocs('Kế hoạch sản xuất', 'Điều độ và lập kế hoạch sản xuất')
+            }]
+        }];
+
+        // ID tự tăng tiếp theo
+        let nextModuleId = erpData.reduce((max, m) => Math.max(max, parseInt(m.id.replace(/\D/g, '') || 0)), 0) + 1;
+        let nextProjectId = erpData.reduce((max, m) => {
+            const pMax = m.projects.reduce((pmax, p) => Math.max(pmax, parseInt(p.id.replace(/\D/g, '') || 0)), 0);
+            return Math.max(max, pMax);
+        }, 0) + 1;
+        let nextDocId = erpData.reduce((max, m) => {
+            const dMax = m.projects.reduce((dmax, p) => {
+                const docMax = p.documents.reduce((docmax, d) => Math.max(docmax, d.id), 0);
+                return Math.max(dmax, docMax);
+            }, 0);
+            return Math.max(max, dMax);
+        }, 0) + 1000;
+
+        // ================================================================
+        // 2. TRẠNG THÁI ỨNG DỤNG
+        // ================================================================
+        let currentModuleId = null;
+        let currentProjectId = null;
+        let currentDocuments = [];
+        let viewingDocId = null;
+        let editingDocId = null;
+
+        let docStatusFilter = 'all';
+        let docCategoryFilter = 'all';
+        let docRoleFilter = 'all';
+        let docSearchText = '';
+
+        const PASSWORD = 'admin123';
+
+        // ================================================================
+        // 3. XÁC THỰC
+        // ================================================================
+        function handleLogin(e) {
+            e.preventDefault();
+            const input = document.getElementById('passwordInput').value;
+            if (input === PASSWORD) {
+                document.getElementById('lockScreen').style.display = 'none';
+                document.getElementById('mainApp').style.display = 'flex';
+                initApp();
+            } else {
+                document.getElementById('loginError').classList.remove('hidden');
+                document.getElementById('passwordInput').value = '';
+            }
+        }
+
+        // ================================================================
+        // 4. KHỞI TẠO
+        // ================================================================
+        function initApp() {
+            renderModules();
+            if (erpData.length > 0) {
+                selectModule(erpData[0].id);
+            } else {
+                goHome();
+            }
+        }
+
+        // ================================================================
+        // 5. RENDER
+        // ================================================================
+        function renderModules() {
+            const container = document.getElementById('moduleList');
+            container.innerHTML = erpData.map(mod => `
+                <div onclick="selectModule('${mod.id}')" 
+                     class="sidebar-item ${currentModuleId === mod.id ? 'active' : ''}">
+                    <i class="${mod.icon} w-5"></i>
+                    <span>${mod.name}</span>
+                </div>
+            `).join('');
+            const totalProj = erpData.reduce((sum, m) => sum + m.projects.length, 0);
+            document.getElementById('totalProjects').innerText = totalProj;
+        }
+
+        function selectModule(moduleId) {
+            currentModuleId = moduleId;
+            currentProjectId = null;
+            renderModules();
+
+            const module = erpData.find(m => m.id === moduleId);
+            if (!module) return;
+
+            document.getElementById('currentModuleName').innerText = module.name;
+            document.getElementById('pageTitle').innerHTML = `
+                <i class="${module.icon} text-blue-500"></i>
+                <span>${module.name}</span>
+            `;
+
+            document.getElementById('emptyState').classList.add('hidden');
+            document.getElementById('docViewPage').classList.add('hidden');
+            document.getElementById('docArea').classList.add('hidden');
+            document.getElementById('projectArea').classList.remove('hidden');
+
+            document.getElementById('addProjectBtn').classList.remove('hidden');
+            document.getElementById('addDocBtn').classList.add('hidden');
+            document.getElementById('backToProjects').classList.add('hidden');
+            document.getElementById('backToModules').classList.remove('hidden');
+
+            renderProjects(module.projects);
+        }
+
+        function renderProjects(projects) {
+            const area = document.getElementById('projectArea');
+            if (!projects || projects.length === 0) {
+                area.innerHTML =
+                `<div class="col-span-full text-center py-10 text-gray-400">Chưa có dự án nào. Hãy thêm dự án mới!</div>`;
+                return;
+            }
+            area.innerHTML = projects.map(proj => `
+                <div onclick="selectProject('${proj.id}')" class="project-card bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <h3 class="font-bold text-gray-800 text-lg">${proj.name}</h3>
+                            <p class="text-sm text-gray-500 mt-1">${proj.description || ''}</p>
+                        </div>
+                        <span class="bg-blue-50 text-blue-600 text-xs font-medium px-2 py-1 rounded-full">${proj.documents.length} tài liệu</span>
+                    </div>
+                    <div class="mt-3 flex gap-1 flex-wrap">
+                        <span class="text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-600">${proj.documents.filter(d => d.status === 'approved').length} ✅</span>
+                        <span class="text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-600">${proj.documents.filter(d => d.status === 'review').length} 📝</span>
+                        <span class="text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-600">${proj.documents.filter(d => d.status === 'draft').length} 📄</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function selectProject(projectId) {
+            currentProjectId = projectId;
+            const module = erpData.find(m => m.id === currentModuleId);
+            if (!module) return;
+            const project = module.projects.find(p => p.id === projectId);
+            if (!project) return;
+
+            currentDocuments = project.documents;
+
+            document.getElementById('docViewPage').classList.add('hidden');
+            document.getElementById('projectArea').classList.add('hidden');
+            document.getElementById('docArea').classList.remove('hidden');
+
+            document.getElementById('currentModuleName').innerText = `${module.name} › ${project.name}`;
+            document.getElementById('pageTitle').innerHTML = `
+                <i class="fa-regular fa-folder-open text-blue-500"></i>
+                <span>${module.name} › ${project.name}</span>
+            `;
+
+            document.getElementById('addProjectBtn').classList.add('hidden');
+            document.getElementById('addDocBtn').classList.remove('hidden');
+            document.getElementById('backToProjects').classList.remove('hidden');
+            document.getElementById('backToModules').classList.add('hidden');
+
+            docStatusFilter = 'all';
+            docCategoryFilter = 'all';
+            docRoleFilter = 'all';
+            docSearchText = '';
+            document.getElementById('searchInput').value = '';
+            document.querySelectorAll('#docArea .filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.cat === 'all' || btn.dataset.role === 'all') btn.classList.add('active');
+            });
+
+            applyDocFilters();
+        }
+
+        function backToProjects() {
+            currentProjectId = null;
+            document.getElementById('docViewPage').classList.add('hidden');
+            document.getElementById('docArea').classList.add('hidden');
+            document.getElementById('projectArea').classList.remove('hidden');
+            document.getElementById('addProjectBtn').classList.remove('hidden');
+            document.getElementById('addDocBtn').classList.add('hidden');
+            document.getElementById('backToProjects').classList.add('hidden');
+            document.getElementById('backToModules').classList.remove('hidden');
+
+            const module = erpData.find(m => m.id === currentModuleId);
+            if (module) {
+                document.getElementById('currentModuleName').innerText = module.name;
+                document.getElementById('pageTitle').innerHTML = `
+                    <i class="${module.icon} text-blue-500"></i>
+                    <span>${module.name}</span>
+                `;
+                renderProjects(module.projects);
+            }
+        }
+
+        function goHome() {
+            currentModuleId = null;
+            currentProjectId = null;
+            document.getElementById('projectArea').classList.add('hidden');
+            document.getElementById('docArea').classList.add('hidden');
+            document.getElementById('docViewPage').classList.add('hidden');
+            document.getElementById('emptyState').classList.remove('hidden');
+            document.getElementById('addProjectBtn').classList.add('hidden');
+            document.getElementById('addDocBtn').classList.add('hidden');
+            document.getElementById('backToProjects').classList.add('hidden');
+            document.getElementById('backToModules').classList.add('hidden');
+            document.getElementById('currentModuleName').innerText = 'Chọn phân hệ';
+            document.getElementById('pageTitle').innerHTML =
+                `<i class="fa-regular fa-folder-open text-blue-500"></i><span>Chọn phân hệ</span>`;
+            renderModules();
+        }
+
+        // ================================================================
+        // 6. LỌC & HIỂN THỊ TÀI LIỆU
+        // ================================================================
+        function applyDocFilters() {
+            let docs = currentDocuments.slice();
+            if (docStatusFilter !== 'all') docs = docs.filter(d => d.status === docStatusFilter);
+            if (docCategoryFilter !== 'all') docs = docs.filter(d => d.category === docCategoryFilter);
+            if (docRoleFilter !== 'all') docs = docs.filter(d => d.role === docRoleFilter);
+            if (docSearchText.trim() !== '') {
+                const s = docSearchText.toLowerCase();
+                docs = docs.filter(d => d.title.toLowerCase().includes(s) || d.author.toLowerCase().includes(s) || (d
+                    .description && d.description.toLowerCase().includes(s)));
+            }
+            renderDocStats(docs);
+            renderDocTable(docs);
+            document.getElementById('docCount').innerText = docs.length;
+        }
+
+        function renderDocStats(docs) {
+            const total = docs.length;
+            const approved = docs.filter(d => d.status === 'approved').length;
+            const review = docs.filter(d => d.status === 'review').length;
+            const draft = docs.filter(d => d.status === 'draft').length;
+            document.getElementById('docStats').innerHTML = `
+                <div onclick="setDocStatusFilter('all')" class="bg-white p-3 rounded-xl shadow-sm border-l-4 border-blue-500 cursor-pointer hover:shadow-md transition">
+                    <p class="text-gray-500 text-xs">Tổng</p>
+                    <p class="text-2xl font-bold">${total}</p>
+                </div>
+                <div onclick="setDocStatusFilter('approved')" class="bg-white p-3 rounded-xl shadow-sm border-l-4 border-green-500 cursor-pointer hover:shadow-md transition">
+                    <p class="text-gray-500 text-xs">Đã duyệt</p>
+                    <p class="text-2xl font-bold text-green-600">${approved}</p>
+                </div>
+                <div onclick="setDocStatusFilter('review')" class="bg-white p-3 rounded-xl shadow-sm border-l-4 border-yellow-500 cursor-pointer hover:shadow-md transition">
+                    <p class="text-gray-500 text-xs">Đang review</p>
+                    <p class="text-2xl font-bold text-yellow-600">${review}</p>
+                </div>
+                <div onclick="setDocStatusFilter('draft')" class="bg-white p-3 rounded-xl shadow-sm border-l-4 border-gray-400 cursor-pointer hover:shadow-md transition">
+                    <p class="text-gray-500 text-xs">Nháp</p>
+                    <p class="text-2xl font-bold text-gray-500">${draft}</p>
+                </div>
+            `;
+        }
+
+        function renderDocTable(docs) {
+            const tbody = document.getElementById('docTableBody');
+            if (docs.length === 0) {
+                tbody.innerHTML =
+                    `<tr><td colspan="5" class="text-center py-8 text-gray-400">Không có tài liệu nào phù hợp.</td></tr>`;
+                return;
+            }
+            const catNames = {
+                management: '01-Quản lý',
+                requirements: '02-Yêu cầu',
+                technical: '03-Kỹ thuật',
+                testing: '04-Kiểm thử',
+                tasks: '05-Tiến độ',
+                knowledge: '06-Kiến thức',
+                history: '07-Lịch sử'
+            };
+            const statusMap = { approved: '✅ Đã duyệt', review: '📝 Đang review', draft: '📄 Nháp' };
+            const statusClass = {
+                approved: 'bg-green-100 text-green-800',
+                review: 'bg-yellow-100 text-yellow-800',
+                draft: 'bg-blue-100 text-blue-800'
+            };
+            const roleColors = {
+                PO: 'bg-purple-100 text-purple-800',
+                BA: 'bg-indigo-100 text-indigo-800',
+                Dev: 'bg-cyan-100 text-cyan-800',
+                Tester: 'bg-pink-100 text-pink-800',
+                All: 'bg-gray-100 text-gray-800'
+            };
+            tbody.innerHTML = docs.map(doc => `
+                <tr class="doc-row" onclick="openDocPage(${doc.id})">
+                    <td class="px-5 py-3 text-sm font-medium text-gray-900">${doc.title}</td>
+                    <td class="px-5 py-3 text-sm"><span class="px-2 py-1 bg-gray-100 rounded-md text-xs">${catNames[doc.category] || doc.category}</span></td>
+                    <td class="px-5 py-3 text-sm"><span class="${roleColors[doc.role] || 'bg-gray-100 text-gray-800'} px-2 py-1 rounded-full text-xs font-medium">${doc.role}</span></td>
+                    <td class="px-5 py-3 text-sm"><span class="badge-status ${statusClass[doc.status] || ''}">${statusMap[doc.status] || doc.status}</span></td>
+                    <td class="px-5 py-3 text-sm text-gray-500">${doc.date}</td>
+                </tr>
+            `).join('');
+        }
+
+        function setDocStatusFilter(status) {
+            docStatusFilter = status;
+            applyDocFilters();
+        }
+
+        function filterDocByCategory(cat) {
+            docCategoryFilter = cat;
+            document.querySelectorAll('#docArea .filter-btn[data-cat]').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.cat === cat);
+            });
+            applyDocFilters();
+        }
+
+        function filterDocByRole(role) {
+            docRoleFilter = role;
+            document.querySelectorAll('#docArea .filter-btn[data-role]').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.role === role);
+            });
+            applyDocFilters();
+        }
+
+        function searchDocs() {
+            docSearchText = document.getElementById('searchInput').value;
+            applyDocFilters();
+        }
+
+        // ================================================================
+        // 7. TRANG XEM CHI TIẾT
+        // ================================================================
+        function openDocPage(docId) {
+            const doc = currentDocuments.find(d => d.id === docId);
+            if (!doc) return;
+            viewingDocId = docId;
+
+            document.getElementById('projectArea').classList.add('hidden');
+            document.getElementById('docArea').classList.add('hidden');
+            document.getElementById('docViewPage').classList.remove('hidden');
+            document.getElementById('addProjectBtn').classList.add('hidden');
+            document.getElementById('addDocBtn').classList.add('hidden');
+            document.getElementById('backToProjects').classList.add('hidden');
+            document.getElementById('backToModules').classList.add('hidden');
+
+            document.getElementById('currentModuleName').innerText = `📄 ${doc.title}`;
+            document.getElementById('pageTitle').innerHTML =
+                `<i class="fa-regular fa-file-lines text-blue-500"></i><span>${doc.title}</span>`;
+
+            document.getElementById('docViewTitle').innerText = doc.title;
+            document.getElementById('docViewAuthor').innerText = doc.author;
+            document.getElementById('docViewCategory').innerText = doc.category;
+            document.getElementById('docViewDate').innerText = doc.date;
+            document.getElementById('docViewDescription').innerHTML = doc.content || doc.description || 'Chưa có nội dung chi tiết.';
+
+            const statusMap = { approved: '✅ Đã duyệt', review: '📝 Đang review', draft: '📄 Nháp' };
+            const statusClass = {
+                approved: 'bg-green-100 text-green-800',
+                review: 'bg-yellow-100 text-yellow-800',
+                draft: 'bg-blue-100 text-blue-800'
+            };
+            const statusSpan = document.getElementById('docViewStatus');
+            statusSpan.className = `badge-status ${statusClass[doc.status] || ''}`;
+            statusSpan.innerText = statusMap[doc.status] || doc.status;
+
+            const historyUl = document.getElementById('docViewHistory');
+            if (doc.history && doc.history.length > 0) {
+                historyUl.innerHTML = doc.history.map(h =>
+                    `<li>${h.time} – ${h.message}</li>`
+                ).join('');
+            } else {
+                historyUl.innerHTML = '<li>Chưa có lịch sử thay đổi.</li>';
+            }
+
+            const actionsDiv = document.getElementById('docViewActions');
+            let btns = '';
+            if (doc.status === 'draft') {
+                btns +=
+                    `<button onclick="changeDocStatus(${doc.id}, 'review')" class="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg text-sm font-medium"><i class="fa-regular fa-pen-to-square mr-1"></i> Gửi duyệt</button>`;
+            } else if (doc.status === 'review') {
+                btns +=
+                    `<button onclick="changeDocStatus(${doc.id}, 'approved')" class="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium"><i class="fa-regular fa-circle-check mr-1"></i> Phê duyệt</button>`;
+            } else {
+                btns +=
+                    `<span class="text-sm text-gray-500 italic"><i class="fa-regular fa-check-circle text-green-500 mr-1"></i> Đã phê duyệt</span>`;
+            }
+            if (doc.status !== 'draft') {
+                btns +=
+                    `<button onclick="changeDocStatus(${doc.id}, 'draft')" class="px-4 py-2 bg-gray-400 hover:bg-gray-500 text-white rounded-lg text-sm font-medium"><i class="fa-regular fa-rotate-left mr-1"></i> Đưa về nháp</button>`;
+            }
+            btns +=
+                `<button onclick="openEditModal(${doc.id})" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium"><i class="fa-regular fa-pen-to-square mr-1"></i> Chỉnh sửa</button>`;
+            btns +=
+                `<button onclick="deleteDocumentFromView(${doc.id})" class="px-4 py-2 btn-danger rounded-lg text-sm font-medium"><i class="fa-regular fa-trash-can mr-1"></i> Xóa</button>`;
+            actionsDiv.innerHTML = btns;
+
+            renderComments(doc.comments || []);
+        }
+
+        function renderComments(comments) {
+            const container = document.getElementById('commentList');
+            if (!comments || comments.length === 0) {
+                container.innerHTML = '<p class="text-sm text-gray-400">Chưa có nhận xét nào.</p>';
+                return;
+            }
+            container.innerHTML = comments.map(c => `
+                <div class="comment-item">
+                    <div class="flex justify-between">
+                        <span class="comment-author">${c.author}</span>
+                        <span class="comment-time">${c.time}</span>
+                    </div>
+                    <p class="text-sm text-gray-700 mt-1">${c.text}</p>
+                </div>
+            `).join('');
+        }
+
+        // ================================================================
+        // 8. NHẬN XÉT
+        // ================================================================
+        function addComment(e) {
+            e.preventDefault();
+            const input = document.getElementById('commentInput');
+            const text = input.value.trim();
+            if (!text) return alert('Vui lòng nhập nội dung nhận xét.');
+            const doc = currentDocuments.find(d => d.id === viewingDocId);
+            if (!doc) return;
+            if (!doc.comments) doc.comments = [];
+            const now = new Date();
+            const timeStr = now.toISOString().slice(0, 10) + ' ' + now.toTimeString().slice(0, 5);
+            doc.comments.push({ author: 'Người dùng', time: timeStr, text: text });
+            input.value = '';
+            renderComments(doc.comments);
+            // Cập nhật vào dữ liệu gốc
+            const module = erpData.find(m => m.id === currentModuleId);
+            if (module) {
+                const project = module.projects.find(p => p.id === currentProjectId);
+                if (project) {
+                    const targetDoc = project.documents.find(d => d.id === viewingDocId);
+                    if (targetDoc) targetDoc.comments = doc.comments;
+                }
+            }
+        }
+
+        // ================================================================
+        // 9. SỬA TÀI LIỆU
+        // ================================================================
+        function openEditModal(docId) {
+            const doc = currentDocuments.find(d => d.id === docId);
+            if (!doc) return;
+            editingDocId = docId;
+            document.getElementById('editDocTitle').value = doc.title;
+            document.getElementById('editDocCategory').value = doc.category;
+            document.getElementById('editDocRole').value = doc.role;
+            document.getElementById('editDocDesc').value = doc.description || '';
+            document.getElementById('editDocContent').value = doc.content || '';
+            document.getElementById('editModal').classList.remove('hidden');
+        }
+
+        function saveEditDocument(e) {
+            e.preventDefault();
+            const doc = currentDocuments.find(d => d.id === editingDocId);
+            if (!doc) return;
+
+            const title = document.getElementById('editDocTitle').value.trim();
+            const category = document.getElementById('editDocCategory').value;
+            const role = document.getElementById('editDocRole').value;
+            const description = document.getElementById('editDocDesc').value.trim();
+            const content = document.getElementById('editDocContent').value.trim();
+
+            if (!title) return alert('Tiêu đề không được để trống');
+
+            const now = new Date();
+            const timeStr = now.toISOString().slice(0, 10) + ' ' + now.toTimeString().slice(0, 5);
+            if (!doc.history) doc.history = [];
+            doc.history.push({ time: timeStr, message: `Chỉnh sửa: tiêu đề, danh mục, vai trò, mô tả, nội dung` });
+
+            doc.title = title;
+            doc.category = category;
+            doc.role = role;
+            doc.description = description || 'Chưa có mô tả';
+            doc.content = content || '';
+            doc.date = now.toISOString().slice(0, 10);
+
+            // Cập nhật vào dữ liệu gốc
+            const module = erpData.find(m => m.id === currentModuleId);
+            if (module) {
+                const project = module.projects.find(p => p.id === currentProjectId);
+                if (project) {
+                    const targetDoc = project.documents.find(d => d.id === editingDocId);
+                    if (targetDoc) {
+                        Object.assign(targetDoc, doc);
+                    }
+                }
+            }
+
+            closeModal('editModal');
+            if (viewingDocId === editingDocId) {
+                openDocPage(editingDocId);
+            } else {
+                applyDocFilters();
+            }
+            alert('✅ Đã cập nhật tài liệu!');
+        }
+
+        // ================================================================
+        // 10. THAY ĐỔI TRẠNG THÁI
+        // ================================================================
+        function changeDocStatus(docId, newStatus) {
+            const doc = currentDocuments.find(d => d.id === docId);
+            if (!doc) return;
+            doc.status = newStatus;
+            const now = new Date();
+            const timeStr = now.toISOString().slice(0, 10) + ' ' + now.toTimeString().slice(0, 5);
+            if (!doc.history) doc.history = [];
+            doc.history.push({ time: timeStr, message: `Chuyển sang "${newStatus}"` });
+            doc.date = now.toISOString().slice(0, 10);
+
+            const module = erpData.find(m => m.id === currentModuleId);
+            if (module) {
+                const project = module.projects.find(p => p.id === currentProjectId);
+                if (project) {
+                    const targetDoc = project.documents.find(d => d.id === docId);
+                    if (targetDoc) {
+                        targetDoc.status = doc.status;
+                        targetDoc.date = doc.date;
+                        targetDoc.history = doc.history;
+                    }
+                }
+            }
+
+            openDocPage(docId);
+            applyDocFilters();
+            alert(`✅ Đã cập nhật trạng thái "${doc.title}" thành "${newStatus}"`);
+        }
+
+        // ================================================================
+        // 11. XÓA TÀI LIỆU
+        // ================================================================
+        function deleteDocumentFromView(docId) {
+            if (!confirm('Bạn có chắc chắn muốn xóa tài liệu này?')) return;
+            const index = currentDocuments.findIndex(d => d.id === docId);
+            if (index === -1) return;
+            currentDocuments.splice(index, 1);
+            const module = erpData.find(m => m.id === currentModuleId);
+            if (module) {
+                const project = module.projects.find(p => p.id === currentProjectId);
+                if (project) {
+                    project.documents = currentDocuments;
+                }
+            }
+            closeDocView();
+            alert('🗑️ Đã xóa tài liệu.');
+        }
+
+        // ================================================================
+        // 12. ĐÓNG TRANG XEM
+        // ================================================================
+        function closeDocView() {
+            document.getElementById('docViewPage').classList.add('hidden');
+            document.getElementById('docArea').classList.remove('hidden');
+            document.getElementById('addDocBtn').classList.remove('hidden');
+            document.getElementById('backToProjects').classList.remove('hidden');
+            document.getElementById('backToModules').classList.add('hidden');
+            viewingDocId = null;
+            const module = erpData.find(m => m.id === currentModuleId);
+            if (module) {
+                const project = module.projects.find(p => p.id === currentProjectId);
+                if (project) {
+                    document.getElementById('currentModuleName').innerText = `${module.name} › ${project.name}`;
+                    document.getElementById('pageTitle').innerHTML = `
+                        <i class="fa-regular fa-folder-open text-blue-500"></i>
+                        <span>${module.name} › ${project.name}</span>
+                    `;
+                }
+            }
+            applyDocFilters();
+        }
+
+        // ================================================================
+        // 13. MODAL TẠO MỚI
+        // ================================================================
+        let createType = '';
+
+        function showCreateModuleForm() {
+            createType = 'module';
+            document.getElementById('createModalTitle').innerText = 'Thêm phân hệ mới';
+            document.getElementById('formFields').innerHTML = `
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Tên phân hệ</label>
+                    <input type="text" id="newModuleName" required class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none" placeholder="VD: Quản lý Kho" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Icon (FontAwesome)</label>
+                    <input type="text" id="newModuleIcon" value="fa-regular fa-folder" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none" placeholder="fa-regular fa-folder" />
+                </div>
+            `;
+            document.getElementById('createModal').classList.remove('hidden');
+        }
+
+        function showCreateProjectForm() {
+            createType = 'project';
+            document.getElementById('createModalTitle').innerText = 'Thêm dự án mới';
+            document.getElementById('formFields').innerHTML = `
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Tên dự án</label>
+                    <input type="text" id="newProjectName" required class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none" placeholder="VD: Quản lý kho" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Mô tả</label>
+                    <textarea id="newProjectDesc" rows="2" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none" placeholder="Mô tả ngắn về dự án"></textarea>
+                </div>
+            `;
+            document.getElementById('createModal').classList.remove('hidden');
+        }
+
+        function showCreateDocumentForm() {
+            createType = 'document';
+            document.getElementById('createModalTitle').innerText = 'Thêm tài liệu mới';
+            document.getElementById('formFields').innerHTML = `
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Tiêu đề</label>
+                    <input type="text" id="newDocTitle" required class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none" placeholder="VD: Đặc tả API" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Danh mục</label>
+                    <select id="newDocCategory" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none">
+                        <option value="management">01-Quản lý</option>
+                        <option value="requirements">02-Yêu cầu</option>
+                        <option value="technical">03-Kỹ thuật</option>
+                        <option value="testing">04-Kiểm thử</option>
+                        <option value="tasks">05-Tiến độ</option>
+                        <option value="knowledge">06-Kiến thức</option>
+                        <option value="history">07-Lịch sử</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Vai trò phụ trách</label>
+                    <select id="newDocRole" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none">
+                        <option value="PO">PO</option>
+                        <option value="BA">BA</option>
+                        <option value="Dev">Dev</option>
+                        <option value="Tester">Tester</option>
+                        <option value="All">All</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Mô tả ngắn</label>
+                    <textarea id="newDocDesc" rows="2" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none" placeholder="Tóm tắt nội dung"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Nội dung chi tiết</label>
+                    <textarea id="newDocContent" rows="4" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none" placeholder="Viết nội dung đầy đủ..."></textarea>
+                </div>
+            `;
+            document.getElementById('createModal').classList.remove('hidden');
+        }
+
+        function handleCreateSubmit(e) {
+            e.preventDefault();
+            if (createType === 'module') {
+                const name = document.getElementById('newModuleName').value.trim();
+                const icon = document.getElementById('newModuleIcon').value.trim() || 'fa-regular fa-folder';
+                if (!name) return alert('Vui lòng nhập tên phân hệ');
+                const newModule = {
+                    id: 'mod_' + (nextModuleId++),
+                    name: name,
+                    icon: icon,
+                    projects: []
+                };
+                erpData.push(newModule);
+                closeModal('createModal');
+                renderModules();
+                selectModule(newModule.id);
+                alert(`✅ Đã tạo phân hệ "${name}"`);
+            } else if (createType === 'project') {
+                const name = document.getElementById('newProjectName').value.trim();
+                const desc = document.getElementById('newProjectDesc').value.trim();
+                if (!name) return alert('Vui lòng nhập tên dự án');
+                const module = erpData.find(m => m.id === currentModuleId);
+                if (!module) return alert('Không tìm thấy phân hệ hiện tại');
+                const newProject = {
+                    id: 'proj_' + (nextProjectId++),
+                    name: name,
+                    description: desc,
+                    documents: generateProjectDocs(name, desc)
+                };
+                module.projects.push(newProject);
+                closeModal('createModal');
+                selectModule(currentModuleId);
+                alert(`✅ Đã tạo dự án "${name}" với đầy đủ template tài liệu.`);
+            } else if (createType === 'document') {
+                const title = document.getElementById('newDocTitle').value.trim();
+                const category = document.getElementById('newDocCategory').value;
+                const role = document.getElementById('newDocRole').value;
+                const description = document.getElementById('newDocDesc').value.trim();
+                const content = document.getElementById('newDocContent').value.trim();
+                if (!title) return alert('Vui lòng nhập tiêu đề tài liệu');
+                const module = erpData.find(m => m.id === currentModuleId);
+                if (!module) return alert('Không tìm thấy phân hệ');
+                const project = module.projects.find(p => p.id === currentProjectId);
+                if (!project) return alert('Không tìm thấy dự án');
+
+                const now = new Date();
+                const timeStr = now.toISOString().slice(0, 10) + ' ' + now.toTimeString().slice(0, 5);
+                const newDoc = {
+                    id: nextDocId++,
+                    title: title,
+                    category: category,
+                    role: role,
+                    status: 'draft',
+                    author: 'Người dùng',
+                    date: now.toISOString().slice(0, 10),
+                    description: description || 'Chưa có mô tả',
+                    content: content || '',
+                    history: [{ time: timeStr, message: 'Tạo mới' }],
+                    comments: []
+                };
+                project.documents.push(newDoc);
+                currentDocuments = project.documents;
+                closeModal('createModal');
+                applyDocFilters();
+                alert(`✅ Đã tạo tài liệu "${title}"`);
+            }
+        }
+
+        // ================================================================
+        // 14. UTILITY
+        // ================================================================
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+        }
+
+        document.querySelectorAll('.modal-overlay').forEach(el => {
+            el.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeModal(this.id);
+                }
+            });
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeModal('editModal');
+                closeModal('createModal');
+            }
+        });
+    </script>
+</body>
+</html>

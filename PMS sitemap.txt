@@ -1,0 +1,161 @@
+/ (Trang chủ)
+│
+├── /login (Đăng nhập)
+│
+└── /dashboard (Dashboard tổng hợp – sau khi đăng nhập)
+    ├── /overview (Tổng quan tất cả dự án)
+    ├── /my-tasks (Nhiệm vụ của tôi)
+    ├── /activity (Hoạt động gần đây)
+    └── /profile (Hồ sơ cá nhân
+    └── /tạo tài khoản (dảnh riêng cho admin)
+
+/dashboard
+│
+└── /projects (Danh sách dự án)
+    │
+    ├── /projects/new (Tạo dự án mới – chọn template)
+    │
+    ├── /projects/:projectId (Chi tiết dự án)
+    │   ├── /overview (Dashboard của dự án)
+    │   ├── /modules/:moduleId (Xem module)
+    │   │   ├── /documents (Danh sách tài liệu)
+    │   │   │   ├── /documents/new (Tạo tài liệu mới)
+    │   │   │   ├── /documents/:docId (Chi tiết tài liệu)
+    │   │   │   │   ├── /edit (Chỉnh sửa tài liệu)
+    │   │   │   │   ├── /history (Lịch sử phiên bản)
+    │   │   │   │   ├── /comments (Bình luận)
+    │   │   │   │   └── /approve (Phê duyệt – nếu có quyền)
+    │   │   │   └── /filter (Lọc theo danh mục, role, status)
+    │   │   ├── /tasks (Kanban Board)
+    │   │   │   ├── /tasks/new (Tạo task từ tài liệu bằng cách bôi vàng và ấn tạo task chỉ định cho ai, hạn bao giờ hoặc tạo task mới hoàn toàn nhưng cho phép chọn dự án, module nào)
+    │   │   │   └── /tasks/:taskId (Chi tiết task)
+    │   │   └── /ux-simulator (Mô phỏng thiết bị tùy theo app mobile hay erp winform – đặc thù)
+    │   ├── /settings (Cài đặt dự án)
+    │   │   ├── /edit (Sửa thông tin)
+    │   │   ├── /members (Quản lý thành viên)
+    │   │   └── /delete (Xóa dự án)
+    │   └── /export (Export dự án ra JSON)
+    │
+    └── /templates (Quản lý template)
+        ├── /templates/new (Tạo template mới)
+        └── /templates/:templateId (Xem/Chỉnh sửa template)
+
+/projects/:projectId/modules/:moduleId/documents
+│
+├── /documents (Danh sách)
+│   ├── Bộ lọc: Category, Role, Status
+│   ├── Tìm kiếm: Title, Author, Content
+│   └── Phân trang
+│
+├── /documents/new (Form tạo)
+│   ├── Title
+│   ├── Category (Management, Requirements, Technical, Testing, Tasks, Knowledge, History)
+│   ├── Role (PO, BA, Dev, Tester, All)
+│   ├── Content 
+│   ├── Attachments (Upload file ảnh, pdf, excel hoặc gắn link)
+│   └── Status (Draft – mặc định)
+│
+├── /documents/:docId (Xem chi tiết)
+│   ├── Metadata: Title, Author, Role, Category, Status, Created/Updated
+│   ├── Nội dung chính 
+│   ├── Lịch sử thay đổi (Thay đổi gì, ai sửa, thời điểm sửa)
+│   ├── Nút hành động:
+│   │   ├── Edit (→ /documents/:docId/edit)
+│   │   ├── Approve (nếu có quyền)
+│   │   ├── Change Status (Draft/Review/Archived)
+│   │   └── Delete (Soft delete)
+│   ├── Comment section:
+│   │   ├── Hiển thị bình luận (thread lề hẹp bên phải)
+│   │   └── Form bình luận mới (có @mention tài khoản)
+│   └── Task liên quan (nếu có)
+│
+└── /documents/:docId/edit (Form chỉnh sửa)
+    ├── Tương tự form tạo nhưng load dữ liệu hiện tại
+    └── Lưu → tạo phiên bản mới + log lịch sử
+
+/projects/:projectId/tasks
+│
+├── /tasks (Kanban Board)
+│   ├── Columns: To Do, In Progress, Review, Done
+│   ├── Kéo thả (Drag & Drop) để thay đổi trạng thái
+│   └── Bộ lọc: Assignee, Priority, Due Date
+│
+├── /tasks/new (Tạo task mới)
+│   ├── Title
+│   ├── Description
+│   ├── Assignee (chọn từ team)
+│   ├── Priority (Low, Medium, High, Critical)
+│   ├── Due Date
+│   ├── Link to Document (optional)
+│   └── Status (mặc định: To Do)
+│
+└── /tasks/:taskId (Chi tiết task)
+    ├── Thông tin chi tiết
+    ├── Chỉnh sửa (→ /tasks/:taskId/edit)
+    ├── Thay đổi trạng thái
+    ├── Gán lại người thực hiện
+    └── Comment
+
+/dashboard
+│
+├── /overview (Tổng quan toàn hệ thống)
+│   ├── Số lượng dự án, tài liệu, task
+│   ├── Biểu đồ tiến độ chung
+│   └── Hoạt động gần đây (Activity Feed)
+│
+└── /project/:projectId/dashboard (Dashboard dự án)
+    ├── KPI: % hoàn thành module, document status
+    ├── Task progress (To do, In progress, Done)
+    ├── Upcoming deadlines
+    ├── Task progress (To do, In progress, Done)
+    ├── Vấn đề nổi bật (chọn từ task hoặc nhập tay)
+    └── Team members
+
+/settings/templates (Quản lý template)
+│
+├── /templates (Danh sách template có sẵn)
+│   ├── Template: "Kho RFID" (từ các file mẫu)
+│   ├── Template: "Quản lý Nhân sự" (mặc định)
+│   └── Template: "Dự án Phần mềm" (mặc định)
+│
+├── /templates/new (Tạo template mới từ file JSON hoặc cấu hình)
+│
+└── /templates/:templateId (Xem/Chỉnh sửa template)
+    └── Cấu trúc: module → documents (title, category, role, content mẫu)
+
+/admin (Chỉ dành cho Admin)
+│
+├── /admin/users (Quản lý người dùng)
+│   ├── Danh sách user (tìm kiếm, lọc)
+│   ├── Tạo user mới
+│   ├── Chỉnh sửa role
+│   └── Xóa / Vô hiệu hóa user
+│
+├── /admin/projects (Quản lý tất cả dự án)
+│   └── Xem và can thiệp vào mọi dự án
+│
+├── /admin/logs (Xem nhật ký hệ thống)
+│   └── Lọc theo user, action, thời gian
+│
+└── /admin/settings (Cài đặt hệ thống)
+    ├── Cấu hình chung (tên hệ thống, logo, email)
+    └── Quản lý role permission (nếu cần)
+
+[Đăng nhập] → [Dashboard Overview]
+    │
+    ├─→ [Danh sách dự án] → [Chọn dự án] → [Dashboard dự án]
+    │   │
+    │   ├─→ [Module Sidebar] → [Chọn module]
+    │   │   ├─→ [Danh sách tài liệu] → [Chọn tài liệu]
+    │   │   │   ├─→ [Xem chi tiết] → [Chỉnh sửa / Phê duyệt / Bình luận]
+    │   │   │   └─→ [Lịch sử phiên bản]
+    │   │   └─→ [Tạo tài liệu mới]
+    │   │
+    │   ├─→ [Kanban Board] → [Tạo task] → [Theo dõi tiến độ]
+    │   │
+    │   └─→ [UX Simulator] (nếu có)
+    │
+    ├─→ [Hồ sơ cá nhân] (Cập nhật thông tin)
+    │
+    └─→ [Admin Panel] (nếu là Admin)
+
