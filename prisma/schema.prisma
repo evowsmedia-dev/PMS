@@ -213,6 +213,7 @@ model Document {
   description      String?
   currentContent   String
   currentVersionNo Int         @default(1)
+  diagramUrl       String?
 
   authorId String
   author   User   @relation("DocumentAuthor", fields: [authorId], references: [id])
@@ -278,6 +279,7 @@ model Comment {
   taskId     String?
   authorId   String
   content    String
+  quotedText String?
   resolved   Boolean   @default(false)
   parentId   String?
   createdAt  DateTime  @default(now())

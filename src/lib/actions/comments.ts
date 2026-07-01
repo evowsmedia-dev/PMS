@@ -26,6 +26,9 @@ export async function addDocumentCommentAction(
   const content = String(formData.get("content") ?? "").trim();
   if (!content) return { error: "Nội dung bình luận không được để trống." };
 
+  const quotedTextRaw = String(formData.get("quotedText") ?? "").trim();
+  const quotedText = quotedTextRaw ? quotedTextRaw.slice(0, 500) : null;
+
   const mentionNames = Array.from(content.matchAll(/@([\w.]+)/g)).map((m) => m[1]);
   const members = mentionNames.length
     ? await prisma.projectMember.findMany({
@@ -48,6 +51,7 @@ export async function addDocumentCommentAction(
       documentId: docId,
       authorId: session.user.id,
       content,
+      quotedText,
       mentions: {
         create: Array.from(mentionedUserIds).map((userId) => ({ userId })),
       },

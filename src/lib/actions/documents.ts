@@ -176,6 +176,31 @@ export async function autosaveDocumentAction(docId: string, content: string) {
   return { ok: true };
 }
 
+export async function setDocumentDiagramUrlAction(
+  projectId: string,
+  moduleId: string,
+  docId: string,
+  url: string | null,
+) {
+  const session = await auth();
+  if (!session?.user) return;
+
+  if (!(await assertCanEdit(session.user.id, session.user.systemRole, projectId))) return;
+
+  await prisma.document.update({ where: { id: docId }, data: { diagramUrl: url } });
+
+  await logAudit({
+    actorId: session.user.id,
+    action: "UPDATE",
+    entityType: "Document",
+    entityId: docId,
+    projectId,
+    metadata: { field: "diagramUrl" },
+  });
+
+  revalidatePath(`/projects/${projectId}/modules/${moduleId}/documents/${docId}`);
+}
+
 const STATUS_TRANSITIONS: Record<DocStatus, DocStatus[]> = {
   DRAFT: ["REVIEW"],
   REVIEW: ["APPROVED", "DRAFT"],

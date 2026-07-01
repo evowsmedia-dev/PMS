@@ -1,18 +1,21 @@
 "use client";
 
-import { useActionState, useEffect, useTransition } from "react";
+import { useActionState, useEffect, useRef, useTransition } from "react";
+import { X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { addDocumentCommentAction, resolveCommentAction } from "@/lib/actions/comments";
 import type { ActionState } from "@/lib/actions/profile";
+import { useQuote } from "@/components/document-detail-shell";
 
 const initialState: ActionState = {};
 
 interface CommentItem {
   id: string;
   content: string;
+  quotedText: string | null;
   resolved: boolean;
   createdAt: string;
   author: { fullName: string };
@@ -34,10 +37,16 @@ export function DocumentComments({
   const action = addDocumentCommentAction.bind(null, projectId, moduleId, docId);
   const [state, formAction, pending] = useActionState(action, initialState);
   const [, startTransition] = useTransition();
+  const { quote, setQuote } = useQuote();
+  const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     if (state.error) toast.error(state.error);
-  }, [state]);
+    if (state.success) {
+      setQuote(null);
+      formRef.current?.reset();
+    }
+  }, [state, setQuote]);
 
   return (
     <div className="space-y-3">
@@ -57,6 +66,11 @@ export function DocumentComments({
                   {new Date(c.createdAt).toLocaleString("vi-VN")}
                 </span>
               </div>
+              {c.quotedText ? (
+                <blockquote className="mt-1 rounded bg-amber-50 px-2 py-1 text-xs italic text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+                  &ldquo;{c.quotedText}&rdquo;
+                </blockquote>
+              ) : null}
               <p className="mt-1 whitespace-pre-wrap text-sm">{c.content}</p>
               {canComment ? (
                 <label className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
@@ -83,7 +97,20 @@ export function DocumentComments({
       </div>
 
       {canComment ? (
-        <form action={formAction} className="space-y-2">
+        <form ref={formRef} action={formAction} className="space-y-2">
+          {quote ? (
+            <div className="flex items-start justify-between gap-2 rounded bg-amber-50 px-2 py-1.5 text-xs italic text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+              <span>&ldquo;{quote}&rdquo;</span>
+              <button
+                type="button"
+                onClick={() => setQuote(null)}
+                className="shrink-0 text-amber-800/70 hover:text-amber-800 dark:text-amber-200/70"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+          ) : null}
+          <input type="hidden" name="quotedText" value={quote ?? ""} readOnly />
           <Textarea
             name="content"
             rows={2}

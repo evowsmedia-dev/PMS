@@ -148,3 +148,19 @@
     @apply font-sans;
   }
 }
+
+.prose table {
+  overflow: hidden;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border);
+}
+.prose thead {
+  background-color: var(--primary);
+}
+.prose thead th {
+  color: var(--primary-foreground);
+  font-weight: 600;
+}
+.prose tbody tr:nth-child(even) {
+  background-color: color-mix(in oklch, var(--muted) 50%, transparent);
+}
