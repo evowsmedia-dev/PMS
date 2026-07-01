@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   DndContext,
   closestCenter,
@@ -18,11 +18,10 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Plus, Pencil, Trash2, ChevronDown, ChevronRight } from "lucide-react";
+import { GripVertical, Plus, Pencil, Trash2, ChevronDown, ChevronRight, FileText } from "lucide-react";
 import { ModuleIcon } from "@/lib/validation/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -48,42 +47,49 @@ import {
   deleteModuleAction,
   reorderModulesAction,
 } from "@/lib/actions/modules";
-import { DOC_CATEGORY_LABEL } from "@/lib/validation/document";
 
 interface ModuleItem {
   id: string;
   name: string;
 }
 
-function CategoryList({
+interface DocumentItem {
+  id: string;
+  title: string;
+}
+
+function DocumentList({
   projectId,
   moduleId,
-  counts,
+  documents,
 }: {
   projectId: string;
   moduleId: string;
-  counts: Partial<Record<string, number>>;
+  documents: DocumentItem[];
 }) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const basePath = `/projects/${projectId}/modules/${moduleId}/documents`;
-  const activeCategory = pathname === basePath ? searchParams.get("category") : null;
+
+  if (documents.length === 0) {
+    return (
+      <p className="ml-5 border-l pl-2 text-xs text-muted-foreground">Chưa có tài liệu.</p>
+    );
+  }
 
   return (
     <div className="ml-5 space-y-0.5 border-l pl-2">
-      {Object.entries(DOC_CATEGORY_LABEL).map(([value, label]) => {
-        const count = counts[value] ?? 0;
-        const active = pathname === basePath && activeCategory === value;
+      {documents.map((doc) => {
+        const href = `/projects/${projectId}/modules/${moduleId}/documents/${doc.id}`;
+        const active = pathname === href;
         return (
           <Link
-            key={value}
-            href={`${basePath}?category=${value}`}
-            className={`flex items-center justify-between rounded-md px-2 py-1 text-xs hover:bg-accent ${
+            key={doc.id}
+            href={href}
+            className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-xs hover:bg-accent ${
               active ? "bg-accent font-medium text-accent-foreground" : "text-muted-foreground"
             }`}
           >
-            <span>{label}</span>
-            {count > 0 ? <Badge variant="outline" className="h-4 px-1.5 text-[10px]">{count}</Badge> : null}
+            <FileText className="size-3 shrink-0" />
+            <span className="truncate">{doc.title}</span>
           </Link>
         );
       })}
@@ -96,13 +102,13 @@ function SortableModuleRow({
   projectId,
   active,
   canManage,
-  counts,
+  documents,
 }: {
   module: ModuleItem;
   projectId: string;
   active: boolean;
   canManage: boolean;
-  counts: Partial<Record<string, number>>;
+  documents: DocumentItem[];
 }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
     id: module.id,
@@ -208,7 +214,7 @@ function SortableModuleRow({
       </div>
 
       {expanded ? (
-        <CategoryList projectId={projectId} moduleId={module.id} counts={counts} />
+        <DocumentList projectId={projectId} moduleId={module.id} documents={documents} />
       ) : null}
     </div>
   );
@@ -218,13 +224,13 @@ export function ProjectDocumentsNav({
   projectId,
   modules,
   canManage,
-  categoryCounts,
+  documentsByModule,
   mainModuleId,
 }: {
   projectId: string;
   modules: ModuleItem[];
   canManage: boolean;
-  categoryCounts: Record<string, Partial<Record<string, number>>>;
+  documentsByModule: Record<string, DocumentItem[]>;
   mainModuleId: string | null;
 }) {
   const pathname = usePathname();
@@ -278,10 +284,10 @@ export function ProjectDocumentsNav({
       </div>
 
       {mainModuleId ? (
-        <CategoryList
+        <DocumentList
           projectId={projectId}
           moduleId={mainModuleId}
-          counts={categoryCounts[mainModuleId] ?? {}}
+          documents={documentsByModule[mainModuleId] ?? []}
         />
       ) : null}
 
@@ -295,7 +301,7 @@ export function ProjectDocumentsNav({
                 projectId={projectId}
                 active={pathname.includes(`/modules/${module.id}/`)}
                 canManage={canManage}
-                counts={categoryCounts[module.id] ?? {}}
+                documents={documentsByModule[module.id] ?? []}
               />
             ))}
           </div>

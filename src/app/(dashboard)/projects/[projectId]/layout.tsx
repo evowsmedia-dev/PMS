@@ -47,15 +47,15 @@ export default async function ProjectLayout({
     projectRole,
   );
 
-  const grouped = await prisma.document.groupBy({
-    by: ["moduleId", "category"],
+  const allDocuments = await prisma.document.findMany({
     where: { projectId, deletedAt: null },
-    _count: true,
+    select: { id: true, title: true, moduleId: true },
+    orderBy: { title: "asc" },
   });
-  const categoryCounts: Record<string, Partial<Record<string, number>>> = {};
-  for (const row of grouped) {
-    categoryCounts[row.moduleId] ??= {};
-    categoryCounts[row.moduleId][row.category] = row._count;
+  const documentsByModule: Record<string, { id: string; title: string }[]> = {};
+  for (const doc of allDocuments) {
+    documentsByModule[doc.moduleId] ??= [];
+    documentsByModule[doc.moduleId].push({ id: doc.id, title: doc.title });
   }
 
   const mainModuleId =
@@ -82,7 +82,7 @@ export default async function ProjectLayout({
           projectId={project.id}
           modules={project.modules}
           canManage={canManageModules}
-          categoryCounts={categoryCounts}
+          documentsByModule={documentsByModule}
           mainModuleId={mainModuleId}
         />
 
