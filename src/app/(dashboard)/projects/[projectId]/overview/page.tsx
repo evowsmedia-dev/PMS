@@ -1,8 +1,13 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { Pencil } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { can } from "@/lib/rbac";
+import { getProjectRole } from "@/lib/project-role";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 export default async function ProjectOverviewPage({
   params,
@@ -21,6 +26,13 @@ export default async function ProjectOverviewPage({
     },
   });
   if (!project) notFound();
+
+  const projectRole = await getProjectRole(session.user.id, projectId);
+  const canEditSettings = can(
+    { systemRole: session.user.systemRole },
+    "project.editSettings",
+    projectRole,
+  );
 
   const docStatusCounts = await prisma.document.groupBy({
     by: ["status"],
@@ -93,6 +105,44 @@ export default async function ProjectOverviewPage({
                 </Badge>
               ))
             )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-sm">Thông tin chung</CardTitle>
+            {canEditSettings ? (
+              <Button asChild size="icon" variant="ghost" className="size-7">
+                <Link href={`/projects/${projectId}/settings/edit`}>
+                  <Pencil className="size-3.5" />
+                </Link>
+              </Button>
+            ) : null}
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Mã dự án</span>
+              <span className="font-medium">{project.code}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Trạng thái</span>
+              <Badge variant="outline">{project.status}</Badge>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Độ ưu tiên</span>
+              <Badge variant="outline">{project.priority}</Badge>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Bắt đầu</span>
+              <span>{project.startDate ? project.startDate.toLocaleDateString("vi-VN") : "—"}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Kết thúc</span>
+              <span>{project.endDate ? project.endDate.toLocaleDateString("vi-VN") : "—"}</span>
+            </div>
+            {project.description ? (
+              <p className="border-t pt-2 text-muted-foreground">{project.description}</p>
+            ) : null}
           </CardContent>
         </Card>
       </div>

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { Settings, Download } from "lucide-react";
+import { Download } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/rbac";
@@ -39,11 +39,6 @@ export default async function ProjectLayout({
   const canManageModules = can(
     { systemRole: session.user.systemRole },
     "module.manage",
-    projectRole,
-  );
-  const canEditSettings = can(
-    { systemRole: session.user.systemRole },
-    "project.editSettings",
     projectRole,
   );
   const canDeleteDocuments = can(
@@ -93,15 +88,6 @@ export default async function ProjectLayout({
         />
 
         <nav className="space-y-0.5 text-sm">
-          {canEditSettings ? (
-            <Link
-              href={`/projects/${project.id}/settings/edit`}
-              className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent"
-            >
-              <Settings className="size-3.5" />
-              Thông tin chung
-            </Link>
-          ) : null}
           <Link
             href={`/api/projects/${project.id}/export`}
             className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent"
