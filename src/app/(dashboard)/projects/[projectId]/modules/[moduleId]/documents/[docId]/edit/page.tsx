@@ -41,6 +41,8 @@ export default async function EditDocumentPage({
             role: doc.role,
             description: doc.description ?? "",
             content: doc.currentContent,
+            diagramUrl: doc.diagramUrl,
+            diagramTitle: doc.diagramTitle,
           }}
         />
       </CardContent>

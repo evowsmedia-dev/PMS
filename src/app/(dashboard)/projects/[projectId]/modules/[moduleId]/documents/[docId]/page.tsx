@@ -94,14 +94,7 @@ export default async function DocumentDetailPage({
             </CardContent>
           </Card>
 
-          <DocumentDiagram
-            projectId={projectId}
-            moduleId={moduleId}
-            docId={docId}
-            diagramUrl={doc.diagramUrl}
-            diagramTitle={doc.diagramTitle}
-            canEdit={canEdit}
-          />
+          <DocumentDiagram diagramUrl={doc.diagramUrl} diagramTitle={doc.diagramTitle} />
 
           <Card>
             <CardContent className="pt-6">

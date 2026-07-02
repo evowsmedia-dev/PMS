@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { DOC_CATEGORY_LABEL } from "@/lib/validation/document";
 import { saveDocumentEditAction, autosaveDocumentAction } from "@/lib/actions/documents";
+import { DocumentDiagramEditor } from "@/components/document-diagram-editor";
 import type { ActionState } from "@/lib/actions/profile";
 
 const initialState: ActionState = {};
@@ -43,6 +44,8 @@ export function DocumentEditForm({
     role: string;
     description: string;
     content: string;
+    diagramUrl: string | null;
+    diagramTitle: string | null;
   };
 }) {
   const action = saveDocumentEditAction.bind(null, projectId, moduleId, docId);
@@ -168,6 +171,14 @@ export function DocumentEditForm({
         <Label htmlFor="description">Mô tả ngắn</Label>
         <Textarea id="description" name="description" defaultValue={initial.description} rows={2} />
       </div>
+
+      <DocumentDiagramEditor
+        projectId={projectId}
+        moduleId={moduleId}
+        docId={docId}
+        diagramUrl={initial.diagramUrl}
+        diagramTitle={initial.diagramTitle}
+      />
 
       <div className="flex items-center justify-between">
         <Label>Nội dung</Label>

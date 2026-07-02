@@ -57,31 +57,45 @@ interface ModuleItem {
 interface DocumentItem {
   id: string;
   title: string;
+  moduleId: string;
   parentDocumentId: string | null;
 }
 
 function DocumentRow({
   projectId,
-  moduleId,
   doc,
   canDelete,
+  toggle,
 }: {
   projectId: string;
-  moduleId: string;
   doc: DocumentItem;
   canDelete: boolean;
+  toggle?: { expanded: boolean; onToggle: () => void };
 }) {
   const pathname = usePathname();
   const [, startTransition] = useTransition();
-  const href = `/projects/${projectId}/modules/${moduleId}/documents/${doc.id}`;
+  const href = `/projects/${projectId}/modules/${doc.moduleId}/documents/${doc.id}`;
   const active = pathname === href;
 
   return (
     <div
-      className={`group flex items-center gap-1 rounded-md ${
+      className={`group flex items-center gap-0.5 rounded-md ${
         active ? "bg-accent text-accent-foreground" : ""
       }`}
     >
+      {toggle ? (
+        <button
+          type="button"
+          className="shrink-0 p-0.5 text-muted-foreground"
+          onClick={toggle.onToggle}
+        >
+          {toggle.expanded ? (
+            <ChevronDown className="size-3" />
+          ) : (
+            <ChevronRight className="size-3" />
+          )}
+        </button>
+      ) : null}
       <Link
         href={href}
         className={`flex flex-1 items-center gap-1.5 px-2 py-1 text-xs hover:bg-accent ${
@@ -114,7 +128,7 @@ function DocumentRow({
               <AlertDialogCancel>Hủy</AlertDialogCancel>
               <AlertDialogAction
                 onClick={() =>
-                  startTransition(() => deleteDocumentAction(projectId, moduleId, doc.id))
+                  startTransition(() => deleteDocumentAction(projectId, doc.moduleId, doc.id))
                 }
               >
                 Xóa
@@ -128,50 +142,50 @@ function DocumentRow({
 }
 
 /** Renders a document row; if it has sibling flow documents grouped under it,
- * also renders a secondary submenu listing them. */
+ * also renders an expandable secondary submenu listing them, with the
+ * expand/collapse chevron sitting right next to the document name. */
 function DocumentGroup({
   projectId,
-  moduleId,
   doc,
   flows,
   canDelete,
 }: {
   projectId: string;
-  moduleId: string;
   doc: DocumentItem;
   flows: DocumentItem[];
   canDelete: boolean;
 }) {
+  const [expanded, setExpanded] = useState(true);
+
   if (flows.length === 0) {
-    return <DocumentRow projectId={projectId} moduleId={moduleId} doc={doc} canDelete={canDelete} />;
+    return <DocumentRow projectId={projectId} doc={doc} canDelete={canDelete} />;
   }
 
   return (
     <div>
-      <DocumentRow projectId={projectId} moduleId={moduleId} doc={doc} canDelete={canDelete} />
-      <div className="ml-4 space-y-0.5 border-l pl-2">
-        {flows.map((flow) => (
-          <DocumentRow
-            key={flow.id}
-            projectId={projectId}
-            moduleId={moduleId}
-            doc={flow}
-            canDelete={canDelete}
-          />
-        ))}
-      </div>
+      <DocumentRow
+        projectId={projectId}
+        doc={doc}
+        canDelete={canDelete}
+        toggle={{ expanded, onToggle: () => setExpanded((v) => !v) }}
+      />
+      {expanded ? (
+        <div className="ml-4 space-y-0.5 border-l pl-2">
+          {flows.map((flow) => (
+            <DocumentRow key={flow.id} projectId={projectId} doc={flow} canDelete={canDelete} />
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
 
 function DocumentList({
   projectId,
-  moduleId,
   documents,
   canDelete,
 }: {
   projectId: string;
-  moduleId: string;
   documents: DocumentItem[];
   canDelete: boolean;
 }) {
@@ -197,7 +211,6 @@ function DocumentList({
         <DocumentGroup
           key={doc.id}
           projectId={projectId}
-          moduleId={moduleId}
           doc={doc}
           flows={flowsByParent.get(doc.id) ?? []}
           canDelete={canDelete}
@@ -335,7 +348,6 @@ function SortableModuleRow({
       {expanded ? (
         <DocumentList
           projectId={projectId}
-          moduleId={module.id}
           documents={documents}
           canDelete={canDeleteDocuments}
         />
@@ -361,7 +373,11 @@ export function ProjectDocumentsNav({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [items, setItems] = useState(modules.filter((m) => m.id !== mainModuleId));
+  const [items, setItems] = useState(
+    modules.filter(
+      (m) => m.id !== mainModuleId && (documentsByModule[m.id]?.length ?? 0) > 0,
+    ),
+  );
   const [dialogOpen, setDialogOpen] = useState(false);
   const sensors = useSensors(useSensor(PointerSensor));
 
@@ -414,7 +430,6 @@ export function ProjectDocumentsNav({
       {mainModuleId ? (
         <DocumentList
           projectId={projectId}
-          moduleId={mainModuleId}
           documents={documentsByModule[mainModuleId] ?? []}
           canDelete={canDeleteDocuments}
         />

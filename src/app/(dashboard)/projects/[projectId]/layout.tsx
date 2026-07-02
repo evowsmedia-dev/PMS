@@ -47,26 +47,33 @@ export default async function ProjectLayout({
     projectRole,
   );
 
+  const mainModuleId =
+    project.modules.find((m) => m.name === "Tài liệu chung")?.id ?? project.modules[0]?.id ?? null;
+
   const allDocuments = await prisma.document.findMany({
     where: { projectId, deletedAt: null },
-    select: { id: true, title: true, moduleId: true, parentDocumentId: true },
+    select: { id: true, title: true, moduleId: true, parentDocumentId: true, templateId: true },
     orderBy: { title: "asc" },
   });
   const documentsByModule: Record<
     string,
-    { id: string; title: string; parentDocumentId: string | null }[]
+    { id: string; title: string; moduleId: string; parentDocumentId: string | null }[]
   > = {};
   for (const doc of allDocuments) {
-    documentsByModule[doc.moduleId] ??= [];
-    documentsByModule[doc.moduleId].push({
+    // Documents made from the process-flow template are shown flat under the
+    // main "Tài liệu" list like any other document, regardless of which
+    // module they actually live in, instead of sitting inside their own
+    // module folder.
+    const bucketId =
+      doc.templateId === "rfid-process-flow" && mainModuleId ? mainModuleId : doc.moduleId;
+    documentsByModule[bucketId] ??= [];
+    documentsByModule[bucketId].push({
       id: doc.id,
       title: doc.title,
+      moduleId: doc.moduleId,
       parentDocumentId: doc.parentDocumentId,
     });
   }
-
-  const mainModuleId =
-    project.modules.find((m) => m.name === "Tài liệu chung")?.id ?? project.modules[0]?.id ?? null;
 
   return (
     <div className="flex flex-col gap-4 md:flex-row">
