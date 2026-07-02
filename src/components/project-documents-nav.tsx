@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useActionState, useEffect, useState, useTransition } from "react";
+import { toast } from "sonner";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -47,7 +48,10 @@ import {
   deleteModuleAction,
   reorderModulesAction,
 } from "@/lib/actions/modules";
-import { deleteDocumentAction } from "@/lib/actions/documents";
+import { deleteDocumentAction, createFlowDocumentAction } from "@/lib/actions/documents";
+import type { ActionState } from "@/lib/actions/profile";
+
+const addFlowInitialState: ActionState = {};
 
 interface ModuleItem {
   id: string;
@@ -59,6 +63,55 @@ interface DocumentItem {
   title: string;
   moduleId: string;
   parentDocumentId: string | null;
+  createdAt: number;
+  templateId: string | null;
+}
+
+/** Small hover-reveal trigger to add another flow document to the same
+ * process-flow group as `doc` (its root, or itself if it has no parent). */
+function AddFlowTrigger({
+  projectId,
+  doc,
+}: {
+  projectId: string;
+  doc: DocumentItem;
+}) {
+  const [open, setOpen] = useState(false);
+  const action = createFlowDocumentAction.bind(null, projectId, doc.moduleId, doc.id);
+  const [state, formAction, pending] = useActionState(action, addFlowInitialState);
+
+  useEffect(() => {
+    if (state.error) toast.error(state.error);
+  }, [state]);
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="hidden size-5 shrink-0 group-hover:flex"
+          title="Thêm sơ đồ quy trình"
+        >
+          <Plus className="size-3" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Thêm sơ đồ quy trình mới</DialogTitle>
+        </DialogHeader>
+        <form action={formAction} className="space-y-4">
+          <Input name="title" required placeholder="VD: 02 · Xuất kho NPL" autoFocus />
+          <DialogFooter>
+            <Button type="submit" disabled={pending}>
+              {pending ? "Đang tạo..." : "Tạo"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function DocumentRow({
@@ -66,11 +119,13 @@ function DocumentRow({
   doc,
   canDelete,
   toggle,
+  showAddFlow,
 }: {
   projectId: string;
   doc: DocumentItem;
   canDelete: boolean;
   toggle?: { expanded: boolean; onToggle: () => void };
+  showAddFlow?: boolean;
 }) {
   const pathname = usePathname();
   const [, startTransition] = useTransition();
@@ -105,6 +160,7 @@ function DocumentRow({
         <FileText className="size-3 shrink-0" />
         <span className="truncate">{doc.title}</span>
       </Link>
+      {showAddFlow ? <AddFlowTrigger projectId={projectId} doc={doc} /> : null}
       {canDelete ? (
         <AlertDialog>
           <AlertDialogTrigger asChild>
@@ -156,10 +212,15 @@ function DocumentGroup({
   canDelete: boolean;
 }) {
   const [expanded, setExpanded] = useState(true);
+  const isFlowRoot = doc.templateId === "rfid-process-flow";
 
   if (flows.length === 0) {
-    return <DocumentRow projectId={projectId} doc={doc} canDelete={canDelete} />;
+    return (
+      <DocumentRow projectId={projectId} doc={doc} canDelete={canDelete} showAddFlow={isFlowRoot} />
+    );
   }
+
+  const orderedFlows = [...flows].sort((a, b) => a.createdAt - b.createdAt);
 
   return (
     <div>
@@ -168,10 +229,11 @@ function DocumentGroup({
         doc={doc}
         canDelete={canDelete}
         toggle={{ expanded, onToggle: () => setExpanded((v) => !v) }}
+        showAddFlow={isFlowRoot}
       />
       {expanded ? (
         <div className="ml-4 space-y-0.5 border-l pl-2">
-          {flows.map((flow) => (
+          {orderedFlows.map((flow) => (
             <DocumentRow key={flow.id} projectId={projectId} doc={flow} canDelete={canDelete} />
           ))}
         </div>

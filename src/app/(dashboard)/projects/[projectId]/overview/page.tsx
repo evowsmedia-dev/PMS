@@ -22,7 +22,13 @@ export default async function ProjectOverviewPage({
     where: { id: projectId, deletedAt: null },
     include: {
       members: { include: { user: { select: { fullName: true, email: true } } } },
-      _count: { select: { documents: true, tasks: true, modules: true } },
+      _count: {
+        select: {
+          documents: { where: { deletedAt: null } },
+          tasks: { where: { deletedAt: null } },
+          modules: { where: { deletedAt: null } },
+        },
+      },
     },
   });
   if (!project) notFound();

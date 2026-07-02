@@ -52,12 +52,26 @@ export default async function ProjectLayout({
 
   const allDocuments = await prisma.document.findMany({
     where: { projectId, deletedAt: null },
-    select: { id: true, title: true, moduleId: true, parentDocumentId: true, templateId: true },
+    select: {
+      id: true,
+      title: true,
+      moduleId: true,
+      parentDocumentId: true,
+      templateId: true,
+      createdAt: true,
+    },
     orderBy: { title: "asc" },
   });
   const documentsByModule: Record<
     string,
-    { id: string; title: string; moduleId: string; parentDocumentId: string | null }[]
+    {
+      id: string;
+      title: string;
+      moduleId: string;
+      parentDocumentId: string | null;
+      createdAt: number;
+      templateId: string | null;
+    }[]
   > = {};
   for (const doc of allDocuments) {
     // Documents made from the process-flow template are shown flat under the
@@ -72,6 +86,8 @@ export default async function ProjectLayout({
       title: doc.title,
       moduleId: doc.moduleId,
       parentDocumentId: doc.parentDocumentId,
+      createdAt: doc.createdAt.getTime(),
+      templateId: doc.templateId,
     });
   }
 

@@ -49,12 +49,15 @@ export function AppSidebar({ isAdmin }: { isAdmin: boolean }) {
         collapsed ? "w-16" : "w-64",
       )}
     >
-      <div className="flex items-center gap-2 border-b p-4">
-        <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground font-bold">
-          E
+      <Link
+        href="/dashboard/overview"
+        className="flex items-center gap-2 border-b p-4 hover:bg-sidebar-accent"
+      >
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary text-[10px] font-bold leading-none text-primary-foreground">
+          PMS
         </div>
         {!collapsed ? <span className="font-semibold">PMS</span> : null}
-      </div>
+      </Link>
       <nav className="flex-1 space-y-1 p-3">
         {NAV_ITEMS.map((item) => {
           const active = pathname.startsWith(item.href);

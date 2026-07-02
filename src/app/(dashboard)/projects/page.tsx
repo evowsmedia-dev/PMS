@@ -33,7 +33,13 @@ export default async function ProjectsPage({
       ...(isAdmin ? {} : { members: { some: { userId: session.user.id } } }),
     },
     include: {
-      _count: { select: { documents: true, tasks: true, modules: true } },
+      _count: {
+        select: {
+          documents: { where: { deletedAt: null } },
+          tasks: { where: { deletedAt: null } },
+          modules: { where: { deletedAt: null } },
+        },
+      },
     },
     orderBy: { createdAt: "desc" },
   });

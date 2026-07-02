@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ActivityFeed } from "@/components/activity-feed";
 
 export default async function DashboardOverviewPage() {
   const session = await auth();
@@ -48,15 +47,6 @@ export default async function DashboardOverviewPage() {
           <CardContent className="text-2xl font-semibold">{taskCount}</CardContent>
         </Card>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">Hoạt động gần đây</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ActivityFeed userId={session.user.id} systemRole={session.user.systemRole} limit={10} />
-        </CardContent>
-      </Card>
     </div>
   );
 }

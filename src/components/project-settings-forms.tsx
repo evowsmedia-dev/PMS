@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,11 +38,15 @@ export function ProjectEditForm({
 }) {
   const action = updateProjectAction.bind(null, projectId);
   const [state, formAction, pending] = useActionState(action, initialState);
+  const router = useRouter();
 
   useEffect(() => {
-    if (state.success) toast.success(state.success);
+    if (state.success) {
+      toast.success(state.success);
+      router.refresh();
+    }
     if (state.error) toast.error(state.error);
-  }, [state]);
+  }, [state, router]);
 
   return (
     <form action={formAction} className="space-y-4">

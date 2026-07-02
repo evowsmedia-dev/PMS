@@ -6,7 +6,13 @@ export default async function AdminProjectsPage() {
   const projects = await prisma.project.findMany({
     include: {
       createdBy: { select: { fullName: true } },
-      _count: { select: { members: true, documents: true, tasks: true } },
+      _count: {
+        select: {
+          members: true,
+          documents: { where: { deletedAt: null } },
+          tasks: { where: { deletedAt: null } },
+        },
+      },
     },
     orderBy: { createdAt: "desc" },
   });
