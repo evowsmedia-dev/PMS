@@ -26,7 +26,6 @@ export default async function ProjectOverviewPage({
         select: {
           documents: { where: { deletedAt: null } },
           tasks: { where: { deletedAt: null } },
-          modules: { where: { deletedAt: null } },
         },
       },
     },
@@ -53,13 +52,7 @@ export default async function ProjectOverviewPage({
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Phân hệ</CardTitle>
-          </CardHeader>
-          <CardContent className="text-2xl font-semibold">{project._count.modules}</CardContent>
-        </Card>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground">Tài liệu</CardTitle>
