@@ -5,6 +5,7 @@ import { can } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DocumentEditForm } from "@/components/document-edit-form";
+import { PageShell } from "@/components/page-shell";
 
 export default async function EditDocumentPage({
   params,
@@ -26,6 +27,7 @@ export default async function EditDocumentPage({
   if (!doc) notFound();
 
   return (
+    <PageShell size="reading">
     <Card>
       <CardHeader>
         <CardTitle>Chỉnh sửa tài liệu</CardTitle>
@@ -47,5 +49,6 @@ export default async function EditDocumentPage({
         />
       </CardContent>
     </Card>
+    </PageShell>
   );
 }

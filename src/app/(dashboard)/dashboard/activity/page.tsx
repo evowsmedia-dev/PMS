@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ActivityFeed } from "@/components/activity-feed";
+import { PageShell } from "@/components/page-shell";
 
 const PAGE_SIZE = 30;
 
@@ -17,6 +18,7 @@ export default async function ActivityPage({
   const page = Math.max(1, Number(pageParam) || 1);
 
   return (
+    <PageShell size="standard">
     <Card>
       <CardHeader>
         <CardTitle>Hoạt động gần đây</CardTitle>
@@ -40,5 +42,6 @@ export default async function ActivityPage({
         </div>
       </CardContent>
     </Card>
+    </PageShell>
   );
 }

@@ -7,6 +7,7 @@ import { getProjectRole } from "@/lib/project-role";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { KanbanBoard } from "@/components/kanban-board";
+import { PageSection } from "@/components/page-shell";
 import { Plus } from "lucide-react";
 import type { Prisma, TaskPriority } from "@/generated/prisma/client";
 
@@ -61,7 +62,7 @@ export default async function ModuleTasksPage({
   }
 
   return (
-    <div className="space-y-4">
+    <PageSection>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-lg font-semibold">Kanban Board</h1>
         {canCreate ? (
@@ -113,6 +114,6 @@ export default async function ModuleTasksPage({
           assignee: t.assignee,
         }))}
       />
-    </div>
+    </PageSection>
   );
 }

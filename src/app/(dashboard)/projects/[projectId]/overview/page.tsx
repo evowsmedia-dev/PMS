@@ -8,6 +8,7 @@ import { getProjectRole } from "@/lib/project-role";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PageSection } from "@/components/page-shell";
 
 export default async function ProjectOverviewPage({
   params,
@@ -51,9 +52,9 @@ export default async function ProjectOverviewPage({
   });
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-        <Card>
+    <PageSection>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Card className="md:col-span-2">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground">Tài liệu</CardTitle>
           </CardHeader>
@@ -119,23 +120,23 @@ export default async function ProjectOverviewPage({
             ) : null}
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4">
               <span className="text-muted-foreground">Mã dự án</span>
-              <span className="font-medium">{project.code}</span>
+              <span className="truncate font-medium">{project.code}</span>
             </div>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4">
               <span className="text-muted-foreground">Trạng thái</span>
               <Badge variant="outline">{project.status}</Badge>
             </div>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4">
               <span className="text-muted-foreground">Độ ưu tiên</span>
               <Badge variant="outline">{project.priority}</Badge>
             </div>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4">
               <span className="text-muted-foreground">Bắt đầu</span>
               <span>{project.startDate ? project.startDate.toLocaleDateString("vi-VN") : "—"}</span>
             </div>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4">
               <span className="text-muted-foreground">Kết thúc</span>
               <span>{project.endDate ? project.endDate.toLocaleDateString("vi-VN") : "—"}</span>
             </div>
@@ -161,13 +162,13 @@ export default async function ProjectOverviewPage({
         </CardHeader>
         <CardContent className="space-y-1">
           {project.members.map((m) => (
-            <div key={m.id} className="flex items-center justify-between text-sm">
-              <span>{m.user.fullName}</span>
+            <div key={m.id} className="flex items-center justify-between gap-3 text-sm">
+              <span className="min-w-0 truncate">{m.user.fullName}</span>
               <Badge variant="secondary">{m.role}</Badge>
             </div>
           ))}
         </CardContent>
       </Card>
-    </div>
+    </PageSection>
   );
 }

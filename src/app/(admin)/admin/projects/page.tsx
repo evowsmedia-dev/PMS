@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { Badge } from "@/components/ui/badge";
+import { PageShell, PageSection, ResponsiveTableFrame } from "@/components/page-shell";
 
 export default async function AdminProjectsPage() {
   const projects = await prisma.project.findMany({
@@ -18,9 +19,10 @@ export default async function AdminProjectsPage() {
   });
 
   return (
-    <div className="space-y-4">
+    <PageShell size="data">
+      <PageSection>
       <h1 className="text-lg font-semibold">Tất cả dự án ({projects.length})</h1>
-      <div className="rounded-md border">
+      <ResponsiveTableFrame minWidth="min-w-[860px]">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
             <tr>
@@ -54,7 +56,8 @@ export default async function AdminProjectsPage() {
             ))}
           </tbody>
         </table>
-      </div>
-    </div>
+      </ResponsiveTableFrame>
+      </PageSection>
+    </PageShell>
   );
 }

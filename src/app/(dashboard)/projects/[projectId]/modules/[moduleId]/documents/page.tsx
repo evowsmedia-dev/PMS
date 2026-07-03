@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { PageSection, ResponsiveTableFrame } from "@/components/page-shell";
 import { Plus, Search } from "lucide-react";
 import type { DocCategory, DocRole, DocStatus, Prisma } from "@/generated/prisma/client";
 
@@ -90,7 +91,7 @@ export default async function ModuleDocumentsPage({
   }
 
   return (
-    <div className="space-y-4">
+    <PageSection>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-lg font-semibold">Tài liệu</h1>
         {canCreate ? (
@@ -103,7 +104,7 @@ export default async function ModuleDocumentsPage({
         ) : null}
       </div>
 
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
         {(["DRAFT", "REVIEW", "APPROVED", "ARCHIVED"] as const).map((status) => {
           const count = statusCounts.find((s) => s.status === status)?._count ?? 0;
           return (
@@ -141,12 +142,12 @@ export default async function ModuleDocumentsPage({
         ))}
       </div>
 
-      <form className="relative max-w-sm">
+      <form className="relative w-full max-w-sm">
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input name="q" defaultValue={sp.q} placeholder="Tìm kiếm tiêu đề hoặc mô tả..." className="pl-9" />
       </form>
 
-      <div className="rounded-md border">
+      <ResponsiveTableFrame minWidth="min-w-[840px]">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
             <tr>
@@ -163,7 +164,7 @@ export default async function ModuleDocumentsPage({
                 <td className="px-4 py-2">
                   <Link
                     href={`/projects/${projectId}/modules/${moduleId}/documents/${doc.id}`}
-                    className="font-medium hover:underline"
+                    className="font-medium underline-offset-4 hover:underline"
                   >
                     {doc.title}
                   </Link>
@@ -189,7 +190,7 @@ export default async function ModuleDocumentsPage({
             ) : null}
           </tbody>
         </table>
-      </div>
+      </ResponsiveTableFrame>
 
       {totalPages > 1 ? (
         <div className="flex items-center justify-center gap-2 text-sm">
@@ -204,6 +205,6 @@ export default async function ModuleDocumentsPage({
           ))}
         </div>
       ) : null}
-    </div>
+    </PageSection>
   );
 }

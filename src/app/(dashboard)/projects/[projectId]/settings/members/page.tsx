@@ -5,6 +5,7 @@ import { can } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AddMemberForm, MemberList } from "@/components/project-members";
+import { PageShell, PageSection } from "@/components/page-shell";
 
 export default async function ProjectMembersPage({
   params,
@@ -35,7 +36,8 @@ export default async function ProjectMembersPage({
   if (!project) notFound();
 
   return (
-    <div className="max-w-2xl space-y-4">
+    <PageShell size="compact">
+      <PageSection>
       <Card>
         <CardHeader>
           <CardTitle>Thêm thành viên</CardTitle>
@@ -53,6 +55,7 @@ export default async function ProjectMembersPage({
           <MemberList projectId={project.id} members={project.members} />
         </CardContent>
       </Card>
-    </div>
+      </PageSection>
+    </PageShell>
   );
 }

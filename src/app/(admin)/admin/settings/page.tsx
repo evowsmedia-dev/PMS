@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SystemSettingsForm } from "@/components/system-settings-form";
+import { PageShell, PageSection } from "@/components/page-shell";
 
 const ROLE_MATRIX: { action: string; roles: string }[] = [
   { action: "Xem tài liệu / task", roles: "Mọi vai trò (Viewer: chỉ xem)" },
@@ -20,7 +21,8 @@ export default async function AdminSettingsPage() {
   const get = (key: string) => (settings.find((s) => s.key === key)?.value as string) ?? "";
 
   return (
-    <div className="space-y-4">
+    <PageShell size="standard">
+      <PageSection>
       <h1 className="text-lg font-semibold">Cài đặt hệ thống</h1>
 
       <Card>
@@ -43,12 +45,13 @@ export default async function AdminSettingsPage() {
         <CardContent className="space-y-2">
           {ROLE_MATRIX.map((row) => (
             <div key={row.action} className="flex flex-wrap items-center justify-between gap-2 border-b pb-2 text-sm last:border-none">
-              <span>{row.action}</span>
+              <span className="min-w-0">{row.action}</span>
               <Badge variant="outline">{row.roles}</Badge>
             </div>
           ))}
         </CardContent>
       </Card>
-    </div>
+      </PageSection>
+    </PageShell>
   );
 }

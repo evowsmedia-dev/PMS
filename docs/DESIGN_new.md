@@ -53,6 +53,12 @@ shadcn/ui is a strictly monochromatic design system documentation site: pure whi
 - **Card padding:** 16px
 - **Element gap:** 8px
 
+`1200px` is the maximum app canvas, not the default width for every screen.
+Choose a surface width by task type: compact forms around `640px`, reading
+surfaces around `820px`, standard dashboards/lists around `1040px`, and data or
+board views up to `1200px`. Wide desktop space should feel balanced, not
+stretched.
+
 ### Border Radius
 
 - **nav:** 10px

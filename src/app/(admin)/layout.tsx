@@ -21,24 +21,26 @@ export default async function AdminLayout({
 
   return (
     <div className="min-h-screen">
-      <header className="flex min-h-16 items-center gap-4 border-b bg-background px-4 py-3 text-foreground">
-        <span className="font-semibold">Admin Panel</span>
-        <nav className="flex gap-1">
-          {ADMIN_NAV.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="rounded-lg px-3 py-1.5 text-sm hover:bg-muted"
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-        <Link href="/dashboard/overview" className="ml-auto text-sm underline underline-offset-4">
-          Về Dashboard
-        </Link>
+      <header className="border-b bg-background px-4 py-3 text-foreground">
+        <div className="mx-auto flex min-h-10 w-full max-w-[1200px] flex-wrap items-center gap-3">
+          <span className="font-semibold">Admin Panel</span>
+          <nav className="flex max-w-full gap-1 overflow-x-auto">
+            {ADMIN_NAV.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="shrink-0 rounded-lg px-3 py-1.5 text-sm hover:bg-muted"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+          <Link href="/dashboard/overview" className="ml-auto text-sm underline underline-offset-4">
+            Về Dashboard
+          </Link>
+        </div>
       </header>
-      <div className="mx-auto w-full max-w-[1200px] p-4 md:p-6">{children}</div>
+      <main className="w-full px-4 py-4 md:px-6 md:py-6">{children}</main>
     </div>
   );
 }

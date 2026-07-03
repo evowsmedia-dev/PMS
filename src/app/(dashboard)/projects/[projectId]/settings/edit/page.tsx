@@ -6,6 +6,7 @@ import { getProjectRole } from "@/lib/project-role";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProjectEditForm } from "@/components/project-settings-forms";
 import { ArchiveProjectButton } from "@/components/project-danger-actions";
+import { PageShell, PageSection } from "@/components/page-shell";
 
 export default async function ProjectEditSettingsPage({
   params,
@@ -25,7 +26,8 @@ export default async function ProjectEditSettingsPage({
   if (!project) notFound();
 
   return (
-    <div className="max-w-2xl space-y-4">
+    <PageShell size="compact">
+      <PageSection>
       <Card>
         <CardHeader>
           <CardTitle>Chỉnh sửa dự án</CardTitle>
@@ -54,6 +56,7 @@ export default async function ProjectEditSettingsPage({
           />
         </CardContent>
       </Card>
-    </div>
+      </PageSection>
+    </PageShell>
   );
 }

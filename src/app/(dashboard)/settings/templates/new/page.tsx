@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { can } from "@/lib/rbac";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CreateTemplateForm } from "@/components/template-forms";
+import { PageShell } from "@/components/page-shell";
 
 export default async function NewTemplatePage() {
   const session = await auth();
@@ -12,7 +13,8 @@ export default async function NewTemplatePage() {
   }
 
   return (
-    <Card className="max-w-lg">
+    <PageShell size="compact">
+    <Card>
       <CardHeader>
         <CardTitle>Tạo template mới</CardTitle>
       </CardHeader>
@@ -20,5 +22,6 @@ export default async function NewTemplatePage() {
         <CreateTemplateForm />
       </CardContent>
     </Card>
+    </PageShell>
   );
 }

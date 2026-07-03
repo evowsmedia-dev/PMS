@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { prisma } from "@/lib/prisma";
 import { ProjectCreateForm } from "@/components/project-form";
+import { PageShell } from "@/components/page-shell";
 
 export default async function NewProjectPage() {
   const templates = await prisma.template.findMany({
@@ -10,7 +11,8 @@ export default async function NewProjectPage() {
   });
 
   return (
-    <Card className="mx-auto max-w-2xl">
+    <PageShell size="compact">
+    <Card>
       <CardHeader>
         <CardTitle>Tạo dự án mới</CardTitle>
       </CardHeader>
@@ -18,5 +20,6 @@ export default async function NewProjectPage() {
         <ProjectCreateForm templates={templates} />
       </CardContent>
     </Card>
+    </PageShell>
   );
 }

@@ -5,6 +5,7 @@ import { can } from "@/lib/rbac";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EditTemplateForm } from "@/components/template-forms";
 import { DeleteTemplateButton } from "@/components/delete-template-button";
+import { PageShell } from "@/components/page-shell";
 
 export default async function EditTemplatePage({
   params,
@@ -24,7 +25,8 @@ export default async function EditTemplatePage({
   if (!template) notFound();
 
   return (
-    <Card className="max-w-3xl">
+    <PageShell size="reading">
+    <Card>
       <CardHeader>
         <CardTitle>Chỉnh sửa template — {template.name}</CardTitle>
       </CardHeader>
@@ -40,5 +42,6 @@ export default async function EditTemplatePage({
         </div>
       </CardContent>
     </Card>
+    </PageShell>
   );
 }

@@ -48,8 +48,8 @@ export default async function TaskDetailPage({
   const canComment = can(roleCtx, "comment.create", projectRole);
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-      <div className="space-y-4 lg:col-span-2">
+    <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,720px)_320px] lg:items-start">
+      <div className="min-w-0 space-y-4">
         <Card>
           <CardHeader>
             <CardTitle>{task.title}</CardTitle>
@@ -117,7 +117,7 @@ export default async function TaskDetailPage({
         </Card>
       </div>
 
-      <Card className="h-fit">
+      <Card className="h-fit min-w-0">
         <CardContent className="pt-6">
           <TaskComments
             projectId={projectId}

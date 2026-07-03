@@ -4,6 +4,7 @@ import { can } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DocumentCreateForm } from "@/components/document-create-form";
+import { PageShell } from "@/components/page-shell";
 
 export default async function NewDocumentPage({
   params,
@@ -20,7 +21,8 @@ export default async function NewDocumentPage({
   }
 
   return (
-    <Card className="max-w-3xl">
+    <PageShell size="compact">
+    <Card>
       <CardHeader>
         <CardTitle>Tạo tài liệu mới</CardTitle>
       </CardHeader>
@@ -28,5 +30,6 @@ export default async function NewDocumentPage({
         <DocumentCreateForm projectId={projectId} moduleId={moduleId} />
       </CardContent>
     </Card>
+    </PageShell>
   );
 }

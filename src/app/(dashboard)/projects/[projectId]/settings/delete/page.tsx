@@ -5,6 +5,7 @@ import { can } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DeleteProjectButton } from "@/components/project-danger-actions";
+import { PageShell } from "@/components/page-shell";
 
 export default async function ProjectDeleteSettingsPage({
   params,
@@ -24,7 +25,8 @@ export default async function ProjectDeleteSettingsPage({
   if (!project) notFound();
 
   return (
-    <Card className="max-w-xl">
+    <PageShell size="compact">
+    <Card>
       <CardHeader>
         <CardTitle>Xóa dự án &quot;{project.name}&quot;</CardTitle>
       </CardHeader>
@@ -36,5 +38,6 @@ export default async function ProjectDeleteSettingsPage({
         <DeleteProjectButton projectId={project.id} />
       </CardContent>
     </Card>
+    </PageShell>
   );
 }

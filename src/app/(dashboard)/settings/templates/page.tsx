@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/rbac";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { PageShell, PageSection, PageToolbar } from "@/components/page-shell";
 import { Plus } from "lucide-react";
 
 export default async function TemplatesPage() {
@@ -21,24 +22,27 @@ export default async function TemplatesPage() {
   });
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Quản lý template</h1>
-        <Button asChild size="sm">
+    <PageShell size="standard">
+      <PageSection>
+      <PageToolbar
+        title="Quản lý template"
+        actions={
+          <Button asChild size="sm">
           <Link href="/settings/templates/new">
             <Plus className="size-4" />
             Tạo template mới
           </Link>
         </Button>
-      </div>
+        }
+      />
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {templates.map((t) => (
           <Link key={t.id} href={`/settings/templates/${t.id}`}>
             <Card className="transition-colors hover:bg-muted/40">
               <CardContent className="p-4">
-                <p className="font-medium">{t.name}</p>
-                <p className="text-sm text-muted-foreground">{t.description}</p>
+                <p className="truncate font-medium">{t.name}</p>
+                <p className="line-clamp-2 text-sm text-muted-foreground">{t.description}</p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Đã dùng cho {t._count.projects} dự án
                 </p>
@@ -47,6 +51,7 @@ export default async function TemplatesPage() {
           </Link>
         ))}
       </div>
-    </div>
+      </PageSection>
+    </PageShell>
   );
 }

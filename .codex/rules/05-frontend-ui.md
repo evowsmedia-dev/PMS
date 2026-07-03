@@ -36,6 +36,10 @@ Component rules:
 
 Layout rules:
 
+- Use the layout tiers in `.codex/rules/09-layout-responsive.md`. Do not use
+  full-width page surfaces by default.
+- Reach for `PageShell`, `PageSection`, `PageToolbar`, and
+  `ResponsiveTableFrame` before adding one-off layout wrappers.
 - Text must not overflow or overlap on mobile or desktop.
 - Use stable dimensions for toolbars, boards, grids, counters, and repeated
   tiles so state changes do not cause layout jumps.

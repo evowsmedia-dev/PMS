@@ -54,12 +54,12 @@ export default async function DocumentDetailPage({
 
   return (
     <DocumentDetailShell>
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="space-y-4 lg:col-span-2">
+      <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,78ch)_320px] lg:items-start">
+        <div className="min-w-0 space-y-4">
           <Card>
             <CardContent className="space-y-4 pt-6">
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
+                <div className="min-w-0">
                   <h1 className="text-[24px] font-bold">{doc.title}</h1>
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                     <Badge>{DOC_STATUS_LABEL[doc.status]}</Badge>
@@ -110,7 +110,7 @@ export default async function DocumentDetailPage({
 
           <Card className="overflow-hidden py-0">
             <CardHeader className="border-b bg-muted/40 py-3">
-              <CardTitle className="text-sm">🕒 Lịch sử thay đổi (v{doc.currentVersionNo})</CardTitle>
+              <CardTitle className="text-sm">Lịch sử thay đổi (v{doc.currentVersionNo})</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
@@ -182,7 +182,7 @@ export default async function DocumentDetailPage({
           </Card>
         </div>
 
-        <Card className="h-fit">
+        <Card className="h-fit min-w-0">
           <CardContent className="pt-6">
             <DocumentComments
               projectId={projectId}

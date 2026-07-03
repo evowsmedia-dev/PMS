@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PageShell, PageSection, PageToolbar } from "@/components/page-shell";
 import { ProjectIcon } from "@/lib/validation/icons";
 import { Plus, Search } from "lucide-react";
 
@@ -45,28 +46,31 @@ export default async function ProjectsPage({
   });
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold">Dự án</h1>
-        <Button asChild>
+    <PageShell size="standard">
+      <PageSection>
+      <PageToolbar
+        title="Dự án"
+        actions={
+          <Button asChild>
           <Link href="/projects/new">
             <Plus className="size-4" />
             Thêm dự án
           </Link>
         </Button>
-      </div>
-
-      <form className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input name="q" defaultValue={q} placeholder="Tìm kiếm dự án..." className="pl-9" />
-      </form>
+        }
+      >
+        <form className="relative w-full max-w-sm">
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input name="q" defaultValue={q} placeholder="Tìm kiếm dự án..." className="pl-9" />
+        </form>
+      </PageToolbar>
 
       {projects.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           Chưa có dự án nào. Bấm &quot;Thêm dự án&quot; để bắt đầu.
         </p>
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {projects.map((project) => (
             <Link key={project.id} href={`/projects/${project.id}/overview`}>
               <Card className="h-full transition-colors hover:bg-muted/40">
@@ -74,8 +78,8 @@ export default async function ProjectsPage({
                   <div className="flex size-10 items-center justify-center rounded-lg border border-border bg-muted text-foreground">
                     <ProjectIcon name={project.icon} className="size-5" />
                   </div>
-                  <div>
-                    <CardTitle className="text-base">{project.name}</CardTitle>
+                  <div className="min-w-0">
+                    <CardTitle className="truncate text-base">{project.name}</CardTitle>
                     <p className="text-xs text-muted-foreground">{project.code}</p>
                   </div>
                 </CardHeader>
@@ -99,6 +103,7 @@ export default async function ProjectsPage({
           ))}
         </div>
       )}
-    </div>
+      </PageSection>
+    </PageShell>
   );
 }

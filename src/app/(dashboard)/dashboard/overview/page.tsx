@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageShell, PageSection } from "@/components/page-shell";
 
 export default async function DashboardOverviewPage() {
   const session = await auth();
@@ -20,8 +21,9 @@ export default async function DashboardOverviewPage() {
   ]);
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+    <PageShell size="standard">
+      <PageSection>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground">Tổng dự án</CardTitle>
@@ -47,6 +49,7 @@ export default async function DashboardOverviewPage() {
           <CardContent className="text-2xl font-semibold">{taskCount}</CardContent>
         </Card>
       </div>
-    </div>
+      </PageSection>
+    </PageShell>
   );
 }

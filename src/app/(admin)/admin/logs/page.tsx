@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { formatAuditEntry } from "@/lib/audit-format";
 import { Badge } from "@/components/ui/badge";
 import { AdminLogsFilter } from "@/components/admin-logs-filter";
+import { PageShell, PageSection, PageToolbar, ResponsiveTableFrame } from "@/components/page-shell";
 import type { AuditAction, Prisma } from "@/generated/prisma/client";
 
 const PAGE_SIZE = 40;
@@ -43,12 +44,14 @@ export default async function AdminLogsPage({
   });
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-lg font-semibold">Nhật ký hệ thống</h1>
+    <PageShell size="data">
+      <PageSection>
+      <PageToolbar
+        title="Nhật ký hệ thống"
+        filters={<AdminLogsFilter actions={ACTIONS} current={sp.action} />}
+      />
 
-      <AdminLogsFilter actions={ACTIONS} current={sp.action} />
-
-      <div className="rounded-md border">
+      <ResponsiveTableFrame minWidth="min-w-[880px]">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
             <tr>
@@ -73,7 +76,7 @@ export default async function AdminLogsPage({
             ))}
           </tbody>
         </table>
-      </div>
+      </ResponsiveTableFrame>
 
       <div className="flex justify-center gap-2 text-sm">
         {page > 1 ? (
@@ -85,6 +88,7 @@ export default async function AdminLogsPage({
           Trang sau →
         </Link>
       </div>
-    </div>
+      </PageSection>
+    </PageShell>
   );
 }

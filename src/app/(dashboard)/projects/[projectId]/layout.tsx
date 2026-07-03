@@ -6,7 +6,9 @@ import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { ProjectDocumentsNav } from "@/components/project-documents-nav";
+import { ProjectMobileNav } from "@/components/project-mobile-nav";
 import { SetPageHeader } from "@/components/page-header-context";
+import { PageShell } from "@/components/page-shell";
 
 export default async function ProjectLayout({
   children,
@@ -92,36 +94,48 @@ export default async function ProjectLayout({
   }
 
   return (
-    <div className="flex flex-col gap-4 md:flex-row">
+    <PageShell size="data" className="space-y-4">
       <SetPageHeader title={project.name} subtitle={project.code} />
-      <aside className="w-full shrink-0 space-y-4 md:w-56">
-        <nav className="space-y-0.5 text-sm">
-          <Link href={`/projects/${project.id}/overview`} className="block rounded-lg px-2 py-1.5 hover:bg-accent">
-            Dashboard dự án
-          </Link>
-        </nav>
 
-        <ProjectDocumentsNav
-          projectId={project.id}
-          modules={project.modules}
-          canManage={canManageModules}
-          canDeleteDocuments={canDeleteDocuments}
-          documentsByModule={documentsByModule}
-          mainModuleId={mainModuleId}
-        />
+      <ProjectMobileNav
+        projectId={project.id}
+        modules={project.modules}
+        canManage={canManageModules}
+        canDeleteDocuments={canDeleteDocuments}
+        documentsByModule={documentsByModule}
+        mainModuleId={mainModuleId}
+      />
 
-        <nav className="space-y-0.5 text-sm">
-          <Link
-            href={`/api/projects/${project.id}/export`}
-            className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-accent"
-          >
-            <Download className="size-3.5" />
-            Export JSON
-          </Link>
-        </nav>
-      </aside>
+      <div className="grid min-w-0 gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
+        <aside className="hidden shrink-0 space-y-4 lg:block">
+          <nav className="space-y-0.5 text-sm">
+            <Link href={`/projects/${project.id}/overview`} className="block rounded-lg px-2 py-1.5 hover:bg-accent">
+              Dashboard dự án
+            </Link>
+          </nav>
 
-      <div className="min-w-0 flex-1">{children}</div>
-    </div>
+          <ProjectDocumentsNav
+            projectId={project.id}
+            modules={project.modules}
+            canManage={canManageModules}
+            canDeleteDocuments={canDeleteDocuments}
+            documentsByModule={documentsByModule}
+            mainModuleId={mainModuleId}
+          />
+
+          <nav className="space-y-0.5 text-sm">
+            <Link
+              href={`/api/projects/${project.id}/export`}
+              className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-accent"
+            >
+              <Download className="size-3.5" />
+              Export JSON
+            </Link>
+          </nav>
+        </aside>
+
+        <div className="min-w-0 flex-1">{children}</div>
+      </div>
+    </PageShell>
   );
 }

@@ -88,7 +88,7 @@ function Column({
   const { setNodeRef } = useDroppable({ id: status });
 
   return (
-    <div className="flex min-w-64 flex-1 flex-col rounded-xl border border-border bg-muted p-2">
+    <div className="flex min-h-[360px] w-[280px] shrink-0 flex-col rounded-xl border border-border bg-muted p-2 sm:w-[304px]">
       <div className="mb-2 flex items-center justify-between px-1">
         <p className="text-sm font-semibold">{TASK_STATUS_LABEL[status]}</p>
         <Badge variant="secondary">{tasks.length}</Badge>
@@ -162,7 +162,7 @@ export function KanbanBoard({
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
-      <div className="flex gap-3 overflow-x-auto pb-2">
+      <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-2">
         {columns.map((col) => (
           <Column
             key={col.status}

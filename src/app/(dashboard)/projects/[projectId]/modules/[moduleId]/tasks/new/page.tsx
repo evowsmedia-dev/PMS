@@ -5,6 +5,7 @@ import { can } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TaskCreateForm } from "@/components/task-create-form";
+import { PageShell } from "@/components/page-shell";
 
 export default async function NewTaskPage({
   params,
@@ -33,7 +34,8 @@ export default async function NewTaskPage({
     : null;
 
   return (
-    <Card className="max-w-2xl">
+    <PageShell size="compact">
+    <Card>
       <CardHeader>
         <CardTitle>Tạo task mới</CardTitle>
       </CardHeader>
@@ -48,5 +50,6 @@ export default async function NewTaskPage({
         />
       </CardContent>
     </Card>
+    </PageShell>
   );
 }

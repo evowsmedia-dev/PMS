@@ -8,6 +8,7 @@ import {
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ProfileInfoForm, ChangePasswordForm } from "@/components/profile-form";
+import { PageShell, PageSection } from "@/components/page-shell";
 
 export default async function ProfilePage() {
   const session = await auth();
@@ -17,7 +18,8 @@ export default async function ProfilePage() {
   if (!user) redirect("/login");
 
   return (
-    <div className="mx-auto max-w-lg space-y-6">
+    <PageShell size="compact">
+      <PageSection>
       <Card>
         <CardHeader>
           <CardTitle>Hồ sơ cá nhân</CardTitle>
@@ -39,6 +41,7 @@ export default async function ProfilePage() {
           <ChangePasswordForm />
         </CardContent>
       </Card>
-    </div>
+      </PageSection>
+    </PageShell>
   );
 }

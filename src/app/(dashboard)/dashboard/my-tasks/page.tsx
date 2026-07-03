@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TASK_PRIORITY_LABEL } from "@/lib/validation/task";
+import { PageShell, PageSection, PageToolbar } from "@/components/page-shell";
 
 type Tab = "mine" | "due-soon" | "overdue" | "done";
 
@@ -56,14 +57,19 @@ export default async function MyTasksPage({
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap gap-2">
+    <PageShell size="standard">
+      <PageSection>
+      <PageToolbar
+        filters={
+          <>
         {TABS.map((t) => (
           <Link key={t.value} href={`?tab=${t.value}`}>
             <Badge variant={tab === t.value ? "default" : "outline"}>{t.label}</Badge>
           </Link>
         ))}
-      </div>
+          </>
+        }
+      />
 
       {tasks.length === 0 ? (
         <p className="text-sm text-muted-foreground">Không có task nào.</p>
@@ -72,15 +78,15 @@ export default async function MyTasksPage({
           {tasks.map((task) => (
             <Link key={task.id} href={taskHref(task)}>
               <Card className="transition-colors hover:bg-muted/40">
-                <CardContent className="flex flex-wrap items-center justify-between gap-2 p-3">
-                  <div>
-                    <p className="font-medium">
-                      {task.isReviewRequest ? "📝 " : ""}
+                <CardContent className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">
+                      {task.isReviewRequest ? "Review: " : ""}
                       {task.title}
                     </p>
                     <p className="text-xs text-muted-foreground">{task.project.name}</p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex shrink-0 flex-wrap items-center gap-2">
                     {task.isReviewRequest ? <Badge>Cần phê duyệt</Badge> : null}
                     <Badge variant="outline">{TASK_PRIORITY_LABEL[task.priority]}</Badge>
                     {task.dueDate ? (
@@ -95,6 +101,7 @@ export default async function MyTasksPage({
           ))}
         </div>
       )}
-    </div>
+      </PageSection>
+    </PageShell>
   );
 }
