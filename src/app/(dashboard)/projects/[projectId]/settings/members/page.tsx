@@ -28,8 +28,16 @@ export default async function ProjectMembersPage({
     where: { id: projectId, deletedAt: null },
     include: {
       members: {
-        include: { user: { select: { fullName: true, email: true } } },
+        include: {
+          user: { select: { fullName: true, email: true } },
+          documentTypeAssignments: { select: { moduleId: true } },
+        },
         orderBy: { addedAt: "asc" },
+      },
+      modules: {
+        where: { deletedAt: null },
+        orderBy: { sortOrder: "asc" },
+        select: { id: true, name: true },
       },
     },
   });
@@ -52,7 +60,7 @@ export default async function ProjectMembersPage({
           <CardTitle>Thành viên dự án ({project.members.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <MemberList projectId={project.id} members={project.members} />
+          <MemberList projectId={project.id} members={project.members} modules={project.modules} />
         </CardContent>
       </Card>
       </PageSection>

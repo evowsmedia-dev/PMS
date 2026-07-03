@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
+import { canAccessModule, getAssignedModuleIdsForUser } from "@/lib/document-type-access";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { KanbanBoard } from "@/components/kanban-board";
@@ -28,6 +29,13 @@ export default async function ModuleTasksPage({
 
   const projectRole = await getProjectRole(session.user.id, projectId);
   const canCreate = can({ systemRole: session.user.systemRole }, "task.create", projectRole);
+  const assignedModuleIds = await getAssignedModuleIdsForUser({
+    projectId,
+    userId: session.user.id,
+    systemRole: session.user.systemRole,
+    projectRole,
+  });
+  if (!canAccessModule(assignedModuleIds, moduleId)) redirect(`/projects/${projectId}/overview`);
 
   const where: Prisma.TaskWhereInput = {
     projectId,

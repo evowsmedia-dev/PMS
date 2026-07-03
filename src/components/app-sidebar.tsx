@@ -59,7 +59,7 @@ export function AppSidebar({ isAdmin }: { isAdmin: boolean }) {
   return (
     <aside
       className={cn(
-        "hidden shrink-0 border-r bg-sidebar text-sidebar-foreground md:flex md:flex-col",
+        "sticky top-0 hidden h-screen shrink-0 border-r bg-sidebar text-sidebar-foreground md:flex md:flex-col",
         collapsed ? "w-16" : "w-64",
       )}
     >
@@ -72,7 +72,7 @@ export function AppSidebar({ isAdmin }: { isAdmin: boolean }) {
         </div>
         {!collapsed ? <span className="font-semibold">PMS</span> : null}
       </Link>
-      <nav className="flex-1 space-y-1 p-3">
+      <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto p-3">
         {NAV_ITEMS.map((item) => {
           const active = pathname.startsWith(item.href);
           return (
@@ -105,7 +105,7 @@ export function AppSidebar({ isAdmin }: { isAdmin: boolean }) {
           </Link>
         ) : null}
       </nav>
-      <div className="border-t p-2">
+      <div className="shrink-0 border-t bg-sidebar p-2">
         <button
           type="button"
           onClick={toggle}

@@ -30,8 +30,8 @@ export default async function DashboardLayout({
         <AppSidebar isAdmin={isAdmin} />
 
         <div className="flex flex-1 flex-col">
-          <header className="border-b bg-background px-4 py-3">
-            <div className="mx-auto flex min-h-10 w-full max-w-[1200px] items-center gap-3">
+          <header className="border-b bg-background px-4 py-3 md:px-6">
+            <div className="flex min-h-10 w-full items-center gap-3">
               <MobileAppNav isAdmin={isAdmin} />
               <HeaderTitle />
               <div className="ml-auto flex min-w-0 items-center gap-2 text-sm text-muted-foreground sm:gap-3">

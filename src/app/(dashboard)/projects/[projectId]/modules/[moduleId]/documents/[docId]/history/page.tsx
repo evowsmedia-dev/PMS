@@ -1,5 +1,8 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+import { getProjectRole } from "@/lib/project-role";
+import { canAccessModule, getAssignedModuleIdsForUser } from "@/lib/document-type-access";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -8,7 +11,17 @@ export default async function DocumentHistoryPage({
 }: {
   params: Promise<{ projectId: string; moduleId: string; docId: string }>;
 }) {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
   const { projectId, moduleId, docId } = await params;
+  const projectRole = await getProjectRole(session.user.id, projectId);
+  const assignedModuleIds = await getAssignedModuleIdsForUser({
+    projectId,
+    userId: session.user.id,
+    systemRole: session.user.systemRole,
+    projectRole,
+  });
+  if (!canAccessModule(assignedModuleIds, moduleId)) redirect(`/projects/${projectId}/overview`);
 
   const doc = await prisma.document.findFirst({
     where: { id: docId, projectId, moduleId, deletedAt: null },

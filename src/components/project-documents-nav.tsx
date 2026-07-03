@@ -134,14 +134,14 @@ function DocumentRow({
 
   return (
     <div
-      className={`group flex items-center gap-0.5 rounded-md ${
+      className={`group flex items-start gap-0.5 rounded-md ${
         active ? "bg-accent text-accent-foreground" : ""
       }`}
     >
       {toggle ? (
         <button
           type="button"
-          className="shrink-0 p-0.5 text-muted-foreground"
+          className="mt-1 shrink-0 p-0.5 text-muted-foreground"
           onClick={toggle.onToggle}
         >
           {toggle.expanded ? (
@@ -153,12 +153,12 @@ function DocumentRow({
       ) : null}
       <Link
         href={href}
-        className={`flex flex-1 items-center gap-1.5 px-2 py-1 text-xs hover:bg-accent ${
+        className={`flex min-w-0 flex-1 items-start gap-1.5 rounded-lg px-2 py-1 text-[0.8625rem] leading-snug hover:bg-accent ${
           active ? "font-medium" : "text-muted-foreground"
         }`}
       >
-        <FileText className="size-3 shrink-0" />
-        <span className="truncate">{doc.title}</span>
+        <FileText className="mt-0.5 size-3 shrink-0" />
+        <span className="min-w-0 whitespace-normal break-words">{doc.title}</span>
       </Link>
       {showAddFlow ? <AddFlowTrigger projectId={projectId} doc={doc} /> : null}
       {canDelete ? (
@@ -177,7 +177,7 @@ function DocumentRow({
             <AlertDialogHeader>
               <AlertDialogTitle>Xóa tài liệu &quot;{doc.title}&quot;?</AlertDialogTitle>
               <AlertDialogDescription>
-                Tài liệu sẽ bị ẩn khỏi danh sách (soft delete), lịch sử phiên bản vẫn được giữ.
+                Tài liệu sẽ bị xóa vĩnh viễn và không thể hoàn tác. Audit log vẫn lưu lịch sử thao tác.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -268,7 +268,7 @@ function DocumentList({
   }
 
   return (
-    <div className="ml-5 space-y-0.5 border-l pl-2">
+    <div className="ml-5 min-w-0 space-y-0.5 border-l pl-2">
       {roots.map((doc) => (
         <DocumentGroup
           key={doc.id}
@@ -314,13 +314,13 @@ function SortableModuleRow({
   return (
     <div ref={setNodeRef} style={style}>
       <div
-        className={`group flex items-center gap-1 rounded-md px-1 ${
+        className={`group flex items-start gap-1 rounded-md px-1 ${
           active ? "bg-accent text-accent-foreground" : ""
         }`}
       >
         <button
           type="button"
-          className="p-0.5 text-muted-foreground"
+          className="mt-1 p-0.5 text-muted-foreground"
           onClick={() => setExpanded((v) => !v)}
         >
           {expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
@@ -329,7 +329,7 @@ function SortableModuleRow({
         {canManage ? (
           <button
             type="button"
-            className="cursor-grab touch-none px-1 text-muted-foreground"
+            className="mt-1 cursor-grab touch-none px-1 text-muted-foreground"
             {...attributes}
             {...listeners}
           >
@@ -357,10 +357,10 @@ function SortableModuleRow({
         ) : (
           <Link
             href={`/projects/${projectId}/modules/${module.id}/documents`}
-            className="flex flex-1 items-center gap-2 py-1.5 text-sm"
+            className="flex min-w-0 flex-1 items-start gap-2 py-1.5 text-[1.00625rem] leading-snug"
           >
-            <ModuleIcon className="size-4" />
-            {module.name}
+            <ModuleIcon className="mt-0.5 size-4 shrink-0" />
+            <span className="min-w-0 whitespace-normal break-words">{module.name}</span>
           </Link>
         )}
 
@@ -385,7 +385,7 @@ function SortableModuleRow({
                 <AlertDialogHeader>
                   <AlertDialogTitle>Xóa phân hệ &quot;{module.name}&quot;?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Tài liệu và task trong phân hệ này sẽ vẫn được lưu trữ nhưng phân hệ sẽ bị ẩn.
+                    Loại tài liệu này và dữ liệu liên quan sẽ bị xóa vĩnh viễn, không thể hoàn tác.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -435,11 +435,8 @@ export function ProjectDocumentsNav({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [items, setItems] = useState(
-    modules.filter(
-      (m) => m.id !== mainModuleId && (documentsByModule[m.id]?.length ?? 0) > 0,
-    ),
-  );
+  const visibleModules = modules.filter((m) => m.id !== mainModuleId);
+  const items = visibleModules;
   const [dialogOpen, setDialogOpen] = useState(false);
   const sensors = useSensors(useSensor(PointerSensor));
 
@@ -449,7 +446,6 @@ export function ProjectDocumentsNav({
     const oldIndex = items.findIndex((m) => m.id === active.id);
     const newIndex = items.findIndex((m) => m.id === over.id);
     const next = arrayMove(items, oldIndex, newIndex);
-    setItems(next);
     reorderModulesAction(
       projectId,
       next.map((m) => m.id),
@@ -457,9 +453,9 @@ export function ProjectDocumentsNav({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="min-w-0 space-y-2 text-[1.15em]">
       <div className="flex items-center justify-between px-1">
-        <p className="flex-1 rounded-md px-2 py-1.5 text-sm">Tài liệu</p>
+        <p className="min-w-0 flex-1 rounded-md px-2 py-1.5 text-[1.00625rem]">Tài liệu</p>
         {canManage ? (
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>

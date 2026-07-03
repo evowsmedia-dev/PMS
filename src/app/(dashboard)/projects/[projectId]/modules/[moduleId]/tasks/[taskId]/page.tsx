@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
+import { canAccessModule, getAssignedModuleIdsForUser } from "@/lib/document-type-access";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TaskEditForm } from "@/components/task-edit-form";
 import {
@@ -42,13 +43,20 @@ export default async function TaskDetailPage({
   });
 
   const projectRole = await getProjectRole(session.user.id, projectId);
+  const assignedModuleIds = await getAssignedModuleIdsForUser({
+    projectId,
+    userId: session.user.id,
+    systemRole: session.user.systemRole,
+    projectRole,
+  });
+  if (!canAccessModule(assignedModuleIds, moduleId)) redirect(`/projects/${projectId}/overview`);
   const roleCtx = { systemRole: session.user.systemRole };
   const canEdit = can(roleCtx, "task.edit", projectRole);
   const canReassign = can(roleCtx, "task.reassign", projectRole);
   const canComment = can(roleCtx, "comment.create", projectRole);
 
   return (
-    <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,720px)_320px] lg:items-start">
+    <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,75%)_minmax(0,25%)] lg:items-start">
       <div className="min-w-0 space-y-4">
         <Card>
           <CardHeader>

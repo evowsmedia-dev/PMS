@@ -400,7 +400,11 @@ export async function deleteDocumentAction(
     return;
   }
 
-  await prisma.document.update({ where: { id: docId }, data: { deletedAt: new Date() } });
+  const doc = await prisma.document.findFirst({
+    where: { id: docId, projectId, moduleId },
+    select: { id: true, title: true, parentDocumentId: true },
+  });
+  if (!doc) return;
 
   await logAudit({
     actorId: session.user.id,
@@ -408,8 +412,18 @@ export async function deleteDocumentAction(
     entityType: "Document",
     entityId: docId,
     projectId,
+    metadata: { title: doc.title, permanent: true },
   });
 
+  await prisma.$transaction(async (tx) => {
+    await tx.document.updateMany({
+      where: { parentDocumentId: docId },
+      data: { parentDocumentId: null },
+    });
+    await tx.document.delete({ where: { id: docId } });
+  });
+
+  revalidatePath(`/projects/${projectId}`);
   revalidatePath(`/projects/${projectId}/modules/${moduleId}/documents`);
   redirect(`/projects/${projectId}/modules/${moduleId}/documents`);
 }

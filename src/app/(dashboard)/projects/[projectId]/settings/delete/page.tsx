@@ -32,8 +32,8 @@ export default async function ProjectDeleteSettingsPage({
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          Hành động này sẽ ẩn dự án khỏi danh sách của mọi thành viên. Toàn bộ tài liệu, task
-          và bình luận vẫn được lưu (soft delete) và có thể khôi phục qua audit log.
+          Hành động này sẽ xóa vĩnh viễn dự án khỏi hệ thống cùng tài liệu, task và bình luận
+          liên quan. Audit log chỉ lưu lịch sử thao tác, không dùng để khôi phục dữ liệu.
         </p>
         <DeleteProjectButton projectId={project.id} />
       </CardContent>

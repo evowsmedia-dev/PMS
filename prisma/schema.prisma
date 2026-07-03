@@ -178,11 +178,25 @@ model ProjectMember {
   role      ProjectRole @default(DEV)
   addedAt   DateTime    @default(now())
 
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user    User    @relation(fields: [userId], references: [id])
+  project                 Project                                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user                    User                                   @relation(fields: [userId], references: [id])
+  documentTypeAssignments ProjectMemberDocumentTypeAssignment[]
 
   @@unique([projectId, userId])
   @@index([userId])
+}
+
+model ProjectMemberDocumentTypeAssignment {
+  id              String   @id @default(cuid())
+  projectMemberId String
+  moduleId        String
+  createdAt       DateTime @default(now())
+
+  projectMember ProjectMember @relation(fields: [projectMemberId], references: [id], onDelete: Cascade)
+  module        Module        @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([projectMemberId, moduleId])
+  @@index([moduleId])
 }
 
 model Module {
@@ -198,6 +212,7 @@ model Module {
   project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
   documents Document[]
   tasks     Task[]
+  memberAssignments ProjectMemberDocumentTypeAssignment[]
 
   @@index([projectId, sortOrder])
 }
@@ -334,7 +349,7 @@ model Task {
   createdBy   User   @relation("TaskCreatedBy", fields: [createdById], references: [id])
 
   relatedDocumentId String?
-  relatedDocument   Document? @relation(fields: [relatedDocumentId], references: [id])
+  relatedDocument   Document? @relation(fields: [relatedDocumentId], references: [id], onDelete: SetNull)
   sourceHighlight   String?
   isReviewRequest   Boolean   @default(false)
 

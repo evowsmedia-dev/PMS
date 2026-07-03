@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
+import { canAccessModule, getAssignedModuleIdsForUser } from "@/lib/document-type-access";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TaskCreateForm } from "@/components/task-create-form";
 import { PageShell } from "@/components/page-shell";
@@ -20,6 +21,15 @@ export default async function NewTaskPage({
   const sp = await searchParams;
 
   const projectRole = await getProjectRole(session.user.id, projectId);
+  const assignedModuleIds = await getAssignedModuleIdsForUser({
+    projectId,
+    userId: session.user.id,
+    systemRole: session.user.systemRole,
+    projectRole,
+  });
+  if (!canAccessModule(assignedModuleIds, moduleId)) {
+    redirect(`/projects/${projectId}/overview`);
+  }
   if (!can({ systemRole: session.user.systemRole }, "task.create", projectRole)) {
     redirect(`/projects/${projectId}/modules/${moduleId}/tasks`);
   }

@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
+import { getAssignedModuleIdsForUser } from "@/lib/document-type-access";
 import { ProjectDocumentsNav } from "@/components/project-documents-nav";
 import { ProjectMobileNav } from "@/components/project-mobile-nav";
 import { SetPageHeader } from "@/components/page-header-context";
@@ -47,12 +48,25 @@ export default async function ProjectLayout({
     "document.delete",
     projectRole,
   );
+  const assignedModuleIds = await getAssignedModuleIdsForUser({
+    projectId,
+    userId: session.user.id,
+    systemRole: session.user.systemRole,
+    projectRole,
+  });
+  const visibleModules = assignedModuleIds
+    ? project.modules.filter((m) => assignedModuleIds.has(m.id))
+    : project.modules;
 
   const mainModuleId =
-    project.modules.find((m) => m.name === "Tài liệu chung")?.id ?? project.modules[0]?.id ?? null;
+    visibleModules.find((m) => m.name === "Tài liệu chung")?.id ?? visibleModules[0]?.id ?? null;
 
   const allDocuments = await prisma.document.findMany({
-    where: { projectId, deletedAt: null },
+    where: {
+      projectId,
+      deletedAt: null,
+      ...(assignedModuleIds ? { moduleId: { in: [...assignedModuleIds] } } : {}),
+    },
     select: {
       id: true,
       title: true,
@@ -98,16 +112,16 @@ export default async function ProjectLayout({
 
       <ProjectMobileNav
         projectId={project.id}
-        modules={project.modules}
+        modules={visibleModules}
         canManage={canManageModules}
         canDeleteDocuments={canDeleteDocuments}
         documentsByModule={documentsByModule}
         mainModuleId={mainModuleId}
       />
 
-      <div className="grid min-w-0 gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
-        <aside className="hidden shrink-0 space-y-4 lg:block">
-          <nav className="space-y-0.5 text-sm">
+      <div className="grid min-w-0 gap-6 lg:grid-cols-[20%_minmax(0,80%)]">
+        <aside className="hidden min-w-0 shrink-0 space-y-4 lg:block">
+          <nav className="space-y-0.5 text-[1.15rem]">
             <Link href={`/projects/${project.id}/overview`} className="block rounded-lg px-2 py-1.5 hover:bg-accent">
               Dashboard dự án
             </Link>
@@ -115,14 +129,14 @@ export default async function ProjectLayout({
 
           <ProjectDocumentsNav
             projectId={project.id}
-            modules={project.modules}
+            modules={visibleModules}
             canManage={canManageModules}
             canDeleteDocuments={canDeleteDocuments}
             documentsByModule={documentsByModule}
             mainModuleId={mainModuleId}
           />
 
-          <nav className="space-y-0.5 text-sm">
+          <nav className="space-y-0.5 text-[1.15rem]">
             <Link
               href={`/api/projects/${project.id}/export`}
               className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-accent"

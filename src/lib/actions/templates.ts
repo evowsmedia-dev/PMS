@@ -87,14 +87,27 @@ export async function deleteTemplateAction(templateId: string) {
   const session = await requireAdmin();
   if (!session) return;
 
-  await prisma.template.update({ where: { id: templateId }, data: { deletedAt: new Date() } });
+  const template = await prisma.template.findUnique({
+    where: { id: templateId },
+    select: { id: true, name: true },
+  });
+  if (!template) return;
 
   await logAudit({
     actorId: session.user.id,
     action: "DELETE",
     entityType: "Template",
     entityId: templateId,
+    metadata: { name: template.name, permanent: true },
   });
+
+  await prisma.$transaction([
+    prisma.project.updateMany({
+      where: { templateId },
+      data: { templateId: null },
+    }),
+    prisma.template.delete({ where: { id: templateId } }),
+  ]);
 
   revalidatePath("/settings/templates");
   redirect("/settings/templates");

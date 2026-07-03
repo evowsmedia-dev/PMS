@@ -29,7 +29,8 @@ export function DeleteTemplateButton({ templateId }: { templateId: string }) {
         <AlertDialogHeader>
           <AlertDialogTitle>Xóa template này?</AlertDialogTitle>
           <AlertDialogDescription>
-            Các dự án đã tạo từ template này sẽ không bị ảnh hưởng.
+            Template sẽ bị xóa vĩnh viễn và không thể hoàn tác. Các dự án đã tạo từ template
+            này sẽ không bị ảnh hưởng.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

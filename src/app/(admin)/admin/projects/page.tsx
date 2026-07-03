@@ -5,6 +5,7 @@ import { PageShell, PageSection, ResponsiveTableFrame } from "@/components/page-
 
 export default async function AdminProjectsPage() {
   const projects = await prisma.project.findMany({
+    where: { deletedAt: null },
     include: {
       createdBy: { select: { fullName: true } },
       _count: {
@@ -35,7 +36,7 @@ export default async function AdminProjectsPage() {
           </thead>
           <tbody>
             {projects.map((p) => (
-              <tr key={p.id} className={`border-t ${p.deletedAt ? "opacity-50" : ""}`}>
+              <tr key={p.id} className="border-t">
                 <td className="px-4 py-2">
                   <Link href={`/projects/${p.id}/overview`} className="font-medium hover:underline">
                     {p.name}
@@ -44,8 +45,8 @@ export default async function AdminProjectsPage() {
                 </td>
                 <td className="px-4 py-2">{p.createdBy.fullName}</td>
                 <td className="px-4 py-2">
-                  <Badge variant={p.deletedAt ? "destructive" : p.status === "ARCHIVED" ? "secondary" : "default"}>
-                    {p.deletedAt ? "Đã xóa" : p.status === "ARCHIVED" ? "Lưu trữ" : "Hoạt động"}
+                  <Badge variant={p.status === "ARCHIVED" ? "secondary" : "default"}>
+                    {p.status === "ARCHIVED" ? "Lưu trữ" : "Hoạt động"}
                   </Badge>
                 </td>
                 <td className="px-4 py-2">{p._count.members}</td>

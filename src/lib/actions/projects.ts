@@ -216,10 +216,11 @@ export async function deleteProjectAction(projectId: string) {
     return;
   }
 
-  await prisma.project.update({
+  const project = await prisma.project.findUnique({
     where: { id: projectId },
-    data: { deletedAt: new Date() },
+    select: { id: true, name: true, code: true },
   });
+  if (!project) return;
 
   await logAudit({
     actorId: session.user.id,
@@ -227,7 +228,10 @@ export async function deleteProjectAction(projectId: string) {
     entityType: "Project",
     entityId: projectId,
     projectId,
+    metadata: { name: project.name, code: project.code, permanent: true },
   });
+
+  await prisma.project.delete({ where: { id: projectId } });
 
   revalidatePath("/projects");
   redirect("/projects");
@@ -298,6 +302,74 @@ export async function removeMemberAction(projectId: string, memberId: string) {
   });
 
   revalidatePath(`/projects/${projectId}/settings/members`);
+}
+
+export async function assignMemberDocumentTypeAction(
+  projectId: string,
+  memberId: string,
+  moduleId: string,
+) {
+  const session = await auth();
+  if (!session?.user) return;
+
+  const projectRole = await getProjectRole(session.user.id, projectId);
+  if (!can({ systemRole: session.user.systemRole }, "project.manageMembers", projectRole)) {
+    return;
+  }
+
+  const [member, module_] = await Promise.all([
+    prisma.projectMember.findFirst({ where: { id: memberId, projectId } }),
+    prisma.module.findFirst({ where: { id: moduleId, projectId, deletedAt: null } }),
+  ]);
+  if (!member || !module_) return;
+
+  await prisma.projectMemberDocumentTypeAssignment.upsert({
+    where: { projectMemberId_moduleId: { projectMemberId: memberId, moduleId } },
+    create: { projectMemberId: memberId, moduleId },
+    update: {},
+  });
+
+  await logAudit({
+    actorId: session.user.id,
+    action: "ASSIGN",
+    entityType: "ProjectMember",
+    entityId: memberId,
+    projectId,
+    metadata: { moduleId, assigned: true },
+  });
+
+  revalidatePath(`/projects/${projectId}/settings/members`);
+  revalidatePath(`/projects/${projectId}`);
+}
+
+export async function unassignMemberDocumentTypeAction(
+  projectId: string,
+  memberId: string,
+  moduleId: string,
+) {
+  const session = await auth();
+  if (!session?.user) return;
+
+  const projectRole = await getProjectRole(session.user.id, projectId);
+  if (!can({ systemRole: session.user.systemRole }, "project.manageMembers", projectRole)) {
+    return;
+  }
+
+  await prisma.projectMemberDocumentTypeAssignment.deleteMany({
+    where: { projectMemberId: memberId, moduleId, projectMember: { projectId } },
+  });
+
+  await logAudit({
+    actorId: session.user.id,
+    action: "ASSIGN",
+    entityType: "ProjectMember",
+    entityId: memberId,
+    projectId,
+    metadata: { moduleId, assigned: false },
+  });
+
+  revalidatePath(`/projects/${projectId}/settings/members`);
+  revalidatePath(`/projects/${projectId}`);
 }
 
 export async function changeMemberRoleAction(

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { can } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
+import { canAccessModule, getAssignedModuleIdsForUser } from "@/lib/document-type-access";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DocumentCreateForm } from "@/components/document-create-form";
 import { PageShell } from "@/components/page-shell";
@@ -16,6 +17,15 @@ export default async function NewDocumentPage({
   const { projectId, moduleId } = await params;
 
   const projectRole = await getProjectRole(session.user.id, projectId);
+  const assignedModuleIds = await getAssignedModuleIdsForUser({
+    projectId,
+    userId: session.user.id,
+    systemRole: session.user.systemRole,
+    projectRole,
+  });
+  if (!canAccessModule(assignedModuleIds, moduleId)) {
+    redirect(`/projects/${projectId}/overview`);
+  }
   if (!can({ systemRole: session.user.systemRole }, "document.create", projectRole)) {
     redirect(`/projects/${projectId}/modules/${moduleId}/documents`);
   }

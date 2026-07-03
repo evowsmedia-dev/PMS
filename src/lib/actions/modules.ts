@@ -91,10 +91,11 @@ export async function deleteModuleAction(projectId: string, moduleId: string) {
     return;
   }
 
-  await prisma.module.update({
-    where: { id: moduleId },
-    data: { deletedAt: new Date() },
+  const module_ = await prisma.module.findFirst({
+    where: { id: moduleId, projectId },
+    select: { id: true, name: true },
   });
+  if (!module_) return;
 
   await logAudit({
     actorId: session.user.id,
@@ -102,7 +103,10 @@ export async function deleteModuleAction(projectId: string, moduleId: string) {
     entityType: "Module",
     entityId: moduleId,
     projectId,
+    metadata: { name: module_.name, permanent: true },
   });
+
+  await prisma.module.delete({ where: { id: moduleId } });
 
   revalidatePath(`/projects/${projectId}`);
 }

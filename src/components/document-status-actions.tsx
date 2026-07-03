@@ -175,7 +175,7 @@ export function DocumentStatusActions({
             <AlertDialogHeader>
               <AlertDialogTitle>Xóa tài liệu này?</AlertDialogTitle>
               <AlertDialogDescription>
-                Tài liệu sẽ bị ẩn khỏi danh sách (soft delete), lịch sử phiên bản vẫn được giữ.
+                Tài liệu sẽ bị xóa vĩnh viễn và không thể hoàn tác. Audit log vẫn lưu lịch sử thao tác.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

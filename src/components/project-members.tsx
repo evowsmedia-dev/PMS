@@ -17,6 +17,8 @@ import {
   addMemberAction,
   removeMemberAction,
   changeMemberRoleAction,
+  assignMemberDocumentTypeAction,
+  unassignMemberDocumentTypeAction,
 } from "@/lib/actions/projects";
 import type { ActionState } from "@/lib/actions/profile";
 
@@ -28,6 +30,12 @@ interface Member {
   id: string;
   role: string;
   user: { fullName: string; email: string };
+  documentTypeAssignments: { moduleId: string }[];
+}
+
+interface ModuleOption {
+  id: string;
+  name: string;
 }
 
 export function AddMemberForm({ projectId }: { projectId: string }) {
@@ -70,9 +78,11 @@ export function AddMemberForm({ projectId }: { projectId: string }) {
 export function MemberList({
   projectId,
   members,
+  modules,
 }: {
   projectId: string;
   members: Member[];
+  modules: ModuleOption[];
 }) {
   const [, startTransition] = useTransition();
   const router = useRouter();
@@ -80,18 +90,53 @@ export function MemberList({
   return (
     <div className="divide-y">
       {members.map((m) => (
-        <div key={m.id} className="flex items-center justify-between gap-3 py-2">
-          <div>
-            <p className="text-sm font-medium">{m.user.fullName}</p>
+        <div key={m.id} className="grid gap-3 py-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="min-w-0">
+            <p className="font-medium">{m.user.fullName}</p>
             <p className="text-xs text-muted-foreground">{m.user.email}</p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {modules.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Chưa có loại tài liệu để gán.</p>
+              ) : (
+                modules.map((module) => {
+                  const assigned = m.documentTypeAssignments.some((a) => a.moduleId === module.id);
+                  return (
+                    <button
+                      key={module.id}
+                      type="button"
+                      className={`rounded-4xl border px-2 py-0.5 text-xs font-medium transition-colors ${
+                        assigned
+                          ? "border-foreground bg-foreground text-background"
+                          : "border-border bg-background text-foreground hover:bg-muted"
+                      }`}
+                      onClick={() =>
+                        startTransition(async () => {
+                          if (assigned) {
+                            await unassignMemberDocumentTypeAction(projectId, m.id, module.id);
+                            toast.success("Đã bỏ gán loại tài liệu.");
+                          } else {
+                            await assignMemberDocumentTypeAction(projectId, m.id, module.id);
+                            toast.success("Đã gán loại tài liệu.");
+                          }
+                          router.refresh();
+                        })
+                      }
+                    >
+                      {module.name}
+                    </button>
+                  );
+                })
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-start gap-2">
             <Select
               defaultValue={m.role}
               onValueChange={(role) =>
                 startTransition(async () => {
                   await changeMemberRoleAction(projectId, m.id, role);
                   router.refresh();
+                  toast.success("Đã cập nhật vai trò.");
                 })
               }
             >

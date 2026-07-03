@@ -59,8 +59,8 @@ export function DeleteProjectButton({ projectId }: { projectId: string }) {
         <AlertDialogHeader>
           <AlertDialogTitle>Xóa dự án này?</AlertDialogTitle>
           <AlertDialogDescription>
-            Dự án và toàn bộ tài liệu/task liên quan sẽ bị ẩn khỏi danh sách. Hành động này có
-            thể được khôi phục bởi Admin từ audit log.
+            Dự án và toàn bộ tài liệu/task liên quan sẽ bị xóa vĩnh viễn. Hành động này không
+            thể hoàn tác; audit log chỉ lưu lịch sử thao tác.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
