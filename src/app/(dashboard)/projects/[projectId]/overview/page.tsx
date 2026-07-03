@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageSection } from "@/components/page-shell";
+import { TASK_STATUS_LABEL, TASK_STATUS_ORDER } from "@/lib/validation/task";
 
 export default async function ProjectOverviewPage({
   params,
@@ -23,6 +24,11 @@ export default async function ProjectOverviewPage({
     where: { id: projectId, deletedAt: null },
     include: {
       members: { include: { user: { select: { fullName: true, email: true } } } },
+      modules: {
+        where: { deletedAt: null },
+        orderBy: { sortOrder: "asc" },
+        select: { id: true, name: true },
+      },
       _count: {
         select: {
           documents: { where: { deletedAt: null } },
@@ -50,23 +56,33 @@ export default async function ProjectOverviewPage({
     where: { projectId, deletedAt: null },
     _count: true,
   });
+  const taskCountByStatus = new Map(taskStatusCounts.map((s) => [s.status, s._count]));
+  const totalTasks = taskStatusCounts.reduce((sum, s) => sum + s._count, 0);
+  const doneTasks = taskCountByStatus.get("DONE") ?? 0;
+  const taskCompletion = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
+  const taskSegments = TASK_STATUS_ORDER.map((status, index) => ({
+    status,
+    count: taskCountByStatus.get(status) ?? 0,
+    label: TASK_STATUS_LABEL[status],
+    className: ["bg-foreground", "bg-foreground/70", "bg-foreground/40", "bg-muted-foreground/25"][index],
+  }));
 
   return (
     <PageSection>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Card className="md:col-span-2">
+      <div className="grid grid-cols-3 gap-3">
+        <Card className="min-h-24">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground">Tài liệu</CardTitle>
           </CardHeader>
           <CardContent className="text-2xl font-semibold">{project._count.documents}</CardContent>
         </Card>
-        <Card>
+        <Card className="min-h-24">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground">Task</CardTitle>
           </CardHeader>
           <CardContent className="text-2xl font-semibold">{project._count.tasks}</CardContent>
         </Card>
-        <Card>
+        <Card className="min-h-24">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground">Thành viên</CardTitle>
           </CardHeader>
@@ -95,15 +111,41 @@ export default async function ProjectOverviewPage({
           <CardHeader>
             <CardTitle className="text-sm">Tiến độ task</CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-wrap gap-2">
+          <CardContent className="space-y-4">
             {taskStatusCounts.length === 0 ? (
               <p className="text-sm text-muted-foreground">Chưa có task.</p>
             ) : (
-              taskStatusCounts.map((s) => (
-                <Badge key={s.status} variant="outline">
-                  {s.status}: {s._count}
-                </Badge>
-              ))
+              <>
+                <div className="flex items-end justify-between gap-4">
+                  <div>
+                    <p className="text-3xl font-semibold">{taskCompletion}%</p>
+                    <p className="text-sm text-muted-foreground">Hoàn thành</p>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {doneTasks}/{totalTasks} task
+                  </p>
+                </div>
+                <div className="flex h-3 overflow-hidden rounded-4xl border border-border bg-muted">
+                  {taskSegments.map((segment) =>
+                    segment.count > 0 ? (
+                      <div
+                        key={segment.status}
+                        className={segment.className}
+                        style={{ width: `${(segment.count / totalTasks) * 100}%` }}
+                        title={`${segment.label}: ${segment.count}`}
+                      />
+                    ) : null,
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {taskSegments.map((segment) => (
+                    <div key={segment.status} className="flex items-center justify-between gap-2 rounded-lg border border-border px-2 py-1.5 text-sm">
+                      <span className="min-w-0 truncate text-muted-foreground">{segment.label}</span>
+                      <span className="font-medium">{segment.count}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
@@ -131,6 +173,17 @@ export default async function ProjectOverviewPage({
             <div className="flex items-center justify-between gap-4">
               <span className="text-muted-foreground">Độ ưu tiên</span>
               <Badge variant="outline">{project.priority}</Badge>
+            </div>
+            <div className="flex items-start justify-between gap-4">
+              <span className="text-muted-foreground">Phân hệ</span>
+              <div className="min-w-0 text-right">
+                <span className="font-medium">{project.modules.length}</span>
+                {project.modules.length > 0 ? (
+                  <p className="mt-1 text-muted-foreground">
+                    {project.modules.map((m) => m.name).join(", ")}
+                  </p>
+                ) : null}
+              </div>
             </div>
             <div className="flex items-center justify-between gap-4">
               <span className="text-muted-foreground">Bắt đầu</span>

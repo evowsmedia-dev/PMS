@@ -13,12 +13,19 @@ export default async function DashboardOverviewPage() {
     ? { deletedAt: null }
     : { deletedAt: null, members: { some: { userId: session.user.id } } };
 
-  const [projectCount, moduleCount, documentCount, taskCount] = await Promise.all([
+  const [projectCount, projectsWithModuleCounts, documentCount, taskCount] = await Promise.all([
     prisma.project.count({ where: projectFilter }),
-    prisma.module.count({ where: { deletedAt: null, project: projectFilter } }),
+    prisma.project.findMany({
+      where: projectFilter,
+      select: { _count: { select: { modules: { where: { deletedAt: null } } } } },
+    }),
     prisma.document.count({ where: { deletedAt: null, project: projectFilter } }),
     prisma.task.count({ where: { deletedAt: null, project: projectFilter } }),
   ]);
+  const moduleCount = projectsWithModuleCounts.reduce(
+    (sum, project) => sum + project._count.modules,
+    0,
+  );
 
   return (
     <PageShell size="standard">
