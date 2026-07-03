@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
+import { getAssignedModuleIdsForUser } from "@/lib/document-type-access";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,12 +30,6 @@ export default async function ProjectOverviewPage({
         orderBy: { sortOrder: "asc" },
         select: { id: true, name: true },
       },
-      _count: {
-        select: {
-          documents: { where: { deletedAt: null } },
-          tasks: { where: { deletedAt: null } },
-        },
-      },
     },
   });
   if (!project) notFound();
@@ -46,16 +41,31 @@ export default async function ProjectOverviewPage({
     projectRole,
   );
 
-  const docStatusCounts = await prisma.document.groupBy({
-    by: ["status"],
-    where: { projectId, deletedAt: null },
-    _count: true,
+  const assignedModuleIds = await getAssignedModuleIdsForUser({
+    projectId,
+    userId: session.user.id,
+    systemRole: session.user.systemRole,
+    projectRole,
   });
-  const taskStatusCounts = await prisma.task.groupBy({
-    by: ["status"],
-    where: { projectId, deletedAt: null },
-    _count: true,
-  });
+  const visibleModuleIds = assignedModuleIds
+    ? project.modules.filter((m) => assignedModuleIds.has(m.id)).map((m) => m.id)
+    : project.modules.map((m) => m.id);
+  const visibleScope = { projectId, deletedAt: null, moduleId: { in: visibleModuleIds } };
+
+  const [documentCount, taskCount, docStatusCounts, taskStatusCounts] = await Promise.all([
+    prisma.document.count({ where: visibleScope }),
+    prisma.task.count({ where: visibleScope }),
+    prisma.document.groupBy({
+      by: ["status"],
+      where: visibleScope,
+      _count: true,
+    }),
+    prisma.task.groupBy({
+      by: ["status"],
+      where: visibleScope,
+      _count: true,
+    }),
+  ]);
   const taskCountByStatus = new Map(taskStatusCounts.map((s) => [s.status, s._count]));
   const totalTasks = taskStatusCounts.reduce((sum, s) => sum + s._count, 0);
   const doneTasks = taskCountByStatus.get("DONE") ?? 0;
@@ -74,13 +84,13 @@ export default async function ProjectOverviewPage({
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground">Tài liệu</CardTitle>
           </CardHeader>
-          <CardContent className="text-2xl font-semibold">{project._count.documents}</CardContent>
+          <CardContent className="text-2xl font-semibold">{documentCount}</CardContent>
         </Card>
         <Card className="min-h-24">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground">Task</CardTitle>
           </CardHeader>
-          <CardContent className="text-2xl font-semibold">{project._count.tasks}</CardContent>
+          <CardContent className="text-2xl font-semibold">{taskCount}</CardContent>
         </Card>
         <Card className="min-h-24">
           <CardHeader className="pb-2">

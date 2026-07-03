@@ -80,6 +80,8 @@ export async function createDocumentAction(
     metadata: { title: values.title },
   });
 
+  revalidatePath(`/projects/${projectId}`, "layout");
+  revalidatePath(`/projects/${projectId}/overview`);
   revalidatePath(`/projects/${projectId}/modules/${moduleId}/documents`);
   redirect(`/projects/${projectId}/modules/${moduleId}/documents/${docId}`);
 }
@@ -151,6 +153,8 @@ export async function createFlowDocumentAction(
     metadata: { title, parentDocumentId: rootId },
   });
 
+  revalidatePath(`/projects/${projectId}`, "layout");
+  revalidatePath(`/projects/${projectId}/overview`);
   revalidatePath(`/projects/${projectId}/modules/${moduleId}/documents`);
   redirect(`/projects/${projectId}/modules/${moduleId}/documents/${newDocId}`);
 }

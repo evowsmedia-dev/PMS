@@ -48,6 +48,11 @@ export default async function ProjectLayout({
     "document.delete",
     projectRole,
   );
+  const canCreateDocuments = can(
+    { systemRole: session.user.systemRole },
+    "document.create",
+    projectRole,
+  );
   const assignedModuleIds = await getAssignedModuleIdsForUser({
     projectId,
     userId: session.user.id,
@@ -114,6 +119,7 @@ export default async function ProjectLayout({
         projectId={project.id}
         modules={visibleModules}
         canManage={canManageModules}
+        canCreateDocuments={canCreateDocuments}
         canDeleteDocuments={canDeleteDocuments}
         documentsByModule={documentsByModule}
         mainModuleId={mainModuleId}
@@ -131,6 +137,7 @@ export default async function ProjectLayout({
             projectId={project.id}
             modules={visibleModules}
             canManage={canManageModules}
+            canCreateDocuments={canCreateDocuments}
             canDeleteDocuments={canDeleteDocuments}
             documentsByModule={documentsByModule}
             mainModuleId={mainModuleId}

@@ -287,6 +287,7 @@ function SortableModuleRow({
   projectId,
   active,
   canManage,
+  canCreateDocuments,
   canDeleteDocuments,
   documents,
 }: {
@@ -294,6 +295,7 @@ function SortableModuleRow({
   projectId: string;
   active: boolean;
   canManage: boolean;
+  canCreateDocuments: boolean;
   canDeleteDocuments: boolean;
   documents: DocumentItem[];
 }) {
@@ -364,45 +366,63 @@ function SortableModuleRow({
           </Link>
         )}
 
-        {canManage && !renaming ? (
-          <div className="hidden gap-0.5 group-hover:flex">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="size-6"
-              onClick={() => setRenaming(true)}
-            >
-              <Pencil className="size-3.5" />
-            </Button>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button type="button" variant="ghost" size="icon" className="size-6">
-                  <Trash2 className="size-3.5" />
+        {!renaming ? (
+          <div className="flex shrink-0 gap-0.5">
+            {canCreateDocuments ? (
+              <Button
+                asChild
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-6"
+                title="Thêm tài liệu"
+              >
+                <Link href={`/projects/${projectId}/modules/${module.id}/documents/new`}>
+                  <Plus className="size-3.5" />
+                </Link>
+              </Button>
+            ) : null}
+            {canManage ? (
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-6"
+                  onClick={() => setRenaming(true)}
+                >
+                  <Pencil className="size-3.5" />
                 </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Xóa phân hệ &quot;{module.name}&quot;?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Loại tài liệu này và dữ liệu liên quan sẽ bị xóa vĩnh viễn, không thể hoàn tác.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Hủy</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={() =>
-                      startTransition(async () => {
-                        await deleteModuleAction(projectId, module.id);
-                        router.refresh();
-                      })
-                    }
-                  >
-                    Xóa
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button type="button" variant="ghost" size="icon" className="size-6">
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Xóa phân hệ &quot;{module.name}&quot;?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Loại tài liệu này và dữ liệu liên quan sẽ bị xóa vĩnh viễn, không thể hoàn tác.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Hủy</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() =>
+                          startTransition(async () => {
+                            await deleteModuleAction(projectId, module.id);
+                            router.refresh();
+                          })
+                        }
+                      >
+                        Xóa
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </>
+            ) : null}
           </div>
         ) : null}
       </div>
@@ -422,6 +442,7 @@ export function ProjectDocumentsNav({
   projectId,
   modules,
   canManage,
+  canCreateDocuments,
   canDeleteDocuments,
   documentsByModule,
   mainModuleId,
@@ -429,6 +450,7 @@ export function ProjectDocumentsNav({
   projectId: string;
   modules: ModuleItem[];
   canManage: boolean;
+  canCreateDocuments: boolean;
   canDeleteDocuments: boolean;
   documentsByModule: Record<string, DocumentItem[]>;
   mainModuleId: string | null;
@@ -456,33 +478,42 @@ export function ProjectDocumentsNav({
     <div className="min-w-0 space-y-2 text-[1.15em]">
       <div className="flex items-center justify-between px-1">
         <p className="min-w-0 flex-1 rounded-md px-2 py-1.5 text-[1.00625rem]">Tài liệu</p>
-        {canManage ? (
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="size-6">
+        <div className="flex shrink-0 items-center gap-0.5">
+          {canCreateDocuments && mainModuleId ? (
+            <Button asChild variant="ghost" size="icon" className="size-6" title="Thêm tài liệu">
+              <Link href={`/projects/${projectId}/modules/${mainModuleId}/documents/new`}>
                 <Plus className="size-4" />
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Thêm loại tài liệu mới</DialogTitle>
-              </DialogHeader>
-              <form
-                action={async (formData) => {
-                  await createModuleAction(projectId, {}, formData);
-                  router.refresh();
-                  setDialogOpen(false);
-                }}
-                className="space-y-4"
-              >
-                <Input name="name" placeholder="Tên loại tài liệu" required />
-                <DialogFooter>
-                  <Button type="submit">Tạo</Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
-        ) : null}
+              </Link>
+            </Button>
+          ) : null}
+          {canManage ? (
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="size-6" title="Thêm loại tài liệu">
+                  <Plus className="size-4" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Thêm loại tài liệu mới</DialogTitle>
+                </DialogHeader>
+                <form
+                  action={async (formData) => {
+                    await createModuleAction(projectId, {}, formData);
+                    router.refresh();
+                    setDialogOpen(false);
+                  }}
+                  className="space-y-4"
+                >
+                  <Input name="name" placeholder="Tên loại tài liệu" required />
+                  <DialogFooter>
+                    <Button type="submit">Tạo</Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+          ) : null}
+        </div>
       </div>
 
       {mainModuleId ? (
@@ -503,6 +534,7 @@ export function ProjectDocumentsNav({
                 projectId={projectId}
                 active={pathname.includes(`/modules/${module.id}/`)}
                 canManage={canManage}
+                canCreateDocuments={canCreateDocuments}
                 canDeleteDocuments={canDeleteDocuments}
                 documents={documentsByModule[module.id] ?? []}
               />

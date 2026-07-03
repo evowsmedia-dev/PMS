@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh, revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/rbac";
@@ -47,7 +47,9 @@ export async function createModuleAction(
     metadata: { name },
   });
 
-  revalidatePath(`/projects/${projectId}`);
+  revalidatePath(`/projects/${projectId}`, "layout");
+  revalidatePath(`/projects/${projectId}/overview`);
+  refresh();
   return { success: `Đã tạo phân hệ "${name}".` };
 }
 
@@ -79,7 +81,9 @@ export async function renameModuleAction(
     metadata: { name },
   });
 
-  revalidatePath(`/projects/${projectId}`);
+  revalidatePath(`/projects/${projectId}`, "layout");
+  revalidatePath(`/projects/${projectId}/overview`);
+  refresh();
 }
 
 export async function deleteModuleAction(projectId: string, moduleId: string) {
@@ -108,7 +112,9 @@ export async function deleteModuleAction(projectId: string, moduleId: string) {
 
   await prisma.module.delete({ where: { id: moduleId } });
 
-  revalidatePath(`/projects/${projectId}`);
+  revalidatePath(`/projects/${projectId}`, "layout");
+  revalidatePath(`/projects/${projectId}/overview`);
+  refresh();
 }
 
 export async function reorderModulesAction(
@@ -129,5 +135,6 @@ export async function reorderModulesAction(
     ),
   );
 
-  revalidatePath(`/projects/${projectId}`);
+  revalidatePath(`/projects/${projectId}`, "layout");
+  refresh();
 }

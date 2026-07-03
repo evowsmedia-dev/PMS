@@ -31,6 +31,7 @@ export function ProjectMobileNav({
   projectId,
   modules,
   canManage,
+  canCreateDocuments,
   canDeleteDocuments,
   documentsByModule,
   mainModuleId,
@@ -38,6 +39,7 @@ export function ProjectMobileNav({
   projectId: string;
   modules: ModuleItem[];
   canManage: boolean;
+  canCreateDocuments: boolean;
   canDeleteDocuments: boolean;
   documentsByModule: Record<string, DocumentItem[]>;
   mainModuleId: string | null;
@@ -70,6 +72,7 @@ export function ProjectMobileNav({
             projectId={projectId}
             modules={modules}
             canManage={canManage}
+            canCreateDocuments={canCreateDocuments}
             canDeleteDocuments={canDeleteDocuments}
             documentsByModule={documentsByModule}
             mainModuleId={mainModuleId}
