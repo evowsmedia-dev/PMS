@@ -8,7 +8,6 @@ import { getProjectRole } from "@/lib/project-role";
 import { ProjectDocumentsNav } from "@/components/project-documents-nav";
 import { ProjectMobileNav } from "@/components/project-mobile-nav";
 import { SetPageHeader } from "@/components/page-header-context";
-import { PageShell } from "@/components/page-shell";
 
 export default async function ProjectLayout({
   children,
@@ -94,7 +93,7 @@ export default async function ProjectLayout({
   }
 
   return (
-    <PageShell size="data" className="space-y-4">
+    <div className="w-full min-w-0 space-y-4">
       <SetPageHeader title={project.name} subtitle={project.code} />
 
       <ProjectMobileNav
@@ -136,6 +135,6 @@ export default async function ProjectLayout({
 
         <div className="min-w-0 flex-1">{children}</div>
       </div>
-    </PageShell>
+    </div>
   );
 }

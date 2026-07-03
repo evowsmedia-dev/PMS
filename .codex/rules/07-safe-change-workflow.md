@@ -26,6 +26,9 @@ Implementation rules:
 - Keep server-side auth and RBAC checks close to protected operations.
 - Add audit logs for mutations.
 - Revalidate the paths affected by Server Actions.
+- When the user expects changes to appear on production, follow
+  `.codex/rules/08-deploy-verification.md` through commit, push, and production
+  deployment verification.
 
 Communication:
 
@@ -33,4 +36,3 @@ Communication:
 - Report commands that could not be run.
 - Keep final summaries focused on changed files, verification, and remaining
   risk.
-

@@ -148,6 +148,10 @@
     font-size: 100%;
     font-feature-settings: "cv11", "ss01";
   }
+  p,
+  td {
+    font-size: max(1em, 1rem);
+  }
 }
 
 .prose table {
