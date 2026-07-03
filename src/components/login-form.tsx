@@ -36,7 +36,7 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
         </Label>
       </div>
       {state.error ? (
-        <p className="text-sm text-destructive">{state.error}</p>
+        <p className="text-sm font-medium text-foreground">{state.error}</p>
       ) : null}
       <Button type="submit" className="w-full" disabled={pending}>
         {pending ? "Đang đăng nhập..." : "Đăng nhập"}

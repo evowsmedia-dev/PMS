@@ -1,5 +1,23 @@
-<!-- BEGIN:nextjs-agent-rules -->
-# This is NOT the Next.js you know
+# PMS Agent Instructions
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
-<!-- END:nextjs-agent-rules -->
+This project uses Next.js 16 with breaking changes. APIs, conventions, runtime
+behavior, and file structure may differ from older Next.js versions. Before
+editing Next.js code, read the relevant guide in `node_modules/next/dist/docs/`
+and heed deprecation notices.
+
+Repo-specific Codex rules live in `.codex/rules/`. Read the relevant rule files
+before making changes:
+
+- `00-project-overview.md`
+- `01-nextjs-16.md`
+- `02-running-and-env.md`
+- `03-prisma-database.md`
+- `04-auth-rbac-audit.md`
+- `05-frontend-ui.md`
+- `06-docs-and-spec.md`
+- `07-safe-change-workflow.md`
+- `08-deploy-verification.md`
+
+`.claude/rules/` may describe the old static prototype. Do not let those files
+override the current Next.js + Prisma application structure unless the user is
+explicitly asking about the prototype.

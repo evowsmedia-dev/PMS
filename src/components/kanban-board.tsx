@@ -48,7 +48,7 @@ function TaskCard({ task, projectId, moduleId }: { task: KanbanTask; projectId: 
       style={style}
       {...attributes}
       {...listeners}
-      className="cursor-grab space-y-1 rounded-md border bg-card p-3 text-sm shadow-sm active:cursor-grabbing"
+      className="cursor-grab space-y-1 rounded-lg border bg-card p-3 text-sm active:cursor-grabbing"
     >
       <Link
         href={`/projects/${projectId}/modules/${moduleId}/tasks/${task.id}`}
@@ -88,7 +88,7 @@ function Column({
   const { setNodeRef } = useDroppable({ id: status });
 
   return (
-    <div className="flex min-w-64 flex-1 flex-col rounded-md bg-muted/40 p-2">
+    <div className="flex min-w-64 flex-1 flex-col rounded-xl border border-border bg-muted p-2">
       <div className="mb-2 flex items-center justify-between px-1">
         <p className="text-sm font-semibold">{TASK_STATUS_LABEL[status]}</p>
         <Badge variant="secondary">{tasks.length}</Badge>

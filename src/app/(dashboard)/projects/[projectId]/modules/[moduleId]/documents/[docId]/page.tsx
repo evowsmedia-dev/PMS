@@ -116,7 +116,7 @@ export default async function DocumentDetailPage({
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-primary text-xs font-semibold text-primary-foreground">
+                    <tr className="bg-muted text-xs font-semibold text-foreground">
                       <th className="px-3 py-2 text-left">Phiên bản</th>
                       <th className="px-3 py-2 text-left">Ngày</th>
                       <th className="px-3 py-2 text-left">Người thực hiện</th>
@@ -127,7 +127,7 @@ export default async function DocumentDetailPage({
                   <tbody>
                     {doc.versions.map((v) => (
                       <tr key={v.id} className="border-t odd:bg-muted/20">
-                        <td className="px-3 py-2 font-semibold text-primary">v{v.versionNo}</td>
+                        <td className="px-3 py-2 font-semibold text-foreground">v{v.versionNo}</td>
                         <td className="px-3 py-2">{v.createdAt.toLocaleString("vi-VN")}</td>
                         <td className="px-3 py-2">{v.editedBy.fullName}</td>
                         <td className="px-3 py-2 text-muted-foreground">{v.changeNote ?? "—"}</td>
@@ -144,7 +144,7 @@ export default async function DocumentDetailPage({
               <div className="px-3 py-2">
                 <Link
                   href={`/projects/${projectId}/modules/${moduleId}/documents/${docId}/history`}
-                  className="text-xs text-primary hover:underline"
+                  className="text-xs text-foreground underline-offset-4 hover:underline"
                 >
                   Xem toàn bộ lịch sử →
                 </Link>

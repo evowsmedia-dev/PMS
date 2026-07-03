@@ -30,11 +30,11 @@ export default async function ActivityPage({
         />
         <div className="flex justify-center gap-2 text-sm">
           {page > 1 ? (
-            <Link href={`?page=${page - 1}`} className="text-primary hover:underline">
+            <Link href={`?page=${page - 1}`} className="text-foreground underline-offset-4 hover:underline">
               ← Trang trước
             </Link>
           ) : null}
-          <Link href={`?page=${page + 1}`} className="text-primary hover:underline">
+          <Link href={`?page=${page + 1}`} className="text-foreground underline-offset-4 hover:underline">
             Trang sau →
           </Link>
         </div>

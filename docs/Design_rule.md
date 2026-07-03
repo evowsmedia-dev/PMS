@@ -1,5 +1,8 @@
 # TNG Office Design System v1.1 (Updated from Visual References)
 
+> Legacy reference. The current PMS application visual source of truth is
+> `docs/DESIGN_new.md`, which defines the strict monochrome interface system.
+
 ## Color System
 
 ### Primary Brand Color

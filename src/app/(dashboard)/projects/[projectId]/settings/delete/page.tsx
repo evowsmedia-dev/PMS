@@ -24,9 +24,9 @@ export default async function ProjectDeleteSettingsPage({
   if (!project) notFound();
 
   return (
-    <Card className="max-w-xl border-destructive/50">
+    <Card className="max-w-xl">
       <CardHeader>
-        <CardTitle className="text-destructive">Xóa dự án &quot;{project.name}&quot;</CardTitle>
+        <CardTitle>Xóa dự án &quot;{project.name}&quot;</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">

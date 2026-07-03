@@ -35,7 +35,7 @@ export default async function TemplatesPage() {
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {templates.map((t) => (
           <Link key={t.id} href={`/settings/templates/${t.id}`}>
-            <Card className="transition hover:shadow-sm">
+            <Card className="transition-colors hover:bg-muted/40">
               <CardContent className="p-4">
                 <p className="font-medium">{t.name}</p>
                 <p className="text-sm text-muted-foreground">{t.description}</p>

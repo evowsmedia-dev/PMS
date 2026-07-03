@@ -96,7 +96,7 @@ export default async function ProjectLayout({
       <SetPageHeader title={project.name} subtitle={project.code} />
       <aside className="w-full shrink-0 space-y-4 md:w-56">
         <nav className="space-y-0.5 text-sm">
-          <Link href={`/projects/${project.id}/overview`} className="block rounded-md px-2 py-1.5 hover:bg-accent">
+          <Link href={`/projects/${project.id}/overview`} className="block rounded-lg px-2 py-1.5 hover:bg-accent">
             Dashboard dự án
           </Link>
         </nav>
@@ -113,7 +113,7 @@ export default async function ProjectLayout({
         <nav className="space-y-0.5 text-sm">
           <Link
             href={`/api/projects/${project.id}/export`}
-            className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent"
+            className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-accent"
           >
             <Download className="size-3.5" />
             Export JSON

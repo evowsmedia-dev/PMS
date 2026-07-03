@@ -78,7 +78,7 @@ export default async function TaskDetailPage({
                 Tài liệu liên quan:{" "}
                 <Link
                   href={`/projects/${projectId}/modules/${moduleId}/documents/${task.relatedDocument.id}`}
-                  className="text-primary hover:underline"
+                  className="text-foreground underline-offset-4 hover:underline"
                 >
                   {task.relatedDocument.title}
                 </Link>

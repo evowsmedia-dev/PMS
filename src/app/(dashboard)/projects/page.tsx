@@ -69,9 +69,9 @@ export default async function ProjectsPage({
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {projects.map((project) => (
             <Link key={project.id} href={`/projects/${project.id}/overview`}>
-              <Card className="h-full transition hover:shadow-md">
+              <Card className="h-full transition-colors hover:bg-muted/40">
                 <CardHeader className="flex flex-row items-center gap-3 space-y-0">
-                  <div className="flex size-10 items-center justify-center rounded-md bg-accent text-accent-foreground">
+                  <div className="flex size-10 items-center justify-center rounded-lg border border-border bg-muted text-foreground">
                     <ProjectIcon name={project.icon} className="size-5" />
                   </div>
                   <div>

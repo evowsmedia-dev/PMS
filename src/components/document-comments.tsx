@@ -70,7 +70,7 @@ export function DocumentComments({
                 </span>
               </div>
               {c.quotedText ? (
-                <blockquote className="mt-1 rounded bg-amber-50 px-2 py-1 text-xs italic text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+                <blockquote className="mt-1 rounded-lg border border-border bg-muted px-2 py-1 text-xs italic text-muted-foreground">
                   &ldquo;{c.quotedText}&rdquo;
                 </blockquote>
               ) : null}
@@ -103,12 +103,12 @@ export function DocumentComments({
       {canComment ? (
         <form ref={formRef} action={formAction} className="space-y-2">
           {quote ? (
-            <div className="flex items-start justify-between gap-2 rounded bg-amber-50 px-2 py-1.5 text-xs italic text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+            <div className="flex items-start justify-between gap-2 rounded-lg border border-border bg-muted px-2 py-1.5 text-xs italic text-muted-foreground">
               <span>&ldquo;{quote}&rdquo;</span>
               <button
                 type="button"
                 onClick={() => setQuote(null)}
-                className="shrink-0 text-amber-800/70 hover:text-amber-800 dark:text-amber-200/70"
+                className="shrink-0 text-muted-foreground hover:text-foreground"
               >
                 <X className="size-3.5" />
               </button>

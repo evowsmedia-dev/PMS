@@ -4,7 +4,7 @@ Multi-project document & task management app — Next.js (App Router) + PostgreS
 
 ## Stack
 
-- Next.js 16 (App Router, Turbopack), TypeScript, Tailwind CSS v4, shadcn/ui (green theme per `docs/Design_rule.md` in the repo root)
+- Next.js 16 (App Router, Turbopack), TypeScript, Tailwind CSS v4, shadcn/ui (strict monochrome theme per `docs/DESIGN_new.md` in the repo root)
 - PostgreSQL via Prisma 7 (driver-adapter architecture — `@prisma/adapter-pg`)
 - NextAuth.js v5 (Credentials provider, JWT sessions)
 - Vercel Blob for file attachments

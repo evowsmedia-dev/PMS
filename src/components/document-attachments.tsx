@@ -163,7 +163,7 @@ export function DocumentAttachments({
                   href={a.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 truncate text-primary hover:underline"
+                  className="flex items-center gap-2 truncate text-foreground underline-offset-4 hover:underline"
                 >
                   <Icon className="size-4 shrink-0" />
                   <span className="truncate">{a.fileName || a.url}</span>

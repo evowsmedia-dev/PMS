@@ -29,7 +29,7 @@ export default async function DashboardLayout({
         <AppSidebar isAdmin={isAdmin} />
 
         <div className="flex flex-1 flex-col">
-          <header className="flex items-center justify-between border-b bg-background px-4 py-3">
+          <header className="flex min-h-16 items-center justify-between border-b bg-background px-4 py-3">
             <HeaderTitle />
             <div className="ml-auto flex items-center gap-3 text-sm text-muted-foreground">
               <span>
@@ -38,7 +38,7 @@ export default async function DashboardLayout({
               <LogoutButton />
             </div>
           </header>
-          <main className="flex-1 p-4 md:p-6">{children}</main>
+          <main className="mx-auto w-full max-w-[1200px] flex-1 p-4 md:p-6">{children}</main>
         </div>
       </div>
     </PageHeaderProvider>

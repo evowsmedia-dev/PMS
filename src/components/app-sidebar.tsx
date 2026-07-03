@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -16,6 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 
 const STORAGE_KEY = "pms:sidebar-collapsed";
+const STORAGE_EVENT = "pms:sidebar-collapsed-change";
 
 const NAV_ITEMS = [
   { href: "/dashboard/overview", label: "Tổng quan", icon: LayoutDashboard },
@@ -30,16 +31,29 @@ function readStoredCollapsed() {
   return localStorage.getItem(STORAGE_KEY) === "1";
 }
 
+function subscribeCollapsed(callback: () => void) {
+  if (typeof window === "undefined") return () => {};
+
+  function handleStorage(event: StorageEvent) {
+    if (event.key === STORAGE_KEY) callback();
+  }
+
+  window.addEventListener("storage", handleStorage);
+  window.addEventListener(STORAGE_EVENT, callback);
+  return () => {
+    window.removeEventListener("storage", handleStorage);
+    window.removeEventListener(STORAGE_EVENT, callback);
+  };
+}
+
 export function AppSidebar({ isAdmin }: { isAdmin: boolean }) {
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(readStoredCollapsed);
+  const collapsed = useSyncExternalStore(subscribeCollapsed, readStoredCollapsed, () => false);
 
   function toggle() {
-    setCollapsed((prev) => {
-      const next = !prev;
-      localStorage.setItem(STORAGE_KEY, next ? "1" : "0");
-      return next;
-    });
+    const next = !collapsed;
+    localStorage.setItem(STORAGE_KEY, next ? "1" : "0");
+    window.dispatchEvent(new Event(STORAGE_EVENT));
   }
 
   return (
@@ -51,9 +65,9 @@ export function AppSidebar({ isAdmin }: { isAdmin: boolean }) {
     >
       <Link
         href="/dashboard/overview"
-        className="flex items-center gap-2 border-b p-4 hover:bg-sidebar-accent"
+        className="flex min-h-16 items-center gap-2 border-b p-4 hover:bg-sidebar-accent"
       >
-        <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary text-[10px] font-bold leading-none text-primary-foreground">
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-[10px] font-bold leading-none text-primary-foreground">
           PMS
         </div>
         {!collapsed ? <span className="font-semibold">PMS</span> : null}
@@ -67,7 +81,7 @@ export function AppSidebar({ isAdmin }: { isAdmin: boolean }) {
               href={item.href}
               title={collapsed ? item.label : undefined}
               className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                 active ? "bg-sidebar-accent text-sidebar-accent-foreground" : "",
                 collapsed ? "justify-center" : "",
               )}
@@ -82,7 +96,7 @@ export function AppSidebar({ isAdmin }: { isAdmin: boolean }) {
             href="/admin/users"
             title={collapsed ? "Quản trị hệ thống" : undefined}
             className={cn(
-              "flex items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
               collapsed ? "justify-center" : "",
             )}
           >
@@ -96,7 +110,7 @@ export function AppSidebar({ isAdmin }: { isAdmin: boolean }) {
           type="button"
           onClick={toggle}
           className={cn(
-            "flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+            "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
             collapsed ? "justify-center" : "",
           )}
           title={collapsed ? "Mở rộng menu" : "Thu gọn menu"}

@@ -71,7 +71,7 @@ export default async function MyTasksPage({
         <div className="space-y-2">
           {tasks.map((task) => (
             <Link key={task.id} href={taskHref(task)}>
-              <Card className="transition hover:shadow-sm">
+              <Card className="transition-colors hover:bg-muted/40">
                 <CardContent className="flex flex-wrap items-center justify-between gap-2 p-3">
                   <div>
                     <p className="font-medium">

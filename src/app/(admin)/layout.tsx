@@ -21,24 +21,24 @@ export default async function AdminLayout({
 
   return (
     <div className="min-h-screen">
-      <header className="flex items-center gap-4 border-b bg-sidebar px-4 py-3 text-sidebar-foreground">
+      <header className="flex min-h-16 items-center gap-4 border-b bg-background px-4 py-3 text-foreground">
         <span className="font-semibold">Admin Panel</span>
         <nav className="flex gap-1">
           {ADMIN_NAV.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className="rounded-md px-3 py-1.5 text-sm hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              className="rounded-lg px-3 py-1.5 text-sm hover:bg-muted"
             >
               {item.label}
             </Link>
           ))}
         </nav>
-        <Link href="/dashboard/overview" className="ml-auto text-sm underline">
-          ← Về Dashboard
+        <Link href="/dashboard/overview" className="ml-auto text-sm underline underline-offset-4">
+          Về Dashboard
         </Link>
       </header>
-      <div className="p-4 md:p-6">{children}</div>
+      <div className="mx-auto w-full max-w-[1200px] p-4 md:p-6">{children}</div>
     </div>
   );
 }
