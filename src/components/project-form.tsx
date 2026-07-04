@@ -19,7 +19,16 @@ import type { ActionState } from "@/lib/actions/profile";
 
 const initialState: ActionState = {};
 
-export function ProjectCreateForm() {
+interface ProjectSubsystemOption {
+  id: string;
+  name: string;
+}
+
+export function ProjectCreateForm({
+  subsystems,
+}: {
+  subsystems: ProjectSubsystemOption[];
+}) {
   const [state, action, pending] = useActionState(createProjectAction, initialState);
 
   useEffect(() => {
@@ -42,6 +51,23 @@ export function ProjectCreateForm() {
       <div className="space-y-2">
         <Label htmlFor="description">Mô tả</Label>
         <Textarea id="description" name="description" rows={3} />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="subsystemId">Phân hệ dự án</Label>
+        <Select name="subsystemId" defaultValue="none">
+          <SelectTrigger id="subsystemId" className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Chưa chọn</SelectItem>
+            {subsystems.map((subsystem) => (
+              <SelectItem key={subsystem.id} value={subsystem.id}>
+                {subsystem.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

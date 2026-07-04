@@ -24,6 +24,7 @@ export const projectFormSchema = z.object({
   startDate: z.string().optional().or(z.literal("")),
   endDate: z.string().optional().or(z.literal("")),
   priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).default("MEDIUM"),
+  subsystemId: z.string().optional().or(z.literal("")),
 });
 
 export type ProjectFormValues = z.infer<typeof projectFormSchema>;

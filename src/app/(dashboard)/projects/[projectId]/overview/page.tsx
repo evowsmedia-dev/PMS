@@ -24,6 +24,7 @@ export default async function ProjectOverviewPage({
   const project = await prisma.project.findFirst({
     where: { id: projectId, deletedAt: null },
     include: {
+      subsystem: { select: { name: true } },
       members: { include: { user: { select: { fullName: true, email: true } } } },
       modules: {
         where: { deletedAt: null },
@@ -186,6 +187,12 @@ export default async function ProjectOverviewPage({
             </div>
             <div className="flex items-start justify-between gap-4">
               <span className="text-muted-foreground">Phân hệ</span>
+              <span className="min-w-0 text-right font-medium">
+                {project.subsystem?.name ?? "Chưa chọn"}
+              </span>
+            </div>
+            <div className="flex items-start justify-between gap-4">
+              <span className="text-muted-foreground">Loại tài liệu</span>
               <div className="min-w-0 text-right">
                 <span className="font-medium">{project.modules.length}</span>
                 {project.modules.length > 0 ? (

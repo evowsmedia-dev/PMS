@@ -34,6 +34,7 @@ export default async function ProjectsPage({
       ...(isAdmin ? {} : { members: { some: { userId: session.user.id } } }),
     },
     include: {
+      subsystem: { select: { name: true } },
       _count: {
         select: {
           documents: { where: { deletedAt: null } },
@@ -92,9 +93,10 @@ export default async function ProjectsPage({
                       {project.status === "ARCHIVED" ? "Lưu trữ" : "Đang hoạt động"}
                     </Badge>
                     <Badge variant="outline">{PRIORITY_LABEL[project.priority]}</Badge>
+                    <Badge variant="secondary">{project.subsystem?.name ?? "Chưa chọn phân hệ"}</Badge>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {project._count.modules} phân hệ · {project._count.documents} tài liệu ·{" "}
+                    {project._count.modules} loại tài liệu · {project._count.documents} tài liệu ·{" "}
                     {project._count.tasks} task
                   </p>
                 </CardContent>

@@ -22,7 +22,13 @@ export default async function ProjectEditSettingsPage({
     redirect(`/projects/${projectId}/overview`);
   }
 
-  const project = await prisma.project.findFirst({ where: { id: projectId, deletedAt: null } });
+  const [project, subsystems] = await Promise.all([
+    prisma.project.findFirst({ where: { id: projectId, deletedAt: null } }),
+    prisma.projectSubsystem.findMany({
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+  ]);
   if (!project) notFound();
 
   return (
@@ -37,6 +43,8 @@ export default async function ProjectEditSettingsPage({
             projectId={project.id}
             name={project.name}
             description={project.description ?? ""}
+            subsystemId={project.subsystemId ?? ""}
+            subsystems={subsystems}
             priority={project.priority}
             highlightNote={project.highlightNote ?? ""}
             startDate={project.startDate ? project.startDate.toISOString().slice(0, 10) : ""}

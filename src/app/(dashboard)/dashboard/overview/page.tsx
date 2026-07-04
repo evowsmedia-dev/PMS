@@ -13,19 +13,17 @@ export default async function DashboardOverviewPage() {
     ? { deletedAt: null }
     : { deletedAt: null, members: { some: { userId: session.user.id } } };
 
-  const [projectCount, projectsWithModuleCounts, documentCount, taskCount] = await Promise.all([
+  const [projectCount, projectsWithSubsystems, documentCount, taskCount] = await Promise.all([
     prisma.project.count({ where: projectFilter }),
     prisma.project.findMany({
-      where: projectFilter,
-      select: { _count: { select: { modules: { where: { deletedAt: null } } } } },
+      where: { ...projectFilter, subsystemId: { not: null } },
+      distinct: ["subsystemId"],
+      select: { subsystemId: true },
     }),
     prisma.document.count({ where: { deletedAt: null, project: projectFilter } }),
     prisma.task.count({ where: { deletedAt: null, project: projectFilter } }),
   ]);
-  const moduleCount = projectsWithModuleCounts.reduce(
-    (sum, project) => sum + project._count.modules,
-    0,
-  );
+  const subsystemCount = projectsWithSubsystems.length;
 
   return (
     <PageShell size="standard">
@@ -41,7 +39,7 @@ export default async function DashboardOverviewPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground">Tổng phân hệ</CardTitle>
           </CardHeader>
-          <CardContent className="text-2xl font-semibold">{moduleCount}</CardContent>
+          <CardContent className="text-2xl font-semibold">{subsystemCount}</CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">

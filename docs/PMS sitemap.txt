@@ -35,6 +35,7 @@ Ghi chú:
 ├── /projects/new
 │   ├── Tạo dự án mới.
 │   ├── Không còn chọn template dự án.
+│   ├── Chọn phân hệ dự án từ danh sách được quản lý tại `/admin/projects`.
 │   └── Sau khi tạo chỉ sinh dự án + phân hệ mặc định "Tài liệu chung".
 │
 └── /projects/:projectId/overview
@@ -110,7 +111,8 @@ Ghi chú:
 │   └── Comment task.
 │
 ├── /projects/:projectId/settings/edit
-│   └── Sửa thông tin dự án.
+│   ├── Sửa thông tin dự án.
+│   └── Chọn/cập nhật phân hệ dự án từ danh sách được quản lý tại `/admin/projects`.
 │
 ├── /projects/:projectId/settings/members
 │   ├── Quản lý thành viên dự án.
@@ -146,7 +148,11 @@ Ghi chú:
 │   └── Reset password / thao tác admin theo quyền hiện có.
 │
 ├── /admin/projects
-│   └── Quản lý/tổng quan tất cả dự án còn hiển thị.
+│   ├── Quản lý/tổng quan tất cả dự án còn hiển thị.
+│   ├── Danh sách phân hệ của dự án.
+│   ├── Thêm mới phân hệ dự án.
+│   ├── Xóa bớt một phân hệ dự án bất kỳ.
+│   └── Dự án đang dùng phân hệ bị xóa sẽ chuyển về trạng thái chưa chọn phân hệ.
 │
 ├── /admin/logs
 │   └── Xem audit logs, lọc theo dữ liệu màn hình hỗ trợ.

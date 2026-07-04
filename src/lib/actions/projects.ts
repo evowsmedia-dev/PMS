@@ -19,7 +19,18 @@ function parseProjectForm(formData: FormData) {
     startDate: formData.get("startDate") ?? "",
     endDate: formData.get("endDate") ?? "",
     priority: formData.get("priority") || "MEDIUM",
+    subsystemId: formData.get("subsystemId") ?? "",
   });
+}
+
+async function getValidSubsystemId(subsystemId: string | undefined) {
+  if (!subsystemId || subsystemId === "none") return null;
+
+  const subsystem = await prisma.projectSubsystem.findUnique({
+    where: { id: subsystemId },
+    select: { id: true },
+  });
+  return subsystem?.id ?? null;
 }
 
 export async function createProjectAction(
@@ -42,6 +53,7 @@ export async function createProjectAction(
     return { error: "Mã dự án đã tồn tại, vui lòng chọn mã khác." };
   }
 
+  const subsystemId = await getValidSubsystemId(values.subsystemId);
   let projectId: string;
 
   await prisma.$transaction(async (tx) => {
@@ -54,6 +66,7 @@ export async function createProjectAction(
         startDate: values.startDate ? new Date(values.startDate) : null,
         endDate: values.endDate ? new Date(values.endDate) : null,
         priority: values.priority,
+        subsystemId,
         templateId: null,
         createdById: session.user.id,
         members: {
@@ -78,7 +91,7 @@ export async function createProjectAction(
       entityType: "Project",
       entityId: project.id,
       projectId: project.id,
-      metadata: { name: project.name },
+      metadata: { name: project.name, subsystemId },
     });
   });
 
@@ -105,6 +118,7 @@ export async function updateProjectAction(
   const endDate = String(formData.get("endDate") ?? "");
   const priority = String(formData.get("priority") ?? "MEDIUM");
   const highlightNote = String(formData.get("highlightNote") ?? "").trim();
+  const subsystemId = await getValidSubsystemId(String(formData.get("subsystemId") ?? ""));
 
   if (!name) return { error: "Tên dự án không được để trống." };
 
@@ -116,6 +130,7 @@ export async function updateProjectAction(
       startDate: startDate ? new Date(startDate) : null,
       endDate: endDate ? new Date(endDate) : null,
       priority: priority as never,
+      subsystemId,
       highlightNote: highlightNote || null,
     },
   });
@@ -126,9 +141,13 @@ export async function updateProjectAction(
     entityType: "Project",
     entityId: projectId,
     projectId,
+    metadata: { subsystemId },
   });
 
   revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/projects");
+  revalidatePath("/admin/projects");
+  revalidatePath("/dashboard/overview");
   return { success: "Đã cập nhật thông tin dự án." };
 }
 

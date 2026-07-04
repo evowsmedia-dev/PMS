@@ -19,10 +19,17 @@ import type { ActionState } from "@/lib/actions/profile";
 
 const initialState: ActionState = {};
 
+interface ProjectSubsystemOption {
+  id: string;
+  name: string;
+}
+
 export function ProjectEditForm({
   projectId,
   name,
   description,
+  subsystemId,
+  subsystems,
   priority,
   highlightNote,
   startDate,
@@ -31,6 +38,8 @@ export function ProjectEditForm({
   projectId: string;
   name: string;
   description: string;
+  subsystemId: string;
+  subsystems: ProjectSubsystemOption[];
   priority: string;
   highlightNote: string;
   startDate: string;
@@ -57,6 +66,22 @@ export function ProjectEditForm({
       <div className="space-y-2">
         <Label htmlFor="description">Mô tả</Label>
         <Textarea id="description" name="description" defaultValue={description} rows={3} />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="subsystemId">Phân hệ dự án</Label>
+        <Select name="subsystemId" defaultValue={subsystemId || "none"}>
+          <SelectTrigger id="subsystemId" className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Chưa chọn</SelectItem>
+            {subsystems.map((subsystem) => (
+              <SelectItem key={subsystem.id} value={subsystem.id}>
+                {subsystem.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="space-y-2">

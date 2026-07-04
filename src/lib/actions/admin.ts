@@ -163,3 +163,62 @@ export async function updateSystemSettingsAction(
   revalidatePath("/admin/settings");
   return { success: "Đã lưu cấu hình hệ thống." };
 }
+
+export async function createProjectSubsystemAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await requireAdmin();
+  if (!session) return { error: "Bạn không có quyền thực hiện thao tác này." };
+
+  const name = String(formData.get("name") ?? "").trim();
+  const description = String(formData.get("description") ?? "").trim();
+
+  if (!name) return { error: "Tên phân hệ không được để trống." };
+
+  const existing = await prisma.projectSubsystem.findUnique({ where: { name } });
+  if (existing) return { error: "Phân hệ này đã tồn tại." };
+
+  const subsystem = await prisma.projectSubsystem.create({
+    data: { name, description: description || null },
+  });
+
+  await logAudit({
+    actorId: session.user.id,
+    action: "CREATE",
+    entityType: "ProjectSubsystem",
+    entityId: subsystem.id,
+    metadata: { name },
+  });
+
+  revalidatePath("/admin/projects");
+  revalidatePath("/projects/new");
+  revalidatePath("/dashboard/overview");
+  return { success: `Đã tạo phân hệ "${name}".` };
+}
+
+export async function deleteProjectSubsystemAction(subsystemId: string) {
+  const session = await requireAdmin();
+  if (!session) return;
+
+  const subsystem = await prisma.projectSubsystem.findUnique({
+    where: { id: subsystemId },
+    select: { id: true, name: true },
+  });
+  if (!subsystem) return;
+
+  await logAudit({
+    actorId: session.user.id,
+    action: "DELETE",
+    entityType: "ProjectSubsystem",
+    entityId: subsystem.id,
+    metadata: { name: subsystem.name, permanent: true },
+  });
+
+  await prisma.projectSubsystem.delete({ where: { id: subsystem.id } });
+
+  revalidatePath("/admin/projects");
+  revalidatePath("/projects");
+  revalidatePath("/projects/new");
+  revalidatePath("/dashboard/overview");
+}
