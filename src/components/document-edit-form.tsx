@@ -25,12 +25,25 @@ import {
   Undo2,
   LinkIcon,
   UnderlineIcon,
+  Columns3,
+  Rows3,
+  Plus,
+  Minus,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -70,6 +83,9 @@ export function DocumentEditForm({
   const [content, setContent] = useState(initial.content);
   const [autosaveStatus, setAutosaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [tableDialogOpen, setTableDialogOpen] = useState(false);
+  const [tableRows, setTableRows] = useState(3);
+  const [tableCols, setTableCols] = useState(3);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
@@ -84,7 +100,7 @@ export function DocumentEditForm({
         HTMLAttributes: { rel: "noopener noreferrer", target: "_blank" },
       }),
       Image.configure({ inline: false, allowBase64: false }),
-      Table.configure({ resizable: false }),
+      Table.configure({ resizable: true }),
       TableRow,
       TableHeader,
       TableCell,
@@ -154,8 +170,20 @@ export function DocumentEditForm({
   }
 
   function addTable() {
-    editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+    if (!editor) return;
+    editor
+      .chain()
+      .focus()
+      .insertTable({
+        rows: Math.min(Math.max(tableRows, 1), 20),
+        cols: Math.min(Math.max(tableCols, 1), 12),
+        withHeaderRow: true,
+      })
+      .run();
+    setTableDialogOpen(false);
   }
+
+  const tableSelected = editor?.isActive("table") ?? false;
 
   return (
     <form action={formAction} className="space-y-4">
@@ -245,8 +273,105 @@ export function DocumentEditForm({
         <Button type="button" variant="ghost" size="icon" className="size-7" title="Link" onClick={setLink}>
           <LinkIcon className="size-3.5" />
         </Button>
-        <Button type="button" variant="ghost" size="icon" className="size-7" title="Chèn bảng" onClick={addTable}>
-          <Table2 className="size-3.5" />
+        <Dialog open={tableDialogOpen} onOpenChange={setTableDialogOpen}>
+          <DialogTrigger asChild>
+            <Button type="button" variant="ghost" size="icon" className="size-7" title="Chèn bảng">
+              <Table2 className="size-3.5" />
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Chèn bảng</DialogTitle>
+            </DialogHeader>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="tableRows">Số dòng</Label>
+                <Input
+                  id="tableRows"
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={tableRows}
+                  onChange={(e) => setTableRows(Number(e.target.value) || 1)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="tableCols">Số cột</Label>
+                <Input
+                  id="tableCols"
+                  type="number"
+                  min={1}
+                  max={12}
+                  value={tableCols}
+                  onChange={(e) => setTableCols(Number(e.target.value) || 1)}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" onClick={addTable}>
+                Chèn bảng
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-7"
+          title="Thêm dòng sau"
+          disabled={!tableSelected}
+          onClick={() => editor?.chain().focus().addRowAfter().run()}
+        >
+          <Plus className="size-3" />
+          <Rows3 className="size-3.5" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-7"
+          title="Xóa dòng"
+          disabled={!tableSelected}
+          onClick={() => editor?.chain().focus().deleteRow().run()}
+        >
+          <Minus className="size-3" />
+          <Rows3 className="size-3.5" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-7"
+          title="Thêm cột sau"
+          disabled={!tableSelected}
+          onClick={() => editor?.chain().focus().addColumnAfter().run()}
+        >
+          <Plus className="size-3" />
+          <Columns3 className="size-3.5" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-7"
+          title="Xóa cột"
+          disabled={!tableSelected}
+          onClick={() => editor?.chain().focus().deleteColumn().run()}
+        >
+          <Minus className="size-3" />
+          <Columns3 className="size-3.5" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-7"
+          title="Xóa bảng"
+          disabled={!tableSelected}
+          onClick={() => editor?.chain().focus().deleteTable().run()}
+        >
+          <Trash2 className="size-3.5" />
         </Button>
         <input
           ref={imageInputRef}
