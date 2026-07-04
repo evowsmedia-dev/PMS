@@ -42,12 +42,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import {
-  createModuleAction,
-  renameModuleAction,
-  deleteModuleAction,
-  reorderModulesAction,
-} from "@/lib/actions/modules";
+import { renameModuleAction, deleteModuleAction, reorderModulesAction } from "@/lib/actions/modules";
 import { deleteDocumentAction, createFlowDocumentAction } from "@/lib/actions/documents";
 import type { ActionState } from "@/lib/actions/profile";
 
@@ -459,7 +454,6 @@ export function ProjectDocumentsNav({
   const router = useRouter();
   const visibleModules = modules.filter((m) => m.id !== mainModuleId);
   const items = visibleModules;
-  const [dialogOpen, setDialogOpen] = useState(false);
   const sensors = useSensors(useSensor(PointerSensor));
 
   function handleDragEnd(event: DragEndEvent) {
@@ -476,8 +470,8 @@ export function ProjectDocumentsNav({
 
   return (
     <div className="min-w-0 space-y-2 text-[1.15em]">
-      <div className="flex items-center justify-between px-1">
-        <p className="min-w-0 flex-1 rounded-md px-2 py-1.5 text-[1.00625rem]">Tài liệu</p>
+      <div className="flex items-center justify-between rounded-lg px-2 py-1.5">
+        <p className="min-w-0 flex-1 text-[1.00625rem]">Tài liệu</p>
         <div className="flex shrink-0 items-center gap-0.5">
           {canCreateDocuments && mainModuleId ? (
             <Button asChild variant="ghost" size="icon" className="size-6" title="Thêm tài liệu">
@@ -485,33 +479,6 @@ export function ProjectDocumentsNav({
                 <Plus className="size-4" />
               </Link>
             </Button>
-          ) : null}
-          {canManage ? (
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="ghost" size="icon" className="size-6" title="Thêm loại tài liệu">
-                  <Plus className="size-4" />
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Thêm loại tài liệu mới</DialogTitle>
-                </DialogHeader>
-                <form
-                  action={async (formData) => {
-                    await createModuleAction(projectId, {}, formData);
-                    router.refresh();
-                    setDialogOpen(false);
-                  }}
-                  className="space-y-4"
-                >
-                  <Input name="name" placeholder="Tên loại tài liệu" required />
-                  <DialogFooter>
-                    <Button type="submit">Tạo</Button>
-                  </DialogFooter>
-                </form>
-              </DialogContent>
-            </Dialog>
           ) : null}
         </div>
       </div>
