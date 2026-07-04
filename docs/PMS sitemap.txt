@@ -1,161 +1,190 @@
-/ (Trang chủ)
-│
-├── /login (Đăng nhập)
-│
-└── /dashboard (Dashboard tổng hợp – sau khi đăng nhập)
-    ├── /overview (Tổng quan tất cả dự án)
-    ├── /my-tasks (Nhiệm vụ của tôi)
-    ├── /activity (Hoạt động gần đây)
-    └── /profile (Hồ sơ cá nhân
-    └── /tạo tài khoản (dảnh riêng cho admin)
+# PMS Sitemap - current Next.js app
 
-/dashboard
-│
-└── /projects (Danh sách dự án)
-    │
-    ├── /projects/new (Tạo dự án mới – chọn template)
-    │
-    ├── /projects/:projectId (Chi tiết dự án)
-    │   ├── /overview (Dashboard của dự án)
-    │   ├── /modules/:moduleId (Xem module)
-    │   │   ├── /documents (Danh sách tài liệu)
-    │   │   │   ├── /documents/new (Tạo tài liệu mới)
-    │   │   │   ├── /documents/:docId (Chi tiết tài liệu)
-    │   │   │   │   ├── /edit (Chỉnh sửa tài liệu)
-    │   │   │   │   ├── /history (Lịch sử phiên bản)
-    │   │   │   │   ├── /comments (Bình luận)
-    │   │   │   │   └── /approve (Phê duyệt – nếu có quyền)
-    │   │   │   └── /filter (Lọc theo danh mục, role, status)
-    │   │   ├── /tasks (Kanban Board)
-    │   │   │   ├── /tasks/new (Tạo task từ tài liệu bằng cách bôi vàng và ấn tạo task chỉ định cho ai, hạn bao giờ hoặc tạo task mới hoàn toàn nhưng cho phép chọn dự án, module nào)
-    │   │   │   └── /tasks/:taskId (Chi tiết task)
-    │   │   └── /ux-simulator (Mô phỏng thiết bị tùy theo app mobile hay erp winform – đặc thù)
-    │   ├── /settings (Cài đặt dự án)
-    │   │   ├── /edit (Sửa thông tin)
-    │   │   ├── /members (Quản lý thành viên)
-    │   │   └── /delete (Xóa dự án)
-    │   └── /export (Export dự án ra JSON)
-    │
-    └── /templates (Quản lý template)
-        ├── /templates/new (Tạo template mới)
-        └── /templates/:templateId (Xem/Chỉnh sửa template)
+Ghi chú:
+- `/` tự điều hướng: đã đăng nhập -> `/dashboard/overview`, chưa đăng nhập -> `/login`.
+- `(auth)`, `(dashboard)`, `(admin)` là route group nội bộ của Next.js, không xuất hiện trên URL.
+- Các route dưới đây là những màn hình/API còn tồn tại trong `src/app` hiện tại.
+- Các chức năng filter, comment, approve, attachment, delete nằm trong màn hình tương ứng, không phải route riêng.
 
-/projects/:projectId/modules/:moduleId/documents
+/
 │
-├── /documents (Danh sách)
-│   ├── Bộ lọc: Category, Role, Status
-│   ├── Tìm kiếm: Title, Author, Content
-│   └── Phân trang
+├── /login
+│   └── Đăng nhập.
 │
-├── /documents/new (Form tạo)
-│   ├── Title
-│   ├── Category (Management, Requirements, Technical, Testing, Tasks, Knowledge, History)
-│   ├── Role (PO, BA, Dev, Tester, All)
-│   ├── Content 
-│   ├── Attachments (Upload file ảnh, pdf, excel hoặc gắn link)
-│   └── Status (Draft – mặc định)
+├── /dashboard/overview
+│   ├── Dashboard tổng hợp.
+│   ├── Chỉ số dự án, phân hệ, tài liệu, task.
+│   └── Dữ liệu phân hệ lấy từ tổng số module còn hiển thị của các dự án.
 │
-├── /documents/:docId (Xem chi tiết)
-│   ├── Metadata: Title, Author, Role, Category, Status, Created/Updated
-│   ├── Nội dung chính 
-│   ├── Lịch sử thay đổi (Thay đổi gì, ai sửa, thời điểm sửa)
-│   ├── Nút hành động:
-│   │   ├── Edit (→ /documents/:docId/edit)
-│   │   ├── Approve (nếu có quyền)
-│   │   ├── Change Status (Draft/Review/Archived)
-│   │   └── Delete (Soft delete)
-│   ├── Comment section:
-│   │   ├── Hiển thị bình luận (thread lề hẹp bên phải)
-│   │   └── Form bình luận mới (có @mention tài khoản)
-│   └── Task liên quan (nếu có)
+├── /dashboard/my-tasks
+│   └── Danh sách task được giao cho user hiện tại.
 │
-└── /documents/:docId/edit (Form chỉnh sửa)
-    ├── Tương tự form tạo nhưng load dữ liệu hiện tại
-    └── Lưu → tạo phiên bản mới + log lịch sử
+├── /dashboard/activity
+│   └── Hoạt động gần đây / audit feed.
+│
+├── /dashboard/profile
+│   └── Hồ sơ cá nhân, cập nhật thông tin và mật khẩu.
+│
+└── /projects
+    ├── Danh sách dự án user có quyền xem.
+    ├── Không hiển thị dự án đã xóa mềm cũ.
+    └── Link tạo dự án mới.
 
-/projects/:projectId/tasks
+/projects
 │
-├── /tasks (Kanban Board)
-│   ├── Columns: To Do, In Progress, Review, Done
-│   ├── Kéo thả (Drag & Drop) để thay đổi trạng thái
-│   └── Bộ lọc: Assignee, Priority, Due Date
+├── /projects/new
+│   ├── Tạo dự án mới.
+│   ├── Không còn chọn template dự án.
+│   └── Sau khi tạo chỉ sinh dự án + phân hệ mặc định "Tài liệu chung".
 │
-├── /tasks/new (Tạo task mới)
-│   ├── Title
-│   ├── Description
-│   ├── Assignee (chọn từ team)
-│   ├── Priority (Low, Medium, High, Critical)
-│   ├── Due Date
-│   ├── Link to Document (optional)
-│   └── Status (mặc định: To Do)
-│
-└── /tasks/:taskId (Chi tiết task)
-    ├── Thông tin chi tiết
-    ├── Chỉnh sửa (→ /tasks/:taskId/edit)
-    ├── Thay đổi trạng thái
-    ├── Gán lại người thực hiện
-    └── Comment
+└── /projects/:projectId/overview
+    ├── Dashboard của dự án.
+    ├── 3 box thống kê: tài liệu, task, thành viên.
+    ├── Tiến độ task có biểu đồ trực quan.
+    ├── Trạng thái tài liệu.
+    ├── Thông tin chung: mã dự án, trạng thái, ưu tiên, phân hệ, ngày bắt đầu/kết thúc, mô tả.
+    ├── Vấn đề nổi bật nếu có.
+    └── Danh sách thành viên dự án.
 
-/dashboard
+/projects/:projectId
 │
-├── /overview (Tổng quan toàn hệ thống)
-│   ├── Số lượng dự án, tài liệu, task
-│   ├── Biểu đồ tiến độ chung
-│   └── Hoạt động gần đây (Activity Feed)
+├── Layout dự án
+│   ├── Sidebar project desktop.
+│   ├── Mobile project navigation bằng sheet.
+│   ├── Mục cùng cấp: Dashboard dự án, Tài liệu, Export JSON.
+│   ├── "Tài liệu" hiển thị tài liệu chung và các loại tài liệu/phân hệ.
+│   ├── Icon thêm loại tài liệu đang tạm ẩn.
+│   ├── Nút thêm tài liệu vẫn hiển thị theo quyền.
+│   ├── Menu tài liệu tự wrap khi tên dài.
+│   └── User chỉ thấy phân hệ được phép truy cập theo assignment.
 │
-└── /project/:projectId/dashboard (Dashboard dự án)
-    ├── KPI: % hoàn thành module, document status
-    ├── Task progress (To do, In progress, Done)
-    ├── Upcoming deadlines
-    ├── Task progress (To do, In progress, Done)
-    ├── Vấn đề nổi bật (chọn từ task hoặc nhập tay)
-    └── Team members
+├── /projects/:projectId/modules/:moduleId/documents
+│   ├── Danh sách tài liệu của phân hệ.
+│   ├── Query params đang dùng:
+│   │   ├── `category`
+│   │   ├── `role`
+│   │   ├── `status`
+│   │   ├── `q`
+│   │   └── `page`
+│   ├── Filter theo category, role, status.
+│   ├── Search theo title hoặc description.
+│   ├── Phân trang.
+│   └── Nút "Thêm tài liệu" theo quyền.
+│
+├── /projects/:projectId/modules/:moduleId/documents/new
+│   ├── Tạo tài liệu mới.
+│   ├── Có thể chọn mẫu tài liệu nội bộ của form tài liệu.
+│   └── Sau khi tạo điều hướng sang detail tài liệu mới.
+│
+├── /projects/:projectId/modules/:moduleId/documents/:docId
+│   ├── Chi tiết tài liệu.
+│   ├── Metadata, nội dung, diagram nếu có, file đính kèm.
+│   ├── Action trong màn hình: edit, đổi trạng thái, submit review, delete vĩnh viễn theo quyền.
+│   ├── Comment nằm ở sidebar/phần chi tiết, không có route `/comments` riêng.
+│   └── Task liên quan nếu có.
+│
+├── /projects/:projectId/modules/:moduleId/documents/:docId/edit
+│   ├── Chỉnh sửa tài liệu.
+│   ├── Autosave nếu form hỗ trợ.
+│   └── Lưu tạo phiên bản mới + audit log.
+│
+├── /projects/:projectId/modules/:moduleId/documents/:docId/history
+│   └── Lịch sử phiên bản tài liệu.
+│
+├── /projects/:projectId/modules/:moduleId/tasks
+│   ├── Kanban board.
+│   ├── Columns: To Do, In Progress, Review, Done.
+│   └── Kéo thả để đổi trạng thái.
+│
+├── /projects/:projectId/modules/:moduleId/tasks/new
+│   ├── Tạo task mới.
+│   ├── Chọn assignee từ thành viên dự án.
+│   ├── Priority, due date, mô tả.
+│   └── Có thể liên kết document nếu có.
+│
+├── /projects/:projectId/modules/:moduleId/tasks/:taskId
+│   ├── Chi tiết task.
+│   ├── Đổi trạng thái.
+│   ├── Gán lại người thực hiện.
+│   ├── Link document liên quan nếu có.
+│   └── Comment task.
+│
+├── /projects/:projectId/settings/edit
+│   └── Sửa thông tin dự án.
+│
+├── /projects/:projectId/settings/members
+│   ├── Quản lý thành viên dự án.
+│   ├── Add/remove member.
+│   ├── Đổi role trong dự án.
+│   └── Assign/remove loại tài liệu/phân hệ cho từng member.
+│
+├── /projects/:projectId/settings/delete
+│   └── Xóa dự án vĩnh viễn theo quyền, audit log vẫn lưu lịch sử.
+│
+└── /api/projects/:projectId/export
+    └── Export dự án ra JSON.
 
-/settings/templates (Quản lý template)
+/settings/templates
 │
-├── /templates (Danh sách template có sẵn)
-│   ├── Template: "Kho RFID" (từ các file mẫu)
-│   ├── Template: "Quản lý Nhân sự" (mặc định)
-│   └── Template: "Dự án Phần mềm" (mặc định)
+├── /settings/templates
+│   ├── Danh sách template.
+│   └── Chỉ Admin có quyền quản lý.
 │
-├── /templates/new (Tạo template mới từ file JSON hoặc cấu hình)
+├── /settings/templates/new
+│   └── Tạo template mới.
 │
-└── /templates/:templateId (Xem/Chỉnh sửa template)
-    └── Cấu trúc: module → documents (title, category, role, content mẫu)
+└── /settings/templates/:templateId
+    ├── Xem/chỉnh sửa template.
+    └── Xóa template vĩnh viễn theo quyền.
 
-/admin (Chỉ dành cho Admin)
+/admin
 │
-├── /admin/users (Quản lý người dùng)
-│   ├── Danh sách user (tìm kiếm, lọc)
-│   ├── Tạo user mới
-│   ├── Chỉnh sửa role
-│   └── Xóa / Vô hiệu hóa user
+├── /admin/users
+│   ├── Quản lý người dùng.
+│   ├── Tạo user mới ngay trên màn hình.
+│   ├── Đổi system role.
+│   └── Reset password / thao tác admin theo quyền hiện có.
 │
-├── /admin/projects (Quản lý tất cả dự án)
-│   └── Xem và can thiệp vào mọi dự án
+├── /admin/projects
+│   └── Quản lý/tổng quan tất cả dự án còn hiển thị.
 │
-├── /admin/logs (Xem nhật ký hệ thống)
-│   └── Lọc theo user, action, thời gian
+├── /admin/logs
+│   └── Xem audit logs, lọc theo dữ liệu màn hình hỗ trợ.
 │
-└── /admin/settings (Cài đặt hệ thống)
-    ├── Cấu hình chung (tên hệ thống, logo, email)
-    └── Quản lý role permission (nếu cần)
+└── /admin/settings
+    ├── Cài đặt hệ thống.
+    └── Tổng quan role/permission.
 
-[Đăng nhập] → [Dashboard Overview]
-    │
-    ├─→ [Danh sách dự án] → [Chọn dự án] → [Dashboard dự án]
-    │   │
-    │   ├─→ [Module Sidebar] → [Chọn module]
-    │   │   ├─→ [Danh sách tài liệu] → [Chọn tài liệu]
-    │   │   │   ├─→ [Xem chi tiết] → [Chỉnh sửa / Phê duyệt / Bình luận]
-    │   │   │   └─→ [Lịch sử phiên bản]
-    │   │   └─→ [Tạo tài liệu mới]
-    │   │
-    │   ├─→ [Kanban Board] → [Tạo task] → [Theo dõi tiến độ]
-    │   │
-    │   └─→ [UX Simulator] (nếu có)
-    │
-    ├─→ [Hồ sơ cá nhân] (Cập nhật thông tin)
-    │
-    └─→ [Admin Panel] (nếu là Admin)
+/api
+│
+├── /api/auth/[...nextauth]
+│   └── NextAuth route.
+│
+├── /api/upload
+│   └── Upload file.
+│
+├── /api/projects/:projectId/export
+│   └── Export JSON dự án.
+│
+└── /api/tasks/:taskId/status
+    └── Cập nhật trạng thái task.
 
+Main user flow:
+
+[Login]
+  -> [/dashboard/overview]
+  -> [/projects]
+  -> [/projects/:projectId/overview]
+  -> [Sidebar project: Dashboard dự án / Tài liệu / Export JSON]
+  -> [/projects/:projectId/modules/:moduleId/documents]
+  -> [/projects/:projectId/modules/:moduleId/documents/:docId]
+  -> [Edit / History / Comment / Task liên quan]
+
+Admin flow:
+
+[Login bằng Admin]
+  -> [/admin/users]
+  -> [/admin/projects]
+  -> [/admin/logs]
+  -> [/admin/settings]
+  -> [/settings/templates]
