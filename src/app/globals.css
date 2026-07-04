@@ -155,7 +155,11 @@
 }
 
 .prose table {
+  width: 100%;
+  min-width: 640px;
+  table-layout: fixed;
   overflow: hidden;
+  margin-block: 16px;
   border-radius: 10px;
   border: 1px solid var(--border);
   border-collapse: collapse;
@@ -169,12 +173,24 @@
 }
 .prose th,
 .prose td {
+  min-height: 40px;
+  padding: 10px 12px;
   border: 1px solid #d4d4d4;
   border-left-color: #bdbdbd;
   border-right-color: #bdbdbd;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  vertical-align: top;
 }
 .prose tbody tr:nth-child(even) {
   background-color: color-mix(in oklch, var(--muted) 50%, transparent);
+}
+.prose tr {
+  position: relative;
+}
+.prose.ProseMirror tr:hover th,
+.prose.ProseMirror tr:hover td {
+  border-bottom-color: #0a0a0a;
 }
 .prose .column-resize-handle {
   position: absolute;
@@ -187,4 +203,8 @@
 }
 .resize-cursor {
   cursor: col-resize;
+}
+.row-resize-cursor,
+.row-resize-cursor * {
+  cursor: row-resize !important;
 }

@@ -12,16 +12,20 @@ export function DocumentContentRenderer({
 }) {
   if (format === "HTML") {
     return (
-      <div
-        className="prose prose-sm max-w-none dark:prose-invert"
-        dangerouslySetInnerHTML={{ __html: contentToSafeHtml(content, format) }}
-      />
+      <div className="overflow-x-auto">
+        <div
+          className="prose prose-sm max-w-none dark:prose-invert"
+          dangerouslySetInnerHTML={{ __html: contentToSafeHtml(content, format) }}
+        />
+      </div>
     );
   }
 
   return (
-    <div className="prose prose-sm max-w-none dark:prose-invert">
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+    <div className="overflow-x-auto">
+      <div className="prose prose-sm max-w-none dark:prose-invert">
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+      </div>
     </div>
   );
 }

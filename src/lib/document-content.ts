@@ -25,6 +25,7 @@ const allowedAttributes: sanitizeHtml.IOptions["allowedAttributes"] = {
   ...sanitizeHtml.defaults.allowedAttributes,
   a: ["href", "name", "target", "rel"],
   img: ["src", "alt", "title"],
+  tr: ["data-row-height", "style"],
   th: ["colspan", "rowspan"],
   td: ["colspan", "rowspan"],
 };
@@ -36,6 +37,11 @@ export function sanitizeDocumentHtml(html: string) {
     allowedSchemes: ["http", "https", "mailto"],
     allowedSchemesByTag: {
       img: ["http", "https"],
+    },
+    allowedStyles: {
+      tr: {
+        height: [/^\d{2,3}px$/],
+      },
     },
     transformTags: {
       a: sanitizeHtml.simpleTransform("a", { rel: "noopener noreferrer" }, true),

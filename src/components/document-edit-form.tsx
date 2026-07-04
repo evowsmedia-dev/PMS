@@ -4,6 +4,8 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { upload } from "@vercel/blob/client";
 import { EditorContent, useEditor } from "@tiptap/react";
+import { Plugin, PluginKey } from "@tiptap/pm/state";
+import type { EditorView } from "@tiptap/pm/view";
 import StarterKit from "@tiptap/starter-kit";
 import LinkExtension from "@tiptap/extension-link";
 import Image from "@tiptap/extension-image";
@@ -58,6 +60,169 @@ import type { ActionState } from "@/lib/actions/profile";
 
 const initialState: ActionState = {};
 const AUTOSAVE_DELAY_MS = 12_000;
+const MIN_TABLE_ROW_HEIGHT = 40;
+const MAX_TABLE_ROW_HEIGHT = 480;
+const ROW_RESIZE_HANDLE_SIZE = 6;
+
+const ResizableTableRow = TableRow.extend({
+  addAttributes() {
+    return {
+      rowHeight: {
+        default: null,
+        parseHTML: (element) => {
+          const dataHeight = element.getAttribute("data-row-height");
+          const styleHeight = (element as HTMLElement).style.height;
+          const rawHeight = dataHeight ?? styleHeight;
+          const height = Number.parseInt(rawHeight, 10);
+
+          return Number.isFinite(height) ? height : null;
+        },
+        renderHTML: (attributes) => {
+          const height = Number(attributes.rowHeight);
+
+          if (!Number.isFinite(height)) return {};
+
+          const clampedHeight = Math.min(
+            Math.max(Math.round(height), MIN_TABLE_ROW_HEIGHT),
+            MAX_TABLE_ROW_HEIGHT,
+          );
+
+          return {
+            "data-row-height": String(clampedHeight),
+            style: `height: ${clampedHeight}px`,
+          };
+        },
+      },
+    };
+  },
+
+  addProseMirrorPlugins() {
+    let dragState:
+      | {
+          row: HTMLTableRowElement;
+          rowPos: number;
+          startY: number;
+          startHeight: number;
+        }
+      | null = null;
+
+    function getEventRow(event: MouseEvent) {
+      const target = event.target;
+
+      if (!(target instanceof Element)) return null;
+
+      return target.closest("tr");
+    }
+
+    function isNearRowBottom(event: MouseEvent, row: HTMLTableRowElement) {
+      const rect = row.getBoundingClientRect();
+
+      return rect.height > 0 && Math.abs(event.clientY - rect.bottom) <= ROW_RESIZE_HANDLE_SIZE;
+    }
+
+    function findRowPos(view: EditorView, row: HTMLTableRowElement) {
+      const pos = view.posAtDOM(row, 0);
+      const candidates = [pos, pos - 1, pos + 1];
+
+      return candidates.find((candidate) => {
+        if (candidate < 0) return false;
+
+        return view.state.doc.nodeAt(candidate)?.type.name === "tableRow";
+      });
+    }
+
+    function clearCursor(editorRoot: HTMLElement) {
+      editorRoot.classList.remove("row-resize-cursor");
+    }
+
+    return [
+      new Plugin({
+        key: new PluginKey("tableRowResize"),
+        props: {
+          handleDOMEvents: {
+            mousemove(view, event) {
+              if (dragState) return false;
+
+              const row = getEventRow(event);
+
+              if (row && isNearRowBottom(event, row)) {
+                view.dom.classList.add("row-resize-cursor");
+              } else {
+                clearCursor(view.dom);
+              }
+
+              return false;
+            },
+            mouseleave(view) {
+              if (!dragState) clearCursor(view.dom);
+
+              return false;
+            },
+            mousedown(view, event) {
+              const row = getEventRow(event);
+
+              if (!row || !isNearRowBottom(event, row)) return false;
+
+              const rowPos = findRowPos(view, row);
+
+              if (rowPos === undefined) return false;
+
+              event.preventDefault();
+              dragState = {
+                row,
+                rowPos,
+                startY: event.clientY,
+                startHeight: row.getBoundingClientRect().height,
+              };
+              view.dom.classList.add("row-resize-cursor");
+
+              const handleMouseMove = (moveEvent: MouseEvent) => {
+                if (!dragState) return;
+
+                const nextHeight = Math.min(
+                  Math.max(
+                    Math.round(dragState.startHeight + moveEvent.clientY - dragState.startY),
+                    MIN_TABLE_ROW_HEIGHT,
+                  ),
+                  MAX_TABLE_ROW_HEIGHT,
+                );
+                const rowNode = view.state.doc.nodeAt(dragState.rowPos);
+
+                if (!rowNode || rowNode.type.name !== "tableRow") return;
+
+                view.dispatch(
+                  view.state.tr.setNodeMarkup(dragState.rowPos, undefined, {
+                    ...rowNode.attrs,
+                    rowHeight: nextHeight,
+                  }),
+                );
+              };
+
+              const handleMouseUp = () => {
+                dragState = null;
+                clearCursor(view.dom);
+                document.removeEventListener("mousemove", handleMouseMove);
+                document.removeEventListener("mouseup", handleMouseUp);
+              };
+
+              document.addEventListener("mousemove", handleMouseMove);
+              document.addEventListener("mouseup", handleMouseUp);
+
+              return true;
+            },
+          },
+        },
+        view(view) {
+          return {
+            destroy() {
+              clearCursor(view.dom);
+            },
+          };
+        },
+      }),
+    ];
+  },
+});
 
 export function DocumentEditForm({
   projectId,
@@ -101,7 +266,7 @@ export function DocumentEditForm({
       }),
       Image.configure({ inline: false, allowBase64: false }),
       Table.configure({ resizable: true }),
-      TableRow,
+      ResizableTableRow,
       TableHeader,
       TableCell,
     ],
@@ -399,7 +564,9 @@ export function DocumentEditForm({
         </Button>
         {uploadingImage ? <span className="text-xs text-muted-foreground">Đang tải ảnh...</span> : null}
       </div>
-        <EditorContent editor={editor} />
+        <div className="overflow-x-auto">
+          <EditorContent editor={editor} />
+        </div>
       </div>
 
       <div className="flex gap-2">
