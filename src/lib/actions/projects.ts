@@ -8,7 +8,6 @@ import { can } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { logAudit } from "@/lib/audit";
 import { projectFormSchema } from "@/lib/validation/project";
-import { interpolateTemplate, type TemplateStructure } from "@/lib/templates";
 import type { ActionState } from "@/lib/actions/profile";
 
 function parseProjectForm(formData: FormData) {
@@ -20,7 +19,6 @@ function parseProjectForm(formData: FormData) {
     startDate: formData.get("startDate") ?? "",
     endDate: formData.get("endDate") ?? "",
     priority: formData.get("priority") || "MEDIUM",
-    templateId: formData.get("templateId") ?? "",
   });
 }
 
@@ -44,10 +42,6 @@ export async function createProjectAction(
     return { error: "Mã dự án đã tồn tại, vui lòng chọn mã khác." };
   }
 
-  const template = values.templateId
-    ? await prisma.template.findUnique({ where: { id: values.templateId } })
-    : null;
-
   let projectId: string;
 
   await prisma.$transaction(async (tx) => {
@@ -60,7 +54,7 @@ export async function createProjectAction(
         startDate: values.startDate ? new Date(values.startDate) : null,
         endDate: values.endDate ? new Date(values.endDate) : null,
         priority: values.priority,
-        templateId: template?.id ?? null,
+        templateId: null,
         createdById: session.user.id,
         members: {
           create: { userId: session.user.id, role: "OWNER" },
@@ -69,7 +63,7 @@ export async function createProjectAction(
     });
     projectId = project.id;
 
-    const defaultModule = await tx.module.create({
+    await tx.module.create({
       data: {
         projectId: project.id,
         name: "Tài liệu chung",
@@ -78,49 +72,13 @@ export async function createProjectAction(
       },
     });
 
-    if (template) {
-      const structure = template.structure as unknown as TemplateStructure;
-      for (const doc of structure.docs) {
-        const content = interpolateTemplate(doc.content, project.name);
-        const description = interpolateTemplate(doc.description, project.name);
-        const created = await tx.document.create({
-          data: {
-            projectId: project.id,
-            moduleId: defaultModule.id,
-            title: doc.title,
-            category: doc.category,
-            role: doc.role,
-            status: doc.status,
-            description,
-            currentContent: content,
-            currentVersionNo: 1,
-            authorId: session.user.id,
-          },
-        });
-        await tx.documentVersion.create({
-          data: {
-            documentId: created.id,
-            versionNo: 1,
-            title: created.title,
-            category: created.category,
-            role: created.role,
-            status: created.status,
-            description: created.description,
-            content,
-            editedById: session.user.id,
-            changeNote: "Khởi tạo từ template",
-          },
-        });
-      }
-    }
-
     await logAudit({
       actorId: session.user.id,
       action: "CREATE",
       entityType: "Project",
       entityId: project.id,
       projectId: project.id,
-      metadata: { name: project.name, template: template?.name ?? null },
+      metadata: { name: project.name },
     });
   });
 

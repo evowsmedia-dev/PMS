@@ -19,11 +19,7 @@ import type { ActionState } from "@/lib/actions/profile";
 
 const initialState: ActionState = {};
 
-export function ProjectCreateForm({
-  templates,
-}: {
-  templates: { id: string; name: string }[];
-}) {
+export function ProjectCreateForm() {
   const [state, action, pending] = useActionState(createProjectAction, initialState);
 
   useEffect(() => {
@@ -48,7 +44,7 @@ export function ProjectCreateForm({
         <Textarea id="description" name="description" rows={3} />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="icon">Icon</Label>
           <Select name="icon" defaultValue="FolderKanban">
@@ -75,21 +71,6 @@ export function ProjectCreateForm({
               <SelectItem value="MEDIUM">Trung bình</SelectItem>
               <SelectItem value="HIGH">Cao</SelectItem>
               <SelectItem value="CRITICAL">Khẩn cấp</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="templateId">Template</Label>
-          <Select name="templateId" defaultValue={templates[0]?.id ?? ""}>
-            <SelectTrigger id="templateId" className="w-full">
-              <SelectValue placeholder="Không dùng template" />
-            </SelectTrigger>
-            <SelectContent>
-              {templates.map((t) => (
-                <SelectItem key={t.id} value={t.id}>
-                  {t.name}
-                </SelectItem>
-              ))}
             </SelectContent>
           </Select>
         </div>
