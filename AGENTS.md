@@ -21,3 +21,15 @@ before making changes:
 `.claude/rules/` may describe the old static prototype. Do not let those files
 override the current Next.js + Prisma application structure unless the user is
 explicitly asking about the prototype.
+
+## Reporting and Verification
+
+Before saying a task is done, point to concrete results that prove it, such as
+the changed files, commit hash, pushed branch, command output, or specific UI
+state that was verified.
+
+Only report claims that can be backed by evidence from the workspace, commands,
+tests, builds, screenshots, logs, commits, or direct inspection.
+
+If something has not been verified, say that plainly instead of guessing or
+implying it is complete.
