@@ -17,6 +17,7 @@ const allowedTags = [
   "tr",
   "th",
   "td",
+  "span",
   "u",
   "s",
 ];
@@ -25,6 +26,7 @@ const allowedAttributes: sanitizeHtml.IOptions["allowedAttributes"] = {
   ...sanitizeHtml.defaults.allowedAttributes,
   a: ["href", "name", "target", "rel"],
   img: ["src", "alt", "title"],
+  span: ["data-font-size", "style"],
   tr: ["data-row-height", "style"],
   th: ["colspan", "rowspan"],
   td: ["colspan", "rowspan"],
@@ -39,6 +41,9 @@ export function sanitizeDocumentHtml(html: string) {
       img: ["http", "https"],
     },
     allowedStyles: {
+      span: {
+        "font-size": [/^\d{2}px$/],
+      },
       tr: {
         height: [/^\d{2,3}px$/],
       },

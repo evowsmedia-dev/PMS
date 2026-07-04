@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { upload } from "@vercel/blob/client";
+import { Mark, mergeAttributes } from "@tiptap/core";
 import { EditorContent, useEditor } from "@tiptap/react";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
@@ -60,9 +61,67 @@ import type { ActionState } from "@/lib/actions/profile";
 
 const initialState: ActionState = {};
 const AUTOSAVE_DELAY_MS = 12_000;
-const MIN_TABLE_ROW_HEIGHT = 28;
+const MIN_TABLE_ROW_HEIGHT = 14;
 const MAX_TABLE_ROW_HEIGHT = 480;
 const ROW_RESIZE_HANDLE_SIZE = 6;
+const TEXT_SIZE_OPTIONS = [
+  { value: "12px", label: "12px" },
+  { value: "14px", label: "14px" },
+  { value: "16px", label: "16px" },
+  { value: "18px", label: "18px" },
+  { value: "20px", label: "20px" },
+  { value: "24px", label: "24px" },
+] as const;
+
+const TextSize = Mark.create({
+  name: "textSize",
+
+  addOptions() {
+    return {
+      HTMLAttributes: {},
+    };
+  },
+
+  addAttributes() {
+    return {
+      fontSize: {
+        default: null,
+        parseHTML: (element) => {
+          const styleSize = (element as HTMLElement).style.fontSize;
+          const dataSize = element.getAttribute("data-font-size");
+          const size = styleSize || dataSize || "";
+
+          return /^\d{2}px$/.test(size) ? size : null;
+        },
+        renderHTML: (attributes) => {
+          const fontSize = String(attributes.fontSize ?? "");
+
+          if (!/^\d{2}px$/.test(fontSize)) return {};
+
+          return {
+            "data-font-size": fontSize,
+            style: `font-size: ${fontSize}`,
+          };
+        },
+      },
+    };
+  },
+
+  parseHTML() {
+    return [
+      {
+        tag: "span[style*=font-size]",
+      },
+      {
+        tag: "span[data-font-size]",
+      },
+    ];
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ["span", mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), 0];
+  },
+});
 
 const ResizableTableRow = TableRow.extend({
   addAttributes() {
@@ -259,6 +318,7 @@ export function DocumentEditForm({
     extensions: [
       StarterKit,
       Underline,
+      TextSize,
       LinkExtension.configure({
         openOnClick: false,
         autolink: true,
@@ -348,6 +408,17 @@ export function DocumentEditForm({
     setTableDialogOpen(false);
   }
 
+  function setTextSize(value: string) {
+    if (!editor) return;
+
+    if (value === "default") {
+      editor.chain().focus().unsetMark("textSize").run();
+      return;
+    }
+
+    editor.chain().focus().setMark("textSize", { fontSize: value }).run();
+  }
+
   const tableSelected = editor?.isActive("table") ?? false;
 
   return (
@@ -423,6 +494,19 @@ export function DocumentEditForm({
         <Button type="button" variant="ghost" size="icon" className="size-7" title="Gạch chân" onClick={() => editor?.chain().focus().toggleUnderline().run()}>
           <UnderlineIcon className="size-3.5" />
         </Button>
+        <Select onValueChange={setTextSize}>
+          <SelectTrigger className="h-7 w-[92px] rounded-md px-2 text-xs" title="Cỡ chữ">
+            <SelectValue placeholder="Cỡ chữ" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="default">Mặc định</SelectItem>
+            {TEXT_SIZE_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Button type="button" variant="ghost" size="icon" className="size-7" title="Tiêu đề" onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}>
           <Heading2 className="size-3.5" />
         </Button>
