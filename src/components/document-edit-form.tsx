@@ -2,10 +2,30 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { upload } from "@vercel/blob/client";
-import { Bold, Italic, Heading2, Table2, ImagePlus, List } from "lucide-react";
+import { EditorContent, useEditor } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import LinkExtension from "@tiptap/extension-link";
+import Image from "@tiptap/extension-image";
+import { Table } from "@tiptap/extension-table";
+import TableCell from "@tiptap/extension-table-cell";
+import TableHeader from "@tiptap/extension-table-header";
+import TableRow from "@tiptap/extension-table-row";
+import Underline from "@tiptap/extension-underline";
+import {
+  Bold,
+  Italic,
+  Heading2,
+  Table2,
+  ImagePlus,
+  List,
+  ListOrdered,
+  Quote,
+  Redo2,
+  Undo2,
+  LinkIcon,
+  UnderlineIcon,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,9 +45,6 @@ import type { ActionState } from "@/lib/actions/profile";
 
 const initialState: ActionState = {};
 const AUTOSAVE_DELAY_MS = 12_000;
-
-const TABLE_SNIPPET =
-  "\n| TT | Bước | Mô tả |\n| --- | --- | --- |\n| 1 | Bước 1 | Mô tả bước 1 |\n| 2 | Bước 2 | Mô tả bước 2 |\n";
 
 export function DocumentEditForm({
   projectId,
@@ -54,8 +71,35 @@ export function DocumentEditForm({
   const [autosaveStatus, setAutosaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [uploadingImage, setUploadingImage] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+
+  const editor = useEditor({
+    immediatelyRender: false,
+    extensions: [
+      StarterKit,
+      Underline,
+      LinkExtension.configure({
+        openOnClick: false,
+        autolink: true,
+        HTMLAttributes: { rel: "noopener noreferrer", target: "_blank" },
+      }),
+      Image.configure({ inline: false, allowBase64: false }),
+      Table.configure({ resizable: false }),
+      TableRow,
+      TableHeader,
+      TableCell,
+    ],
+    content: initial.content,
+    editorProps: {
+      attributes: {
+        class:
+          "prose prose-sm max-w-none min-h-[360px] rounded-b-md px-3 py-3 outline-none dark:prose-invert",
+      },
+    },
+    onUpdate({ editor }) {
+      handleContentChange(editor.getHTML());
+    },
+  });
 
   useEffect(() => {
     if (state.error) toast.error(state.error);
@@ -78,36 +122,6 @@ export function DocumentEditForm({
     };
   }, []);
 
-  function wrapSelection(before: string, after: string = before) {
-    const el = textareaRef.current;
-    if (!el) return;
-    const start = el.selectionStart;
-    const end = el.selectionEnd;
-    const selected = content.slice(start, end);
-    const next = content.slice(0, start) + before + selected + after + content.slice(end);
-    handleContentChange(next);
-    requestAnimationFrame(() => {
-      el.focus();
-      el.setSelectionRange(start + before.length, start + before.length + selected.length);
-    });
-  }
-
-  function insertAtCursor(snippet: string) {
-    const el = textareaRef.current;
-    if (!el) {
-      handleContentChange(content + snippet);
-      return;
-    }
-    const start = el.selectionStart;
-    const end = el.selectionEnd;
-    const next = content.slice(0, start) + snippet + content.slice(end);
-    handleContentChange(next);
-    requestAnimationFrame(() => {
-      el.focus();
-      el.setSelectionRange(start + snippet.length, start + snippet.length);
-    });
-  }
-
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -117,7 +131,7 @@ export function DocumentEditForm({
         access: "public",
         handleUploadUrl: "/api/upload",
       });
-      insertAtCursor(`\n![${file.name}](${blob.url})\n`);
+      editor?.chain().focus().setImage({ src: blob.url, alt: file.name }).run();
       toast.success("Đã chèn ảnh vào nội dung.");
     } catch (error) {
       toast.error(`Tải ảnh thất bại: ${(error as Error).message}`);
@@ -127,8 +141,25 @@ export function DocumentEditForm({
     }
   }
 
+  function setLink() {
+    if (!editor) return;
+    const previousUrl = editor.getAttributes("link").href as string | undefined;
+    const url = window.prompt("URL", previousUrl ?? "https://");
+    if (url === null) return;
+    if (!url.trim()) {
+      editor.chain().focus().extendMarkRange("link").unsetLink().run();
+      return;
+    }
+    editor.chain().focus().extendMarkRange("link").setLink({ href: url.trim() }).run();
+  }
+
+  function addTable() {
+    editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+  }
+
   return (
     <form action={formAction} className="space-y-4">
+      <input type="hidden" name="content" value={content} />
       <div className="space-y-2">
         <Label htmlFor="title">Tiêu đề</Label>
         <Input id="title" name="title" defaultValue={initial.title} required />
@@ -188,20 +219,33 @@ export function DocumentEditForm({
         </span>
       </div>
 
-      <div className="flex flex-wrap items-center gap-1 rounded-md border bg-muted/30 p-1">
-        <Button type="button" variant="ghost" size="icon" className="size-7" title="In đậm" onClick={() => wrapSelection("**")}>
+      <div className="overflow-hidden rounded-md border bg-background">
+      <div className="flex flex-wrap items-center gap-1 border-b bg-muted/30 p-1">
+        <Button type="button" variant="ghost" size="icon" className="size-7" title="In đậm" onClick={() => editor?.chain().focus().toggleBold().run()}>
           <Bold className="size-3.5" />
         </Button>
-        <Button type="button" variant="ghost" size="icon" className="size-7" title="In nghiêng" onClick={() => wrapSelection("*")}>
+        <Button type="button" variant="ghost" size="icon" className="size-7" title="In nghiêng" onClick={() => editor?.chain().focus().toggleItalic().run()}>
           <Italic className="size-3.5" />
         </Button>
-        <Button type="button" variant="ghost" size="icon" className="size-7" title="Tiêu đề" onClick={() => insertAtCursor("\n## Tiêu đề\n")}>
+        <Button type="button" variant="ghost" size="icon" className="size-7" title="Gạch chân" onClick={() => editor?.chain().focus().toggleUnderline().run()}>
+          <UnderlineIcon className="size-3.5" />
+        </Button>
+        <Button type="button" variant="ghost" size="icon" className="size-7" title="Tiêu đề" onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}>
           <Heading2 className="size-3.5" />
         </Button>
-        <Button type="button" variant="ghost" size="icon" className="size-7" title="Danh sách" onClick={() => insertAtCursor("\n- Mục 1\n- Mục 2\n")}>
+        <Button type="button" variant="ghost" size="icon" className="size-7" title="Danh sách" onClick={() => editor?.chain().focus().toggleBulletList().run()}>
           <List className="size-3.5" />
         </Button>
-        <Button type="button" variant="ghost" size="icon" className="size-7" title="Chèn bảng" onClick={() => insertAtCursor(TABLE_SNIPPET)}>
+        <Button type="button" variant="ghost" size="icon" className="size-7" title="Danh sách số" onClick={() => editor?.chain().focus().toggleOrderedList().run()}>
+          <ListOrdered className="size-3.5" />
+        </Button>
+        <Button type="button" variant="ghost" size="icon" className="size-7" title="Trích dẫn" onClick={() => editor?.chain().focus().toggleBlockquote().run()}>
+          <Quote className="size-3.5" />
+        </Button>
+        <Button type="button" variant="ghost" size="icon" className="size-7" title="Link" onClick={setLink}>
+          <LinkIcon className="size-3.5" />
+        </Button>
+        <Button type="button" variant="ghost" size="icon" className="size-7" title="Chèn bảng" onClick={addTable}>
           <Table2 className="size-3.5" />
         </Button>
         <input
@@ -222,21 +266,15 @@ export function DocumentEditForm({
         >
           <ImagePlus className="size-3.5" />
         </Button>
+        <Button type="button" variant="ghost" size="icon" className="size-7" title="Undo" onClick={() => editor?.chain().focus().undo().run()}>
+          <Undo2 className="size-3.5" />
+        </Button>
+        <Button type="button" variant="ghost" size="icon" className="size-7" title="Redo" onClick={() => editor?.chain().focus().redo().run()}>
+          <Redo2 className="size-3.5" />
+        </Button>
         {uploadingImage ? <span className="text-xs text-muted-foreground">Đang tải ảnh...</span> : null}
       </div>
-
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        <Textarea
-          ref={textareaRef}
-          name="content"
-          rows={16}
-          className="font-mono text-sm"
-          value={content}
-          onChange={(e) => handleContentChange(e.target.value)}
-        />
-        <div className="prose prose-sm max-w-none rounded-md border p-3 overflow-y-auto dark:prose-invert">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
-        </div>
+        <EditorContent editor={editor} />
       </div>
 
       <div className="flex gap-2">

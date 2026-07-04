@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { logAudit } from "@/lib/audit";
+import { sanitizeDocumentHtml } from "@/lib/document-content";
 import { documentFormSchema } from "@/lib/validation/document";
 import { DOC_TEMPLATES } from "@/lib/document-templates";
 import type { ActionState } from "@/lib/actions/profile";
@@ -50,6 +51,7 @@ export async function createDocumentAction(
         role: values.role,
         description: values.description || null,
         currentContent: values.content || "",
+        contentFormat: "MARKDOWN",
         authorId: session.user.id,
         templateId,
       },
@@ -65,6 +67,7 @@ export async function createDocumentAction(
         status: doc.status,
         description: doc.description,
         content: doc.currentContent,
+        contentFormat: doc.contentFormat,
         editedById: session.user.id,
         changeNote: "Tạo mới",
       },
@@ -122,6 +125,7 @@ export async function createFlowDocumentAction(
         category: doc.category,
         role: doc.role,
         currentContent: template.content,
+        contentFormat: "MARKDOWN",
         templateId: "rfid-process-flow",
         parentDocumentId: rootId,
         authorId: session.user.id,
@@ -138,6 +142,7 @@ export async function createFlowDocumentAction(
         status: created.status,
         description: created.description,
         content: created.currentContent,
+        contentFormat: created.contentFormat,
         editedById: session.user.id,
         changeNote: "Tạo mới",
       },
@@ -189,6 +194,7 @@ export async function saveDocumentEditAction(
     return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   }
   const values = parsed.data;
+  const content = sanitizeDocumentHtml(values.content || "");
 
   const doc = await prisma.document.findUniqueOrThrow({ where: { id: docId } });
   const nextVersionNo = doc.currentVersionNo + 1;
@@ -201,7 +207,8 @@ export async function saveDocumentEditAction(
         category: values.category,
         role: values.role,
         description: values.description || null,
-        currentContent: values.content || "",
+        currentContent: content,
+        contentFormat: "HTML",
         currentVersionNo: nextVersionNo,
       },
     }),
@@ -214,7 +221,8 @@ export async function saveDocumentEditAction(
         role: values.role,
         status: doc.status,
         description: values.description || null,
-        content: values.content || "",
+        content,
+        contentFormat: "HTML",
         editedById: session.user.id,
         changeNote: "Chỉnh sửa",
       },
@@ -248,7 +256,7 @@ export async function autosaveDocumentAction(docId: string, content: string) {
 
   await prisma.document.update({
     where: { id: docId },
-    data: { currentContent: content },
+    data: { currentContent: sanitizeDocumentHtml(content), contentFormat: "HTML" },
   });
 
   return { ok: true };

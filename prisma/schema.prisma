@@ -56,6 +56,11 @@ enum DocStatus {
   ARCHIVED
 }
 
+enum ContentFormat {
+  MARKDOWN
+  HTML
+}
+
 enum TaskStatus {
   TODO
   IN_PROGRESS
@@ -241,6 +246,7 @@ model Document {
   status           DocStatus   @default(DRAFT)
   description      String?
   currentContent   String
+  contentFormat    ContentFormat @default(MARKDOWN)
   currentVersionNo Int         @default(1)
   diagramUrl       String?
   diagramTitle     String?
@@ -279,6 +285,7 @@ model DocumentVersion {
   status      DocStatus
   description String?
   content     String
+  contentFormat ContentFormat @default(MARKDOWN)
   changeNote  String?
   createdAt   DateTime    @default(now())
 

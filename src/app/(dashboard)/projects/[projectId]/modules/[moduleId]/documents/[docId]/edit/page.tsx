@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { canAccessModule, getAssignedModuleIdsForUser } from "@/lib/document-type-access";
+import { contentToSafeHtml } from "@/lib/document-content";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DocumentEditForm } from "@/components/document-edit-form";
 import { PageShell } from "@/components/page-shell";
@@ -52,7 +53,7 @@ export default async function EditDocumentPage({
             category: doc.category,
             role: doc.role,
             description: doc.description ?? "",
-            content: doc.currentContent,
+            content: contentToSafeHtml(doc.currentContent, doc.contentFormat),
             diagramUrl: doc.diagramUrl,
             diagramTitle: doc.diagramTitle,
           }}

@@ -1,7 +1,5 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/rbac";
@@ -17,6 +15,7 @@ import { DocumentDiagram } from "@/components/document-diagram";
 import { CreateTaskFromSelection } from "@/components/create-task-from-selection";
 import { CreateCommentFromSelection } from "@/components/create-comment-from-selection";
 import { DocumentDetailShell } from "@/components/document-detail-shell";
+import { DocumentContentRenderer } from "@/components/document-content-renderer";
 
 export default async function DocumentDetailPage({
   params,
@@ -108,9 +107,10 @@ export default async function DocumentDetailPage({
             <CardContent className="pt-6">
               <CreateCommentFromSelection>
                 <CreateTaskFromSelection projectId={projectId} moduleId={moduleId} docId={docId}>
-                  <div className="prose prose-sm max-w-none dark:prose-invert">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{doc.currentContent}</ReactMarkdown>
-                  </div>
+                  <DocumentContentRenderer
+                    content={doc.currentContent}
+                    format={doc.contentFormat}
+                  />
                 </CreateTaskFromSelection>
               </CreateCommentFromSelection>
             </CardContent>
