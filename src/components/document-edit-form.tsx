@@ -60,7 +60,7 @@ import type { ActionState } from "@/lib/actions/profile";
 
 const initialState: ActionState = {};
 const AUTOSAVE_DELAY_MS = 12_000;
-const MIN_TABLE_ROW_HEIGHT = 40;
+const MIN_TABLE_ROW_HEIGHT = 28;
 const MAX_TABLE_ROW_HEIGHT = 480;
 const ROW_RESIZE_HANDLE_SIZE = 6;
 
