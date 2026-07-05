@@ -110,6 +110,7 @@ export default async function DocumentDetailPage({
                   <DocumentContentRenderer
                     content={doc.currentContent}
                     format={doc.contentFormat}
+                    scrollClassName="max-h-[calc(100vh-8rem)] overflow-auto"
                   />
                 </CreateTaskFromSelection>
               </CreateCommentFromSelection>
