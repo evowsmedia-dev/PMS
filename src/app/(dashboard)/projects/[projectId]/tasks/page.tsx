@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { Plus, LayoutGrid } from "lucide-react";
+import { Plus } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canAccess } from "@/lib/rbac";
@@ -8,6 +8,7 @@ import { getProjectRole } from "@/lib/project-role";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PageSection } from "@/components/page-shell";
+import { TaskViewTabs } from "@/components/task-view-tabs";
 import { taskHref } from "@/lib/task-href";
 import {
   TASK_STATUS_LABEL,
@@ -85,24 +86,17 @@ export default async function ProjectTasksPage({
 
   return (
     <PageSection>
+      <TaskViewTabs projectId={projectId} active="list" />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-lg font-semibold">Task ({tasks.length})</h1>
-        <div className="flex items-center gap-2">
-          <Button asChild size="sm" variant="outline">
-            <Link href={`/projects/${projectId}/kanban`}>
-              <LayoutGrid className="size-4" />
-              Kanban
+        {canCreate ? (
+          <Button asChild size="sm">
+            <Link href={`/projects/${projectId}/tasks/new`}>
+              <Plus className="size-4" />
+              Tạo task
             </Link>
           </Button>
-          {canCreate ? (
-            <Button asChild size="sm">
-              <Link href={`/projects/${projectId}/tasks/new`}>
-                <Plus className="size-4" />
-                Tạo task
-              </Link>
-            </Button>
-          ) : null}
-        </div>
+        ) : null}
       </div>
 
       <div className="flex flex-wrap gap-2">

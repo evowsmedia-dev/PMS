@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getProjectRole } from "@/lib/project-role";
 import { Badge } from "@/components/ui/badge";
 import { PageSection } from "@/components/page-shell";
+import { TaskViewTabs } from "@/components/task-view-tabs";
 import { taskHref } from "@/lib/task-href";
 import { TASK_STATUS_LABEL } from "@/lib/validation/task";
 
@@ -46,6 +47,7 @@ export default async function GanttPage({
   if (tasks.length === 0) {
     return (
       <PageSection>
+        <TaskViewTabs projectId={projectId} active="gantt" />
         <h1 className="text-lg font-semibold">Gantt Chart</h1>
         <p className="text-sm text-muted-foreground">
           Chưa có task nào có ngày bắt đầu/hạn hoàn thành để hiển thị trên Gantt. Thêm ngày cho task
@@ -87,6 +89,7 @@ export default async function GanttPage({
 
   return (
     <PageSection>
+      <TaskViewTabs projectId={projectId} active="gantt" />
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-lg font-semibold">Gantt Chart</h1>
         <span className="text-xs text-muted-foreground">

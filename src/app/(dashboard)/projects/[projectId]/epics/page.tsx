@@ -6,6 +6,7 @@ import { getProjectRole } from "@/lib/project-role";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageSection } from "@/components/page-shell";
+import { TaskViewTabs } from "@/components/task-view-tabs";
 import { EpicCreateForm, DeletePlanningButton } from "@/components/planning-forms";
 import { EPIC_STATUS_LABEL } from "@/lib/validation/task";
 
@@ -37,6 +38,7 @@ export default async function EpicsPage({
 
   return (
     <PageSection>
+      <TaskViewTabs projectId={projectId} active="epics" />
       <h1 className="text-lg font-semibold">Epic ({epics.length})</h1>
       {canManage ? <EpicCreateForm projectId={projectId} /> : null}
 

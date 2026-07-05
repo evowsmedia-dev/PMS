@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { Plus, List } from "lucide-react";
+import { Plus } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canAccess } from "@/lib/rbac";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { KanbanBoard } from "@/components/kanban-board";
 import { PageSection } from "@/components/page-shell";
+import { TaskViewTabs } from "@/components/task-view-tabs";
 import { TASK_PRIORITY_ORDER, TASK_PRIORITY_LABEL } from "@/lib/validation/task";
 import type { Prisma, TaskPriority } from "@/generated/prisma/client";
 
@@ -77,24 +78,17 @@ export default async function ProjectKanbanPage({
 
   return (
     <PageSection>
+      <TaskViewTabs projectId={projectId} active="kanban" />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-lg font-semibold">Kanban Board</h1>
-        <div className="flex items-center gap-2">
-          <Button asChild size="sm" variant="outline">
-            <Link href={`/projects/${projectId}/tasks`}>
-              <List className="size-4" />
-              Danh sách
+        {canCreate ? (
+          <Button asChild size="sm">
+            <Link href={`/projects/${projectId}/tasks/new`}>
+              <Plus className="size-4" />
+              Tạo task
             </Link>
           </Button>
-          {canCreate ? (
-            <Button asChild size="sm">
-              <Link href={`/projects/${projectId}/tasks/new`}>
-                <Plus className="size-4" />
-                Tạo task
-              </Link>
-            </Button>
-          ) : null}
-        </div>
+        ) : null}
       </div>
 
       <div className="flex flex-wrap gap-2">

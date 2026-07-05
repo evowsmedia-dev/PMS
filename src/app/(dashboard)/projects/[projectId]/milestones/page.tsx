@@ -6,6 +6,7 @@ import { getProjectRole } from "@/lib/project-role";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageSection } from "@/components/page-shell";
+import { TaskViewTabs } from "@/components/task-view-tabs";
 import { MilestoneCreateForm, DeletePlanningButton } from "@/components/planning-forms";
 import { MILESTONE_STATUS_LABEL } from "@/lib/validation/task";
 
@@ -39,6 +40,7 @@ export default async function MilestonesPage({
 
   return (
     <PageSection>
+      <TaskViewTabs projectId={projectId} active="milestones" />
       <h1 className="text-lg font-semibold">Milestone ({milestones.length})</h1>
       {canManage ? <MilestoneCreateForm projectId={projectId} /> : null}
 

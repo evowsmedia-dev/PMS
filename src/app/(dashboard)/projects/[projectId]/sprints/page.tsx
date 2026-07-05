@@ -6,6 +6,7 @@ import { getProjectRole } from "@/lib/project-role";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageSection } from "@/components/page-shell";
+import { TaskViewTabs } from "@/components/task-view-tabs";
 import { SprintCreateForm, DeletePlanningButton } from "@/components/planning-forms";
 import { SPRINT_STATUS_LABEL } from "@/lib/validation/task";
 
@@ -37,6 +38,7 @@ export default async function SprintsPage({
 
   return (
     <PageSection>
+      <TaskViewTabs projectId={projectId} active="sprints" />
       <h1 className="text-lg font-semibold">Sprint ({sprints.length})</h1>
       {canManage ? <SprintCreateForm projectId={projectId} /> : null}
 
