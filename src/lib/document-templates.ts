@@ -2,7 +2,8 @@ export type DocTemplateId =
   | "blank"
   | "rfid-process-flow"
   | "functional-specification"
-  | "change-request";
+  | "change-request"
+  | "test-plan-case";
 
 interface DocTemplate {
   label: string;
@@ -231,6 +232,148 @@ _Mô tả ngắn gọn mục đích và phạm vi của quy trình..._
 | ID | Mức ưu tiên | Loại thay đổi | Người đề xuất | Ngày gửi | Tiêu đề (Tóm tắt) | Trạng thái hiện tại (Tóm tắt) | Thay đổi đề xuất (Tóm tắt) | Công sức (giờ) | Module ảnh hưởng | Thay đổi CSDL? | Rủi ro & Tác động tiến độ | Người phê duyệt | Quyết định | Trạng thái thực hiện | Ngày hoàn thành |
 | :--- | :---: | :--- | :--- | :--- | :--- | :--- | :--- | :---: | :--- | :---: | :--- | :--- | :---: | :--- | :--- |
 | **RFC-001** | Cao | [Bổ sung tính năng / Sửa giao diện / Sửa lỗi / Thay đổi quy trình] | [Họ tên (Bộ phận)] | [dd/mm/yy] | [Tóm tắt ngắn gọn nội dung request] | [Mô tả hiện trạng trước khi thay đổi] | [Mô tả nội dung thay đổi đề xuất] | [Số giờ ước tính] | [Module/Phân hệ bị ảnh hưởng] | [Có/Không] | [Đánh giá mức độ rủi ro và tác động tiến độ] | [PM/Người phê duyệt] | [⏳ Cần phân tích thêm / ✅ Chấp nhận / ❌ Từ chối] | [Mới tạo / Đang phát triển / Chờ kiểm thử (QA) / Hoàn thành] | [_Chưa có_ / dd/mm/yy] |
+`,
+  },
+  "test-plan-case": {
+    label: "Test Plan / Test Case Document",
+    content: `## 1. Test Overview
+
+| Hạng mục | Nội dung |
+|---|---|
+| **Test Objective** | [Mục tiêu kiểm thử: xác nhận chức năng hoạt động đúng theo functional spec] |
+| **Test Scope** | [Các chức năng/màn hình/API nằm trong phạm vi test] |
+| **Out of Scope** | [Các phần không test trong tài liệu này] |
+| **Test Type** | Functional / UI / Regression / Smoke / UAT / API / Permission / Validation |
+| **Test Environment** | Dev / Staging / UAT / Production |
+| **Build / Release Version** | [Version hoặc branch/build đang test] |
+| **Tester** | [Tên tester] |
+| **Test Date** | [YYYY-MM-DD] |
+
+---
+
+## 2. Role & Test Account
+
+| Role | Account | Permission Summary | Notes |
+|---|---|---|---|
+| Admin | [admin@example.com] | Full access |  |
+| Manager / PO | [manager@example.com] | Create / Edit / View / Export |  |
+| User | [user@example.com] | View only / Limited access |  |
+| Guest | N/A | No private access |  |
+
+---
+
+## 3. Test Data
+
+| Data ID | Data Name | Related Feature | Input / Value | Expected Usage |
+|---|---|---|---|---|
+| TD01 | Valid data | [F01] | [Dữ liệu hợp lệ] | Dùng để test flow thành công |
+| TD02 | Missing required field | [F01] | [Bỏ trống field bắt buộc] | Dùng để test validation |
+| TD03 | Invalid format | [F01] | [Sai định dạng email/ngày/file...] | Dùng để test lỗi format |
+| TD04 | Duplicate data | [F01] | [Tên/mã đã tồn tại] | Dùng để test rule trùng dữ liệu |
+| TD05 | No permission account | [F01] | [Account không có quyền] | Dùng để test permission |
+
+---
+
+## 4. Requirement Traceability Matrix
+
+> Dùng bảng này để nối Functional Spec với Test Case.
+> Mỗi rule, field, permission, exception quan trọng nên có ít nhất 1 test case tương ứng.
+
+| Feature ID | Requirement / Rule / Field / Exception | Type | Related AC | Test Case ID | Coverage Status |
+|---|---|---|---|---|---|
+| F01 | [Main flow tạo mới thành công] | Flow | AC01, AC06 | TC-F01-001 | Covered |
+| F01 | [Validate required field] | Field Validation | AC03, AC04 | TC-F01-002 | Covered |
+| F01 | [Không cho nhập dữ liệu trùng] | Business Rule | AC05, AC10 | TC-F01-003 | Covered |
+| F01 | [User không có quyền không được thao tác] | Permission | AC08, AC09 | TC-F01-004 | Covered |
+| F01 | [Server error] | Exception | AC05 | TC-F01-005 | Covered |
+
+---
+
+## 5. Test Case Summary
+
+| TC ID | Feature ID | Test Scenario | Priority | Test Type | Role | Status | Defect ID |
+|---|---|---|---|---|---|---|---|
+| TC-F01-001 | F01 | [Tạo mới thành công với dữ liệu hợp lệ] | High | Functional | Admin / Manager | Not Run |  |
+| TC-F01-002 | F01 | [Submit khi thiếu field bắt buộc] | High | Validation | Admin / Manager | Not Run |  |
+| TC-F01-003 | F01 | [Submit dữ liệu trùng] | Medium | Business Rule | Admin / Manager | Not Run |  |
+| TC-F01-004 | F01 | [User không có quyền truy cập action] | High | Permission | User / Guest | Not Run |  |
+| TC-F01-005 | F01 | [Hệ thống xử lý lỗi server/network] | Medium | Exception | Admin / Manager | Not Run |  |
+
+**Status values:** Not Run / Passed / Failed / Blocked / Skipped
+**Priority values:** High / Medium / Low
+
+---
+
+## 6. Test Case Detail
+
+### TC-F01-001 — [Tên test case]
+
+| Hạng mục | Nội dung |
+|---|---|
+| **Feature ID** | [F01] |
+| **Related AC** | [AC01, AC06] |
+| **Priority** | High / Medium / Low |
+| **Test Type** | Functional / UI / API / Validation / Permission / Regression |
+| **Role** | [Admin / Manager / User / Guest] |
+| **Preconditions** | [User đã đăng nhập, có quyền truy cập, dữ liệu test đã sẵn sàng] |
+| **Test Data** | [TD01] |
+
+#### Test Steps
+
+| Step | Action | Test Data | Expected Result |
+|---:|---|---|---|
+| 1 | Truy cập màn hình [Tên màn hình] |  | Màn hình hiển thị đúng |
+| 2 | Nhấn [Button / Action] |  | Hệ thống hiển thị [Form / Popup / Page] |
+| 3 | Nhập dữ liệu hợp lệ | [TD01] | Dữ liệu được nhập/chọn thành công |
+| 4 | Nhấn [Save / Submit / Confirm] |  | Hệ thống validate và xử lý request |
+| 5 | Kiểm tra kết quả sau khi submit |  | Hiển thị thông báo thành công, dữ liệu được lưu/cập nhật đúng |
+
+#### Actual Result
+
+| Field | Value |
+|---|---|
+| **Actual Result** | [Ghi kết quả thực tế khi test] |
+| **Status** | Passed / Failed / Blocked / Skipped |
+| **Defect ID** | [Link bug nếu có] |
+| **Notes / Evidence** | [Link screenshot/video/log nếu có] |
+
+---
+
+## 7. Field Validation Test Matrix
+
+| Feature ID | Field | Validation Rule | Valid Test Data | Invalid Test Data | Expected Result | TC ID |
+|---|---|---|---|---|---|---|
+| F01 | [Name] | Required, max 255 chars, unique | Project A | Empty / >255 chars / duplicate | Hiển thị lỗi hoặc lưu thành công tùy data | TC-F01-002 |
+| F01 | [Email] | Required, email format | user@example.com | user@@ / empty | Hiển thị lỗi email không hợp lệ | TC-F01-006 |
+| F01 | [Start Date] | Required, YYYY-MM-DD | 2026-07-04 | 04/07/2026 / empty | Hiển thị lỗi format hoặc required | TC-F01-007 |
+| F01 | [File Upload] | PDF/DOCX/XLSX, max 10MB | file.pdf | file.exe / file >10MB | Từ chối upload và hiển thị lỗi | TC-F01-008 |
+
+---
+
+## 8. Permission Test Matrix
+
+| Feature ID | Action | Admin | Manager / PO | User | Guest | Expected Behavior | TC ID |
+|---|---|---:|---:|---:|---:|---|---|
+| F01 | View list | Yes | Yes | Yes | No | Role được phép xem danh sách, Guest bị chặn | TC-F01-009 |
+| F01 | View detail | Yes | Yes | Yes | No | Role được phép xem chi tiết, Guest bị chặn | TC-F01-010 |
+| F01 | Create | Yes | Yes | No | No | Admin/Manager tạo được, User/Guest bị chặn | TC-F01-011 |
+| F01 | Edit | Yes | Yes | No | No | Admin/Manager sửa được, User/Guest bị chặn | TC-F01-012 |
+| F01 | Delete | Yes | No | No | No | Chỉ Admin được xóa | TC-F01-013 |
+| F01 | Export | Yes | Yes | No | No | Admin/Manager export được | TC-F01-014 |
+
+---
+
+## 9. Exception Test Matrix
+
+| Feature ID | Exception Case | Trigger / Test Data | Expected Behavior | Expected Message | TC ID |
+|---|---|---|---|---|---|
+| F01 | Missing required field | Submit khi bỏ trống field bắt buộc | Không cho submit, highlight field lỗi | Please enter [field name] | TC-F01-002 |
+| F01 | Invalid format | Nhập sai format email/ngày/file | Không cho submit/upload | [Field name] is invalid | TC-F01-006 |
+| F01 | Duplicate data | Nhập dữ liệu đã tồn tại | Không cho lưu | [Data name] already exists | TC-F01-003 |
+| F01 | No permission | User không có quyền truy cập action | Chặn action hoặc redirect | You do not have permission | TC-F01-004 |
+| F01 | Data not found | Truy cập item không tồn tại | Hiển thị not found state | Data not found | TC-F01-015 |
+| F01 | Server error | API trả 500 | Không lưu dữ liệu, hiển thị lỗi chung | Something went wrong. Please try again | TC-F01-005 |
+| F01 | Network error | Ngắt mạng khi submit | Không mất dữ liệu đang nhập nếu có thể | Network error. Please check your connection | TC-F01-016 |
 `,
   },
 };
