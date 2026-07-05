@@ -236,22 +236,7 @@ _Mô tả ngắn gọn mục đích và phạm vi của quy trình..._
   },
   "test-plan-case": {
     label: "Test Plan / Test Case Document",
-    content: `## 1. Test Overview
-
-| Hạng mục | Nội dung |
-|---|---|
-| **Test Objective** | [Mục tiêu kiểm thử: xác nhận chức năng hoạt động đúng theo functional spec] |
-| **Test Scope** | [Các chức năng/màn hình/API nằm trong phạm vi test] |
-| **Out of Scope** | [Các phần không test trong tài liệu này] |
-| **Test Type** | Functional / UI / Regression / Smoke / UAT / API / Permission / Validation |
-| **Test Environment** | Dev / Staging / UAT / Production |
-| **Build / Release Version** | [Version hoặc branch/build đang test] |
-| **Tester** | [Tên tester] |
-| **Test Date** | [YYYY-MM-DD] |
-
----
-
-## 2. Role & Test Account
+    content: `## 1. Role & Test Account
 
 | Role | Account | Permission Summary | Notes |
 |---|---|---|---|
@@ -262,7 +247,7 @@ _Mô tả ngắn gọn mục đích và phạm vi của quy trình..._
 
 ---
 
-## 3. Test Data
+## 2. Test Data
 
 | Data ID | Data Name | Related Feature | Input / Value | Expected Usage |
 |---|---|---|---|---|
@@ -274,7 +259,7 @@ _Mô tả ngắn gọn mục đích và phạm vi của quy trình..._
 
 ---
 
-## 4. Requirement Traceability Matrix
+## 3. Requirement Traceability Matrix
 
 > Dùng bảng này để nối Functional Spec với Test Case.
 > Mỗi rule, field, permission, exception quan trọng nên có ít nhất 1 test case tương ứng.
@@ -289,68 +274,25 @@ _Mô tả ngắn gọn mục đích và phạm vi của quy trình..._
 
 ---
 
-## 5. Test Case Summary
+## 4. Test Case Matrix
 
-| TC ID | Feature ID | Test Scenario | Priority | Test Type | Role | Status | Defect ID |
-|---|---|---|---|---|---|---|---|
-| TC-F01-001 | F01 | [Tạo mới thành công với dữ liệu hợp lệ] | High | Functional | Admin / Manager | Not Run |  |
-| TC-F01-002 | F01 | [Submit khi thiếu field bắt buộc] | High | Validation | Admin / Manager | Not Run |  |
-| TC-F01-003 | F01 | [Submit dữ liệu trùng] | Medium | Business Rule | Admin / Manager | Not Run |  |
-| TC-F01-004 | F01 | [User không có quyền truy cập action] | High | Permission | User / Guest | Not Run |  |
-| TC-F01-005 | F01 | [Hệ thống xử lý lỗi server/network] | Medium | Exception | Admin / Manager | Not Run |  |
+> Bảng này dùng để quản lý test case ngắn gọn cho tester và dev.
+
+| TC ID | Feature ID | Related AC | Test Scenario | Priority | Test Type | Role | Preconditions | Test Data | Test Steps | Expected Result | Actual Result | Status | Defect / Evidence |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| TC-F01-001 | F01 | AC01, AC06 | Tạo mới thành công với dữ liệu hợp lệ | High | Functional | Admin / Manager | User đã đăng nhập, có quyền tạo mới, dữ liệu test đã sẵn sàng | TD01 - Valid data | 1. Truy cập màn hình [Tên màn hình]<br>2. Nhấn [Create / Add]<br>3. Nhập dữ liệu hợp lệ<br>4. Nhấn [Save / Submit]<br>5. Kiểm tra kết quả sau khi submit | Hệ thống lưu thành công, hiển thị message thành công và dữ liệu mới/cập nhật hiển thị đúng trên UI | [Ghi kết quả thực tế] | Not Run | [Link bug / screenshot / video / log nếu có] |
+| TC-F01-002 | F01 | AC03, AC04 | Submit khi thiếu field bắt buộc | High | Validation | Admin / Manager | User đã đăng nhập, có quyền submit form | TD02 - Missing required field | 1. Truy cập màn hình [Tên màn hình]<br>2. Mở form [Create / Edit]<br>3. Bỏ trống field bắt buộc<br>4. Nhấn [Save / Submit]<br>5. Kiểm tra message lỗi | Hệ thống không cho submit, highlight field lỗi và hiển thị message required rõ ràng | [Ghi kết quả thực tế] | Not Run | [Link bug / screenshot / video / log nếu có] |
+| TC-F01-003 | F01 | AC05, AC10 | Submit dữ liệu trùng | Medium | Business Rule | Admin / Manager | Dữ liệu trùng đã tồn tại trong hệ thống | TD04 - Duplicate data | 1. Mở form [Create / Edit]<br>2. Nhập dữ liệu đã tồn tại<br>3. Nhấn [Save / Submit]<br>4. Kiểm tra phản hồi hệ thống | Hệ thống không cho lưu và hiển thị message dữ liệu đã tồn tại | [Ghi kết quả thực tế] | Not Run | [Link bug / screenshot / video / log nếu có] |
+| TC-F01-004 | F01 | AC08, AC09 | User không có quyền truy cập action | High | Permission | User / Guest | User đăng nhập bằng account không có quyền hoặc chưa login | TD05 - No permission account | 1. Truy cập màn hình/action bị giới hạn<br>2. Thực hiện action [Create / Edit / Delete / Export]<br>3. Kiểm tra phản hồi hệ thống | Hệ thống chặn action, ẩn button hoặc redirect; nếu cần thì hiển thị message không có quyền | [Ghi kết quả thực tế] | Not Run | [Link bug / screenshot / video / log nếu có] |
+| TC-F01-005 | F01 | AC05 | Hệ thống xử lý lỗi server/network | Medium | Exception | Admin / Manager | Có thể giả lập API lỗi hoặc mất mạng | Server 500 / Network off | 1. Mở form<br>2. Nhập dữ liệu hợp lệ<br>3. Submit khi server/network lỗi<br>4. Kiểm tra message và trạng thái dữ liệu | Hệ thống không lưu sai dữ liệu, hiển thị lỗi chung và giữ dữ liệu user đã nhập nếu có thể | [Ghi kết quả thực tế] | Not Run | [Link bug / screenshot / video / log nếu có] |
 
 **Status values:** Not Run / Passed / Failed / Blocked / Skipped
 **Priority values:** High / Medium / Low
+**Test Type values:** Functional / UI / API / Validation / Permission / Business Rule / Exception / Regression
 
 ---
 
-## 6. Test Case Detail
-
-### TC-F01-001 — [Tên test case]
-
-| Hạng mục | Nội dung |
-|---|---|
-| **Feature ID** | [F01] |
-| **Related AC** | [AC01, AC06] |
-| **Priority** | High / Medium / Low |
-| **Test Type** | Functional / UI / API / Validation / Permission / Regression |
-| **Role** | [Admin / Manager / User / Guest] |
-| **Preconditions** | [User đã đăng nhập, có quyền truy cập, dữ liệu test đã sẵn sàng] |
-| **Test Data** | [TD01] |
-
-#### Test Steps
-
-| Step | Action | Test Data | Expected Result |
-|---:|---|---|---|
-| 1 | Truy cập màn hình [Tên màn hình] |  | Màn hình hiển thị đúng |
-| 2 | Nhấn [Button / Action] |  | Hệ thống hiển thị [Form / Popup / Page] |
-| 3 | Nhập dữ liệu hợp lệ | [TD01] | Dữ liệu được nhập/chọn thành công |
-| 4 | Nhấn [Save / Submit / Confirm] |  | Hệ thống validate và xử lý request |
-| 5 | Kiểm tra kết quả sau khi submit |  | Hiển thị thông báo thành công, dữ liệu được lưu/cập nhật đúng |
-
-#### Actual Result
-
-| Field | Value |
-|---|---|
-| **Actual Result** | [Ghi kết quả thực tế khi test] |
-| **Status** | Passed / Failed / Blocked / Skipped |
-| **Defect ID** | [Link bug nếu có] |
-| **Notes / Evidence** | [Link screenshot/video/log nếu có] |
-
----
-
-## 7. Field Validation Test Matrix
-
-| Feature ID | Field | Validation Rule | Valid Test Data | Invalid Test Data | Expected Result | TC ID |
-|---|---|---|---|---|---|---|
-| F01 | [Name] | Required, max 255 chars, unique | Project A | Empty / >255 chars / duplicate | Hiển thị lỗi hoặc lưu thành công tùy data | TC-F01-002 |
-| F01 | [Email] | Required, email format | user@example.com | user@@ / empty | Hiển thị lỗi email không hợp lệ | TC-F01-006 |
-| F01 | [Start Date] | Required, YYYY-MM-DD | 2026-07-04 | 04/07/2026 / empty | Hiển thị lỗi format hoặc required | TC-F01-007 |
-| F01 | [File Upload] | PDF/DOCX/XLSX, max 10MB | file.pdf | file.exe / file >10MB | Từ chối upload và hiển thị lỗi | TC-F01-008 |
-
----
-
-## 8. Permission Test Matrix
+## 5. Permission Test Matrix
 
 | Feature ID | Action | Admin | Manager / PO | User | Guest | Expected Behavior | TC ID |
 |---|---|---:|---:|---:|---:|---|---|
@@ -363,7 +305,7 @@ _Mô tả ngắn gọn mục đích và phạm vi của quy trình..._
 
 ---
 
-## 9. Exception Test Matrix
+## 6. Exception Test Matrix
 
 | Feature ID | Exception Case | Trigger / Test Data | Expected Behavior | Expected Message | TC ID |
 |---|---|---|---|---|---|
