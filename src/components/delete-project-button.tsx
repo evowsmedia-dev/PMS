@@ -28,9 +28,15 @@ export function DeleteProjectButton({
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button type="button" variant="destructive" size="sm" disabled={pending}>
+        <Button
+          type="button"
+          variant="destructive"
+          size="icon-sm"
+          disabled={pending}
+          aria-label={`Xóa dự án ${projectName}`}
+          title="Xóa dự án"
+        >
           <Trash2 className="size-4" />
-          Xóa dự án
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>

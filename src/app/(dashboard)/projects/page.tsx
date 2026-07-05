@@ -74,9 +74,14 @@ export default async function ProjectsPage({
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {projects.map((project) => (
-            <Card key={project.id} className="h-full transition-colors hover:bg-muted/40">
+            <Card key={project.id} className="relative h-full transition-colors hover:bg-muted/40">
+              {isAdmin ? (
+                <div className="absolute right-3 top-3 z-10">
+                  <DeleteProjectButton projectId={project.id} projectName={project.name} />
+                </div>
+              ) : null}
               <Link href={`/projects/${project.id}/overview`} className="block">
-                <CardHeader className="flex flex-row items-start gap-3 space-y-0">
+                <CardHeader className="flex flex-row items-start gap-3 space-y-0 pr-14">
                   <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-foreground">
                     <ProjectIcon name={project.icon} className="size-5" />
                   </div>
@@ -102,11 +107,6 @@ export default async function ProjectsPage({
                   </p>
                 </CardContent>
               </Link>
-              {isAdmin ? (
-                <div className="border-t px-4 py-3">
-                  <DeleteProjectButton projectId={project.id} projectName={project.name} />
-                </div>
-              ) : null}
             </Card>
           ))}
         </div>
