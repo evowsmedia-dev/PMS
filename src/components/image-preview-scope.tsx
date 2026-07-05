@@ -31,7 +31,7 @@ export function ImagePreviewScope({ children }: { children: React.ReactNode }) {
         {children}
       </div>
       <Dialog open={Boolean(image)} onOpenChange={updateOpen}>
-        <DialogContent className="h-[90vh] max-w-[95vw] gap-3 p-3" showCloseButton>
+        <DialogContent className="h-screen max-h-screen w-screen max-w-none gap-3 rounded-none p-3" showCloseButton>
           <div className="flex items-center justify-between gap-2 border-b pb-2 pr-9">
             <DialogTitle className="truncate text-sm">{image?.alt || "Ảnh"}</DialogTitle>
             <div className="flex shrink-0 items-center gap-1">

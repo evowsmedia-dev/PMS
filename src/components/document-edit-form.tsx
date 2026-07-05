@@ -460,10 +460,7 @@ export function DocumentEditForm({
     if (!file) return;
     setUploadingImage(true);
     try {
-      const blob = await upload(file.name, file, {
-        access: "public",
-        handleUploadUrl: "/api/upload",
-      });
+      const blob = await uploadEditorImage(file);
       editor?.chain().focus().setImage({ src: blob.url, alt: file.name }).run();
       toast.success("Đã chèn ảnh vào nội dung.");
     } catch (error) {
@@ -471,6 +468,30 @@ export function DocumentEditForm({
     } finally {
       setUploadingImage(false);
       if (imageInputRef.current) imageInputRef.current.value = "";
+    }
+  }
+
+  async function uploadEditorImage(file: File) {
+    try {
+      return await upload(file.name, file, {
+        access: "public",
+        handleUploadUrl: "/api/upload",
+      });
+    } catch (error) {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(payload?.error ?? (error as Error).message);
+      }
+
+      return (await response.json()) as { url: string };
     }
   }
 
