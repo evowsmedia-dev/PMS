@@ -12,6 +12,8 @@ const allowedTags = [
   "h6",
   "img",
   "table",
+  "colgroup",
+  "col",
   "thead",
   "tbody",
   "tr",
@@ -27,9 +29,11 @@ const allowedAttributes: sanitizeHtml.IOptions["allowedAttributes"] = {
   a: ["href", "name", "target", "rel"],
   img: ["src", "alt", "title"],
   span: ["data-font-size", "style"],
+  table: ["style"],
+  col: ["style", "width"],
   tr: ["data-row-height", "style"],
-  th: ["colspan", "rowspan"],
-  td: ["colspan", "rowspan"],
+  th: ["colspan", "rowspan", "colwidth"],
+  td: ["colspan", "rowspan", "colwidth"],
 };
 
 export function sanitizeDocumentHtml(html: string) {
@@ -41,6 +45,14 @@ export function sanitizeDocumentHtml(html: string) {
       img: ["http", "https"],
     },
     allowedStyles: {
+      table: {
+        width: [/^\d{2,4}px$/],
+        "min-width": [/^\d{2,4}px$/],
+      },
+      col: {
+        width: [/^\d{2,4}px$/],
+        "min-width": [/^\d{2,4}px$/],
+      },
       span: {
         "font-size": [/^\d{2}px$/],
       },
@@ -50,8 +62,27 @@ export function sanitizeDocumentHtml(html: string) {
     },
     transformTags: {
       a: sanitizeHtml.simpleTransform("a", { rel: "noopener noreferrer" }, true),
+      td: (tagName, attribs) => ({
+        tagName,
+        attribs: sanitizeTableCellAttributes(attribs),
+      }),
+      th: (tagName, attribs) => ({
+        tagName,
+        attribs: sanitizeTableCellAttributes(attribs),
+      }),
     },
   });
+}
+
+function sanitizeTableCellAttributes(attribs: Record<string, string>) {
+  const nextAttributes = { ...attribs };
+  const colwidth = nextAttributes.colwidth;
+
+  if (colwidth && !/^\d{2,4}(,\d{2,4})*$/.test(colwidth)) {
+    delete nextAttributes.colwidth;
+  }
+
+  return nextAttributes;
 }
 
 export function markdownToSafeHtml(markdown: string) {

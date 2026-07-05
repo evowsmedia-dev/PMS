@@ -164,6 +164,9 @@
   border: 1px solid var(--border);
   border-collapse: collapse;
 }
+.prose table[style] {
+  min-width: unset;
+}
 .prose thead {
   background-color: var(--muted);
 }
