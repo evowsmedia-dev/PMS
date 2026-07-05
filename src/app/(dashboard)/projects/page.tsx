@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageShell, PageSection, PageToolbar } from "@/components/page-shell";
+import { DeleteProjectButton } from "@/components/delete-project-button";
 import { ProjectIcon } from "@/lib/validation/icons";
 import { Plus, Search } from "lucide-react";
 
@@ -73,13 +74,13 @@ export default async function ProjectsPage({
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {projects.map((project) => (
-            <Link key={project.id} href={`/projects/${project.id}/overview`}>
-              <Card className="h-full transition-colors hover:bg-muted/40">
-                <CardHeader className="flex flex-row items-center gap-3 space-y-0">
-                  <div className="flex size-10 items-center justify-center rounded-lg border border-border bg-muted text-foreground">
+            <Card key={project.id} className="h-full transition-colors hover:bg-muted/40">
+              <Link href={`/projects/${project.id}/overview`} className="block">
+                <CardHeader className="flex flex-row items-start gap-3 space-y-0">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-foreground">
                     <ProjectIcon name={project.icon} className="size-5" />
                   </div>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <CardTitle className="truncate text-base">{project.name}</CardTitle>
                     <p className="text-xs text-muted-foreground">{project.code}</p>
                   </div>
@@ -100,8 +101,13 @@ export default async function ProjectsPage({
                     {project._count.tasks} task
                   </p>
                 </CardContent>
-              </Card>
-            </Link>
+              </Link>
+              {isAdmin ? (
+                <div className="border-t px-4 py-3">
+                  <DeleteProjectButton projectId={project.id} projectName={project.name} />
+                </div>
+              ) : null}
+            </Card>
           ))}
         </div>
       )}

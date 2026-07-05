@@ -188,8 +188,7 @@ export async function deleteProjectAction(projectId: string) {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const projectRole = await getProjectRole(session.user.id, projectId);
-  if (!(await canAccess({ systemRole: session.user.systemRole }, "project.editSettings", projectRole))) {
+  if (session.user.systemRole !== "ADMIN") {
     return;
   }
 
@@ -211,6 +210,8 @@ export async function deleteProjectAction(projectId: string) {
   await prisma.project.delete({ where: { id: projectId } });
 
   revalidatePath("/projects");
+  revalidatePath("/admin/projects");
+  revalidatePath("/dashboard/overview");
   redirect("/projects");
 }
 
