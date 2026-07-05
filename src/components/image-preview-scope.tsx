@@ -31,8 +31,17 @@ export function ImagePreviewScope({ children }: { children: React.ReactNode }) {
         {children}
       </div>
       <Dialog open={Boolean(image)} onOpenChange={updateOpen}>
-        <DialogContent className="h-screen max-h-screen w-screen max-w-none gap-3 rounded-none p-3" showCloseButton>
-          <div className="flex items-center justify-between gap-2 border-b pb-2 pr-9">
+        <DialogContent
+          className="!max-w-none !gap-0 !rounded-none !border-0 !p-0 sm:!max-w-none"
+          style={{
+            width: "100dvw",
+            height: "100dvh",
+            maxWidth: "none",
+            maxHeight: "none",
+          }}
+          showCloseButton
+        >
+          <div className="flex items-center justify-between gap-2 border-b px-3 py-2 pr-12">
             <DialogTitle className="truncate text-sm">{image?.alt || "Ảnh"}</DialogTitle>
             <div className="flex shrink-0 items-center gap-1">
               <Button
@@ -64,7 +73,7 @@ export function ImagePreviewScope({ children }: { children: React.ReactNode }) {
               </Button>
             </div>
           </div>
-          <div className="min-h-0 overflow-auto bg-muted/20">
+          <div className="min-h-0 overflow-auto bg-muted/20 p-3">
             {image ? (
               // eslint-disable-next-line @next/next/no-img-element -- viewer supports external uploaded image URLs.
               <img
