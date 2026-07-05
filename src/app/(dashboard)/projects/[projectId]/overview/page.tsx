@@ -9,6 +9,7 @@ import { getAssignedModuleIdsForUser } from "@/lib/document-type-access";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PageSection } from "@/components/page-shell";
 import { TASK_STATUS_LABEL, TASK_STATUS_ORDER } from "@/lib/validation/task";
 
@@ -93,13 +94,21 @@ export default async function ProjectOverviewPage({
           </CardHeader>
           <CardContent className="text-2xl font-semibold">{taskCount}</CardContent>
         </Card>
-        <Card className="group relative min-h-24" tabIndex={0}>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Thành viên</CardTitle>
-          </CardHeader>
-          <CardContent className="text-2xl font-semibold">{project.members.length}</CardContent>
-          <div className="pointer-events-none absolute right-0 top-full z-20 mt-2 hidden w-[min(320px,80vw)] rounded-lg border border-border bg-popover p-3 text-popover-foreground group-hover:block group-focus-within:block">
-            <p className="mb-2 text-sm font-medium">Thành viên dự án</p>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Card
+              className="min-h-24 cursor-pointer transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              role="button"
+              tabIndex={0}
+            >
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm text-muted-foreground">Thành viên</CardTitle>
+              </CardHeader>
+              <CardContent className="text-2xl font-semibold">{project.members.length}</CardContent>
+            </Card>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-[min(320px,80vw)]">
+            <p className="text-sm font-medium">Thành viên dự án</p>
             <div className="max-h-72 space-y-1 overflow-y-auto">
               {project.members.map((m) => (
                 <div key={m.id} className="flex items-center justify-between gap-3 rounded-md px-2 py-1.5 text-sm">
@@ -111,8 +120,8 @@ export default async function ProjectOverviewPage({
                 </div>
               ))}
             </div>
-          </div>
-        </Card>
+          </PopoverContent>
+        </Popover>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
