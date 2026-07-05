@@ -143,6 +143,9 @@ export default async function ProjectLayout({
             <Link href={`/projects/${project.id}/kanban`} className="block rounded-lg px-2 py-1.5 hover:bg-accent">
               Kanban
             </Link>
+            <Link href={`/projects/${project.id}/gantt`} className="block rounded-lg px-2 py-1.5 hover:bg-accent">
+              Gantt
+            </Link>
             <Link href={`/projects/${project.id}/epics`} className="block rounded-lg px-2 py-1.5 hover:bg-accent">
               Epic
             </Link>

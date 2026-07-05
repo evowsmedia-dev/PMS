@@ -12,6 +12,7 @@ import {
   TaskAssigneeSelect,
   TaskComments,
 } from "@/components/task-detail-panel";
+import { TaskPlanningEditor } from "@/components/task-planning-editor";
 import { TASK_TYPE_LABEL, TASK_PRIORITY_LABEL } from "@/lib/validation/task";
 
 export default async function ProjectTaskDetailPage({
@@ -33,6 +34,9 @@ export default async function ProjectTaskDetailPage({
       sprint: { select: { name: true } },
       milestone: { select: { name: true } },
       relatedDocument: { select: { id: true, title: true, moduleId: true } },
+      dependencies: {
+        include: { dependsOnTask: { select: { id: true, title: true, taskCode: true } } },
+      },
       history: {
         orderBy: { createdAt: "desc" },
         include: { changedBy: { select: { fullName: true } } },
@@ -53,6 +57,14 @@ export default async function ProjectTaskDetailPage({
   const members = await prisma.projectMember.findMany({
     where: { projectId },
     include: { user: { select: { fullName: true } } },
+  });
+
+  const dependencyIds = new Set(task.dependencies.map((d) => d.dependsOnTaskId));
+  const candidateTasks = await prisma.task.findMany({
+    where: { projectId, deletedAt: null, id: { not: taskId } },
+    select: { id: true, title: true, taskCode: true },
+    orderBy: { updatedAt: "desc" },
+    take: 200,
   });
 
   const roleCtx = { systemRole: session.user.systemRole };
@@ -147,6 +159,25 @@ export default async function ProjectTaskDetailPage({
               description={task.description ?? ""}
               priority={task.priority}
               dueDate={task.dueDate ? task.dueDate.toISOString().slice(0, 10) : ""}
+              canEdit={canEdit}
+            />
+
+            <TaskPlanningEditor
+              projectId={projectId}
+              taskId={taskId}
+              startDate={task.startDate ? task.startDate.toISOString().slice(0, 10) : ""}
+              dueDate={task.dueDate ? task.dueDate.toISOString().slice(0, 10) : ""}
+              dependencies={task.dependencies.map((d) => ({
+                id: d.id,
+                title: d.dependsOnTask.title,
+                taskCode: d.dependsOnTask.taskCode,
+              }))}
+              candidates={candidateTasks
+                .filter((c) => !dependencyIds.has(c.id))
+                .map((c) => ({
+                  id: c.id,
+                  label: `${c.taskCode ? c.taskCode + " · " : ""}${c.title}`,
+                }))}
               canEdit={canEdit}
             />
 
