@@ -15,6 +15,15 @@ export type Action =
   | "task.create"
   | "task.edit"
   | "task.reassign"
+  | "task.move"
+  | "task.managePlanning"
+  | "bug.create"
+  | "bug.edit"
+  | "bug.close"
+  | "testcase.create"
+  | "testcase.edit"
+  | "test.execute"
+  | "report.view"
   | "project.manageMembers"
   | "project.editSettings"
   | "project.export"
@@ -37,6 +46,15 @@ export const RBAC_ACTION_LABELS: Record<Action, string> = {
   "task.create": "Tạo task",
   "task.edit": "Sửa task",
   "task.reassign": "Gán lại task",
+  "task.move": "Di chuyển task (Kanban)",
+  "task.managePlanning": "Quản lý Epic/Sprint/Milestone",
+  "bug.create": "Tạo bug",
+  "bug.edit": "Sửa bug",
+  "bug.close": "Đóng/xác nhận bug",
+  "testcase.create": "Tạo test case",
+  "testcase.edit": "Sửa test case",
+  "test.execute": "Thực thi test case",
+  "report.view": "Xem báo cáo",
   "project.manageMembers": "Quản lý thành viên dự án",
   "project.editSettings": "Sửa cài đặt dự án",
   "project.export": "Export dự án",
@@ -58,6 +76,15 @@ export const EDITABLE_RBAC_ACTIONS: Action[] = [
   "task.create",
   "task.edit",
   "task.reassign",
+  "task.move",
+  "task.managePlanning",
+  "bug.create",
+  "bug.edit",
+  "bug.close",
+  "testcase.create",
+  "testcase.edit",
+  "test.execute",
+  "report.view",
   "project.manageMembers",
   "project.editSettings",
   "project.export",
@@ -81,6 +108,15 @@ const DEFAULT_PROJECT_ROLE_MATRIX: PermissionMatrix = {
   "task.create": ["OWNER", "PO", "BA", "DEV", "TESTER"],
   "task.edit": ["OWNER", "PO", "BA", "DEV", "TESTER"],
   "task.reassign": ["OWNER", "PO", "BA"],
+  "task.move": ["OWNER", "PO", "BA", "DEV", "TESTER"],
+  "task.managePlanning": ["OWNER", "PO", "BA"],
+  "bug.create": ["OWNER", "PO", "BA", "DEV", "TESTER"],
+  "bug.edit": ["OWNER", "PO", "BA", "DEV", "TESTER"],
+  "bug.close": ["OWNER", "PO", "BA", "TESTER"],
+  "testcase.create": ["OWNER", "PO", "BA", "TESTER"],
+  "testcase.edit": ["OWNER", "PO", "BA", "TESTER"],
+  "test.execute": ["OWNER", "PO", "BA", "TESTER"],
+  "report.view": ["OWNER", "PO", "BA", "DEV", "TESTER", "VIEWER"],
   "project.manageMembers": ["OWNER", "PO"],
   "project.editSettings": ["OWNER", "PO"],
   "project.export": ["OWNER", "PO", "BA"],
