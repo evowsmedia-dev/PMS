@@ -36,9 +36,19 @@ export default async function ProjectsPage({
     },
     include: {
       subsystem: { select: { name: true } },
+      modules: {
+        where: { deletedAt: null },
+        select: { id: true },
+      },
+      members: {
+        where: { userId: session.user.id },
+        select: {
+          role: true,
+          documentTypeAssignments: { select: { moduleId: true } },
+        },
+      },
       _count: {
         select: {
-          documents: { where: { deletedAt: null } },
           tasks: { where: { deletedAt: null } },
           modules: { where: { deletedAt: null } },
         },
@@ -46,6 +56,38 @@ export default async function ProjectsPage({
     },
     orderBy: { createdAt: "desc" },
   });
+
+  const documentCounts = await Promise.all(
+    projects.map(async (project) => {
+      const activeModuleIds = project.modules.map((module_) => module_.id);
+      const member = project.members[0];
+      const assignedModuleIds =
+        !isAdmin &&
+        member &&
+        member.role !== "OWNER" &&
+        member.role !== "PO" &&
+        member.documentTypeAssignments.length > 0
+          ? member.documentTypeAssignments
+              .map((assignment) => assignment.moduleId)
+              .filter((moduleId) => activeModuleIds.includes(moduleId))
+          : activeModuleIds;
+
+      if (assignedModuleIds.length === 0) {
+        return [project.id, 0] as const;
+      }
+
+      const count = await prisma.document.count({
+        where: {
+          projectId: project.id,
+          deletedAt: null,
+          moduleId: { in: assignedModuleIds },
+        },
+      });
+
+      return [project.id, count] as const;
+    }),
+  );
+  const documentCountByProjectId = new Map(documentCounts);
 
   return (
     <PageShell size="standard">
@@ -102,7 +144,7 @@ export default async function ProjectsPage({
                     <Badge variant="secondary">{project.subsystem?.name ?? "Chưa chọn phân hệ"}</Badge>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {project._count.modules} loại tài liệu · {project._count.documents} tài liệu ·{" "}
+                    {project._count.modules} loại tài liệu · {documentCountByProjectId.get(project.id) ?? 0} tài liệu ·{" "}
                     {project._count.tasks} task
                   </p>
                 </CardContent>
