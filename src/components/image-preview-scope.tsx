@@ -32,7 +32,7 @@ export function ImagePreviewScope({ children }: { children: React.ReactNode }) {
       </div>
       <Dialog open={Boolean(image)} onOpenChange={updateOpen}>
         <DialogContent
-          className="!max-w-none !gap-0 !rounded-none !border-0 !p-0 sm:!max-w-none"
+          className="!grid !max-w-none !grid-rows-[48px_minmax(0,1fr)] !gap-0 !rounded-none !border-0 !p-0 sm:!max-w-none"
           style={{
             width: "100dvw",
             height: "100dvh",
@@ -41,7 +41,7 @@ export function ImagePreviewScope({ children }: { children: React.ReactNode }) {
           }}
           showCloseButton
         >
-          <div className="flex items-center justify-between gap-2 border-b px-3 py-2 pr-12">
+          <div className="flex h-12 min-h-12 max-h-12 items-center justify-between gap-2 overflow-hidden border-b px-3 pr-12">
             <DialogTitle className="truncate text-sm">{image?.alt || "Ảnh"}</DialogTitle>
             <div className="flex shrink-0 items-center gap-1">
               <Button
