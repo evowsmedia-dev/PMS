@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { can } from "@/lib/rbac";
+import { canAccess } from "@/lib/rbac";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageShell, PageSection, PageToolbar } from "@/components/page-shell";
@@ -12,7 +12,7 @@ import { Plus } from "lucide-react";
 export default async function TemplatesPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  if (!can({ systemRole: session.user.systemRole }, "template.manage")) {
+  if (!(await canAccess({ systemRole: session.user.systemRole }, "template.manage"))) {
     redirect("/dashboard/overview");
   }
 

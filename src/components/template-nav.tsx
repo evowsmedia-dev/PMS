@@ -13,7 +13,10 @@ export function TemplateNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="flex max-w-full gap-1 overflow-x-auto rounded-lg border p-1" aria-label="Điều hướng template">
+    <nav
+      className="flex max-w-full flex-wrap items-center gap-1 rounded-lg border p-1"
+      aria-label="Điều hướng template"
+    >
       {TEMPLATE_NAV.map((item) => {
         const active =
           item.match === "new"
@@ -34,6 +37,12 @@ export function TemplateNav() {
           </Link>
         );
       })}
+      <Link
+        href="/admin/users"
+        className="ml-auto shrink-0 rounded-md border border-border px-3 py-1.5 text-sm text-foreground hover:bg-muted"
+      >
+        Về Admin
+      </Link>
     </nav>
   );
 }

@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { can } from "@/lib/rbac";
+import { canAccess } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { logAudit } from "@/lib/audit";
 import { sanitizeDocumentHtml } from "@/lib/document-content";
@@ -23,7 +23,7 @@ export async function createDocumentAction(
   if (!session?.user) return { error: "Bạn cần đăng nhập." };
 
   const projectRole = await getProjectRole(session.user.id, projectId);
-  if (!can({ systemRole: session.user.systemRole }, "document.create", projectRole)) {
+  if (!(await canAccess({ systemRole: session.user.systemRole }, "document.create", projectRole))) {
     return { error: "Bạn không có quyền tạo tài liệu." };
   }
 
@@ -121,7 +121,7 @@ export async function createFlowDocumentAction(
   if (!session?.user) return { error: "Bạn cần đăng nhập." };
 
   const projectRole = await getProjectRole(session.user.id, projectId);
-  if (!can({ systemRole: session.user.systemRole }, "document.create", projectRole)) {
+  if (!(await canAccess({ systemRole: session.user.systemRole }, "document.create", projectRole))) {
     return { error: "Bạn không có quyền tạo tài liệu." };
   }
 
@@ -185,7 +185,7 @@ export async function createFlowDocumentAction(
 
 async function assertCanEdit(userId: string, systemRole: string, projectId: string) {
   const projectRole = await getProjectRole(userId, projectId);
-  return can({ systemRole: systemRole as never }, "document.edit", projectRole);
+  return await canAccess({ systemRole: systemRole as never }, "document.edit", projectRole);
 }
 
 export async function saveDocumentEditAction(
@@ -340,7 +340,7 @@ export async function changeDocumentStatusAction(
 
   const projectRole = await getProjectRole(session.user.id, projectId);
   const requiredAction = actionForTransition(doc.status, newStatus);
-  if (!can({ systemRole: session.user.systemRole }, requiredAction, projectRole)) {
+  if (!(await canAccess({ systemRole: session.user.systemRole }, requiredAction, projectRole))) {
     return;
   }
 
@@ -375,14 +375,14 @@ export async function submitDocumentForReviewAction(
   if (doc.status !== "DRAFT") return { error: "Tài liệu không ở trạng thái nháp." };
 
   const projectRole = await getProjectRole(session.user.id, projectId);
-  if (!can({ systemRole: session.user.systemRole }, "document.submitReview", projectRole)) {
+  if (!(await canAccess({ systemRole: session.user.systemRole }, "document.submitReview", projectRole))) {
     return { error: "Bạn không có quyền gửi duyệt tài liệu này." };
   }
 
   const reviewer = await prisma.user.findUnique({ where: { id: reviewerId } });
   if (!reviewer) return { error: "Không tìm thấy người được chọn." };
   const reviewerRole = await getProjectRole(reviewerId, projectId);
-  if (!can({ systemRole: reviewer.systemRole }, "document.approve", reviewerRole)) {
+  if (!(await canAccess({ systemRole: reviewer.systemRole }, "document.approve", reviewerRole))) {
     return { error: "Người được chọn không có quyền phê duyệt." };
   }
 
@@ -427,7 +427,7 @@ export async function deleteDocumentAction(
   if (!session?.user) redirect("/login");
 
   const projectRole = await getProjectRole(session.user.id, projectId);
-  if (!can({ systemRole: session.user.systemRole }, "document.delete", projectRole)) {
+  if (!(await canAccess({ systemRole: session.user.systemRole }, "document.delete", projectRole))) {
     return;
   }
 

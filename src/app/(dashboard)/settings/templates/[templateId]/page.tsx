@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { can } from "@/lib/rbac";
+import { canAccess } from "@/lib/rbac";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EditTemplateForm } from "@/components/template-forms";
 import { DeleteTemplateButton } from "@/components/delete-template-button";
@@ -15,7 +15,7 @@ export default async function EditTemplatePage({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  if (!can({ systemRole: session.user.systemRole }, "template.manage")) {
+  if (!(await canAccess({ systemRole: session.user.systemRole }, "template.manage"))) {
     redirect("/dashboard/overview");
   }
 

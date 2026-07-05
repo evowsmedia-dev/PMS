@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { can } from "@/lib/rbac";
+import { canAccess } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { logAudit } from "@/lib/audit";
 
@@ -16,7 +16,7 @@ export async function GET(
 
   const { projectId } = await context.params;
   const projectRole = await getProjectRole(session.user.id, projectId);
-  if (!can({ systemRole: session.user.systemRole }, "project.export", projectRole)) {
+  if (!(await canAccess({ systemRole: session.user.systemRole }, "project.export", projectRole))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

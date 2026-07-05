@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { can } from "@/lib/rbac";
+import { canAccess } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { canAccessModule, getAssignedModuleIdsForUser } from "@/lib/document-type-access";
 import { contentToSafeHtml } from "@/lib/document-content";
@@ -28,7 +28,7 @@ export default async function EditDocumentPage({
   if (!canAccessModule(assignedModuleIds, moduleId)) {
     redirect(`/projects/${projectId}/overview`);
   }
-  if (!can({ systemRole: session.user.systemRole }, "document.edit", projectRole)) {
+  if (!(await canAccess({ systemRole: session.user.systemRole }, "document.edit", projectRole))) {
     redirect(`/projects/${projectId}/modules/${moduleId}/documents/${docId}`);
   }
 

@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { Download } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { can } from "@/lib/rbac";
+import { canAccess } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { getAssignedModuleIdsForUser } from "@/lib/document-type-access";
 import { ProjectDocumentsNav } from "@/components/project-documents-nav";
@@ -38,17 +38,17 @@ export default async function ProjectLayout({
   const projectRole = await getProjectRole(session.user.id, projectId);
   if (!isAdmin && !projectRole) redirect("/projects");
 
-  const canManageModules = can(
+  const canManageModules = await canAccess(
     { systemRole: session.user.systemRole },
     "module.manage",
     projectRole,
   );
-  const canDeleteDocuments = can(
+  const canDeleteDocuments = await canAccess(
     { systemRole: session.user.systemRole },
     "document.delete",
     projectRole,
   );
-  const canCreateDocuments = can(
+  const canCreateDocuments = await canAccess(
     { systemRole: session.user.systemRole },
     "document.create",
     projectRole,

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { can } from "@/lib/rbac";
+import { canAccess } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { canAccessModule, getAssignedModuleIdsForUser } from "@/lib/document-type-access";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,9 +51,9 @@ export default async function TaskDetailPage({
   });
   if (!canAccessModule(assignedModuleIds, moduleId)) redirect(`/projects/${projectId}/overview`);
   const roleCtx = { systemRole: session.user.systemRole };
-  const canEdit = can(roleCtx, "task.edit", projectRole);
-  const canReassign = can(roleCtx, "task.reassign", projectRole);
-  const canComment = can(roleCtx, "comment.create", projectRole);
+  const canEdit = await canAccess(roleCtx, "task.edit", projectRole);
+  const canReassign = await canAccess(roleCtx, "task.reassign", projectRole);
+  const canComment = await canAccess(roleCtx, "comment.create", projectRole);
 
   return (
     <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,75%)_minmax(0,25%)] lg:items-start">

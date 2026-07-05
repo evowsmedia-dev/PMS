@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { can } from "@/lib/rbac";
+import { canAccess } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { canAccessModule, getAssignedModuleIdsForUser } from "@/lib/document-type-access";
 import { DOC_CATEGORY_LABEL, DOC_STATUS_LABEL } from "@/lib/validation/document";
@@ -51,7 +51,7 @@ export default async function DocumentDetailPage({
   });
   if (!canAccessModule(assignedModuleIds, moduleId)) redirect(`/projects/${projectId}/overview`);
   const roleCtx = { systemRole: session.user.systemRole };
-  const canEdit = can(roleCtx, "document.edit", projectRole);
+  const canEdit = await canAccess(roleCtx, "document.edit", projectRole);
 
   const members = await prisma.projectMember.findMany({
     where: { projectId, role: { in: ["OWNER", "PO", "BA"] } },
@@ -85,11 +85,11 @@ export default async function DocumentDetailPage({
                   docId={docId}
                   status={doc.status}
                   approvers={approvers}
-                  canSubmitReview={can(roleCtx, "document.submitReview", projectRole)}
-                  canApprove={can(roleCtx, "document.approve", projectRole)}
-                  canArchive={can(roleCtx, "document.archive", projectRole)}
+                  canSubmitReview={await canAccess(roleCtx, "document.submitReview", projectRole)}
+                  canApprove={await canAccess(roleCtx, "document.approve", projectRole)}
+                  canArchive={await canAccess(roleCtx, "document.archive", projectRole)}
                   canEdit={canEdit}
-                  canDelete={can(roleCtx, "document.delete", projectRole)}
+                  canDelete={await canAccess(roleCtx, "document.delete", projectRole)}
                 />
               </div>
 
@@ -200,7 +200,7 @@ export default async function DocumentDetailPage({
               moduleId={moduleId}
               docId={docId}
               comments={doc.comments.map((c) => ({ ...c, createdAt: c.createdAt.toISOString() }))}
-              canComment={can(roleCtx, "comment.create", projectRole)}
+              canComment={await canAccess(roleCtx, "comment.create", projectRole)}
             />
           </CardContent>
         </Card>

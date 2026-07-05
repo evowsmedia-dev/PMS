@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { can } from "@/lib/rbac";
+import { canAccess } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { canAccessModule, getAssignedModuleIdsForUser } from "@/lib/document-type-access";
 import { DOC_CATEGORY_LABEL, DOC_STATUS_LABEL } from "@/lib/validation/document";
@@ -37,7 +37,7 @@ export default async function ModuleDocumentsPage({
   const page = Math.max(1, Number(sp.page) || 1);
 
   const projectRole = await getProjectRole(session.user.id, projectId);
-  const canCreate = can({ systemRole: session.user.systemRole }, "document.create", projectRole);
+  const canCreate = await canAccess({ systemRole: session.user.systemRole }, "document.create", projectRole);
   const assignedModuleIds = await getAssignedModuleIdsForUser({
     projectId,
     userId: session.user.id,

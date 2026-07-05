@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { Pencil } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { can } from "@/lib/rbac";
+import { canAccess } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { getAssignedModuleIdsForUser } from "@/lib/document-type-access";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,7 +36,7 @@ export default async function ProjectOverviewPage({
   if (!project) notFound();
 
   const projectRole = await getProjectRole(session.user.id, projectId);
-  const canEditSettings = can(
+  const canEditSettings = await canAccess(
     { systemRole: session.user.systemRole },
     "project.editSettings",
     projectRole,

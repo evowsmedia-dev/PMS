@@ -4,7 +4,7 @@ import type { ProjectRole } from "@/generated/prisma/enums";
 
 /**
  * Loads the caller's ProjectMember.role for a project, memoized per request.
- * Returns null if the user isn't a member (systemRole=ADMIN bypasses this entirely in can()).
+ * Returns null if the user isn't a member. systemRole=ADMIN bypasses project-role checks in RBAC.
  */
 export const getProjectRole = cache(
   async (userId: string, projectId: string): Promise<ProjectRole | null> => {

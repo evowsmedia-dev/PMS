@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { can } from "@/lib/rbac";
+import { canAccess } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { canAccessModule, getAssignedModuleIdsForUser } from "@/lib/document-type-access";
 import { Button } from "@/components/ui/button";
@@ -28,7 +28,7 @@ export default async function ModuleTasksPage({
   if (!module_) notFound();
 
   const projectRole = await getProjectRole(session.user.id, projectId);
-  const canCreate = can({ systemRole: session.user.systemRole }, "task.create", projectRole);
+  const canCreate = await canAccess({ systemRole: session.user.systemRole }, "task.create", projectRole);
   const assignedModuleIds = await getAssignedModuleIdsForUser({
     projectId,
     userId: session.user.id,

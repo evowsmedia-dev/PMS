@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { can } from "@/lib/rbac";
+import { canAccess } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AddMemberForm, MemberList } from "@/components/project-members";
@@ -17,7 +17,7 @@ export default async function ProjectMembersPage({
   const { projectId } = await params;
 
   const projectRole = await getProjectRole(session.user.id, projectId);
-  const canManage = can(
+  const canManage = await canAccess(
     { systemRole: session.user.systemRole },
     "project.manageMembers",
     projectRole,

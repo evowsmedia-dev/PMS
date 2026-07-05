@@ -3,7 +3,7 @@
 import { refresh, revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { can } from "@/lib/rbac";
+import { canAccess } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { logAudit } from "@/lib/audit";
 import type { ActionState } from "@/lib/actions/profile";
@@ -17,7 +17,7 @@ export async function createModuleAction(
   if (!session?.user) return { error: "Bạn cần đăng nhập." };
 
   const projectRole = await getProjectRole(session.user.id, projectId);
-  if (!can({ systemRole: session.user.systemRole }, "module.manage", projectRole)) {
+  if (!(await canAccess({ systemRole: session.user.systemRole }, "module.manage", projectRole))) {
     return { error: "Bạn không có quyền tạo phân hệ." };
   }
 
@@ -62,7 +62,7 @@ export async function renameModuleAction(
   if (!session?.user) return;
 
   const projectRole = await getProjectRole(session.user.id, projectId);
-  if (!can({ systemRole: session.user.systemRole }, "module.manage", projectRole)) {
+  if (!(await canAccess({ systemRole: session.user.systemRole }, "module.manage", projectRole))) {
     return;
   }
   if (!name.trim()) return;
@@ -91,7 +91,7 @@ export async function deleteModuleAction(projectId: string, moduleId: string) {
   if (!session?.user) return;
 
   const projectRole = await getProjectRole(session.user.id, projectId);
-  if (!can({ systemRole: session.user.systemRole }, "module.manage", projectRole)) {
+  if (!(await canAccess({ systemRole: session.user.systemRole }, "module.manage", projectRole))) {
     return;
   }
 
@@ -125,7 +125,7 @@ export async function reorderModulesAction(
   if (!session?.user) return;
 
   const projectRole = await getProjectRole(session.user.id, projectId);
-  if (!can({ systemRole: session.user.systemRole }, "module.manage", projectRole)) {
+  if (!(await canAccess({ systemRole: session.user.systemRole }, "module.manage", projectRole))) {
     return;
   }
 

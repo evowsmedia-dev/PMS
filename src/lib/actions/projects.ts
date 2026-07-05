@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { can } from "@/lib/rbac";
+import { canAccess } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { logAudit } from "@/lib/audit";
 import { projectFormSchema } from "@/lib/validation/project";
@@ -108,7 +108,7 @@ export async function updateProjectAction(
   if (!session?.user) return { error: "Bạn cần đăng nhập." };
 
   const projectRole = await getProjectRole(session.user.id, projectId);
-  if (!can({ systemRole: session.user.systemRole }, "project.editSettings", projectRole)) {
+  if (!(await canAccess({ systemRole: session.user.systemRole }, "project.editSettings", projectRole))) {
     return { error: "Bạn không có quyền chỉnh sửa dự án này." };
   }
 
@@ -156,7 +156,7 @@ export async function archiveProjectAction(projectId: string) {
   if (!session?.user) return;
 
   const projectRole = await getProjectRole(session.user.id, projectId);
-  if (!can({ systemRole: session.user.systemRole }, "project.editSettings", projectRole)) {
+  if (!(await canAccess({ systemRole: session.user.systemRole }, "project.editSettings", projectRole))) {
     return;
   }
 
@@ -189,7 +189,7 @@ export async function deleteProjectAction(projectId: string) {
   if (!session?.user) redirect("/login");
 
   const projectRole = await getProjectRole(session.user.id, projectId);
-  if (!can({ systemRole: session.user.systemRole }, "project.editSettings", projectRole)) {
+  if (!(await canAccess({ systemRole: session.user.systemRole }, "project.editSettings", projectRole))) {
     return;
   }
 
@@ -223,7 +223,7 @@ export async function addMemberAction(
   if (!session?.user) return { error: "Bạn cần đăng nhập." };
 
   const projectRole = await getProjectRole(session.user.id, projectId);
-  if (!can({ systemRole: session.user.systemRole }, "project.manageMembers", projectRole)) {
+  if (!(await canAccess({ systemRole: session.user.systemRole }, "project.manageMembers", projectRole))) {
     return { error: "Bạn không có quyền quản lý thành viên." };
   }
 
@@ -260,7 +260,7 @@ export async function removeMemberAction(projectId: string, memberId: string) {
   if (!session?.user) return;
 
   const projectRole = await getProjectRole(session.user.id, projectId);
-  if (!can({ systemRole: session.user.systemRole }, "project.manageMembers", projectRole)) {
+  if (!(await canAccess({ systemRole: session.user.systemRole }, "project.manageMembers", projectRole))) {
     return;
   }
 
@@ -290,7 +290,7 @@ export async function assignMemberDocumentTypeAction(
   if (!session?.user) return;
 
   const projectRole = await getProjectRole(session.user.id, projectId);
-  if (!can({ systemRole: session.user.systemRole }, "project.manageMembers", projectRole)) {
+  if (!(await canAccess({ systemRole: session.user.systemRole }, "project.manageMembers", projectRole))) {
     return;
   }
 
@@ -328,7 +328,7 @@ export async function unassignMemberDocumentTypeAction(
   if (!session?.user) return;
 
   const projectRole = await getProjectRole(session.user.id, projectId);
-  if (!can({ systemRole: session.user.systemRole }, "project.manageMembers", projectRole)) {
+  if (!(await canAccess({ systemRole: session.user.systemRole }, "project.manageMembers", projectRole))) {
     return;
   }
 
@@ -358,7 +358,7 @@ export async function changeMemberRoleAction(
   if (!session?.user) return;
 
   const projectRole = await getProjectRole(session.user.id, projectId);
-  if (!can({ systemRole: session.user.systemRole }, "project.manageMembers", projectRole)) {
+  if (!(await canAccess({ systemRole: session.user.systemRole }, "project.manageMembers", projectRole))) {
     return;
   }
 

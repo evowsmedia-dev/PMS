@@ -1,24 +1,18 @@
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { SystemSettingsForm } from "@/components/system-settings-form";
 import { PageShell, PageSection } from "@/components/page-shell";
 import { AdminRoleSettings } from "@/components/admin-role-settings";
-
-const ROLE_MATRIX: { action: string; roles: string }[] = [
-  { action: "Xem tài liệu / task", roles: "Mọi vai trò (Viewer: chỉ xem)" },
-  { action: "Tạo / sửa tài liệu, task", roles: "Owner, PO, BA, Dev, Tester" },
-  { action: "Phê duyệt tài liệu", roles: "Owner, PO, BA" },
-  { action: "Lưu trữ / xóa tài liệu", roles: "Owner, PO (xóa), + BA (lưu trữ)" },
-  { action: "Gán lại task", roles: "Owner, PO, BA" },
-  { action: "Quản lý thành viên / cài đặt dự án", roles: "Owner, PO" },
-  { action: "Quản lý phân hệ", roles: "Owner, PO, BA" },
-  { action: "Quản lý template", roles: "Chỉ Admin (systemRole)" },
-  { action: "Truy cập /admin/*", roles: "Chỉ Admin (systemRole)" },
-];
+import { PermissionMatrixSettings } from "@/components/permission-matrix-settings";
+import {
+  EDITABLE_RBAC_ACTIONS,
+  PROJECT_ROLE_OPTIONS,
+  RBAC_ACTION_LABELS,
+  getPermissionMatrix,
+} from "@/lib/rbac";
 
 export default async function AdminSettingsPage() {
-  const [settings, users] = await Promise.all([
+  const [settings, users, permissionMatrix] = await Promise.all([
     prisma.systemSetting.findMany(),
     prisma.user.findMany({
       orderBy: [{ isActive: "desc" }, { fullName: "asc" }],
@@ -30,6 +24,7 @@ export default async function AdminSettingsPage() {
         isActive: true,
       },
     }),
+    getPermissionMatrix(),
   ]);
   const get = (key: string) => (settings.find((s) => s.key === key)?.value as string) ?? "";
 
@@ -64,13 +59,13 @@ export default async function AdminSettingsPage() {
         <CardHeader>
           <CardTitle className="text-sm">Ma trận quyền theo vai trò</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
-          {ROLE_MATRIX.map((row) => (
-            <div key={row.action} className="flex flex-wrap items-center justify-between gap-2 border-b pb-2 text-sm last:border-none">
-              <span className="min-w-0">{row.action}</span>
-              <Badge variant="outline">{row.roles}</Badge>
-            </div>
-          ))}
+        <CardContent>
+          <PermissionMatrixSettings
+            actions={EDITABLE_RBAC_ACTIONS}
+            roles={PROJECT_ROLE_OPTIONS}
+            labels={RBAC_ACTION_LABELS}
+            matrix={permissionMatrix}
+          />
         </CardContent>
       </Card>
       </PageSection>

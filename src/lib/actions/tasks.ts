@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { can } from "@/lib/rbac";
+import { canAccess } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { logAudit } from "@/lib/audit";
 import { taskFormSchema } from "@/lib/validation/task";
@@ -20,7 +20,7 @@ export async function createTaskAction(
   if (!session?.user) return { error: "Bạn cần đăng nhập." };
 
   const projectRole = await getProjectRole(session.user.id, projectId);
-  if (!can({ systemRole: session.user.systemRole }, "task.create", projectRole)) {
+  if (!(await canAccess({ systemRole: session.user.systemRole }, "task.create", projectRole))) {
     return { error: "Bạn không có quyền tạo task." };
   }
 
@@ -74,7 +74,7 @@ export async function createTaskAction(
 
 async function requireTaskEditAccess(userId: string, systemRole: string, projectId: string) {
   const projectRole = await getProjectRole(userId, projectId);
-  return can({ systemRole: systemRole as never }, "task.edit", projectRole);
+  return await canAccess({ systemRole: systemRole as never }, "task.edit", projectRole);
 }
 
 export async function updateTaskAction(
@@ -164,7 +164,7 @@ export async function reassignTaskAction(
   if (!session?.user) return;
 
   const projectRole = await getProjectRole(session.user.id, projectId);
-  if (!can({ systemRole: session.user.systemRole }, "task.reassign", projectRole)) return;
+  if (!(await canAccess({ systemRole: session.user.systemRole }, "task.reassign", projectRole))) return;
 
   const before = await prisma.task.findUniqueOrThrow({ where: { id: taskId } });
 
@@ -245,7 +245,7 @@ export async function addTaskCommentAction(
   if (!session?.user) return { error: "Bạn cần đăng nhập." };
 
   const projectRole = await getProjectRole(session.user.id, projectId);
-  if (!can({ systemRole: session.user.systemRole }, "comment.create", projectRole)) {
+  if (!(await canAccess({ systemRole: session.user.systemRole }, "comment.create", projectRole))) {
     return { error: "Bạn không có quyền bình luận." };
   }
 

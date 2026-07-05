@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { can } from "@/lib/rbac";
+import { canAccess } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { canAccessModule, getAssignedModuleIdsForUser } from "@/lib/document-type-access";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,7 +26,7 @@ export default async function NewDocumentPage({
   if (!canAccessModule(assignedModuleIds, moduleId)) {
     redirect(`/projects/${projectId}/overview`);
   }
-  if (!can({ systemRole: session.user.systemRole }, "document.create", projectRole)) {
+  if (!(await canAccess({ systemRole: session.user.systemRole }, "document.create", projectRole))) {
     redirect(`/projects/${projectId}/modules/${moduleId}/documents`);
   }
 

@@ -6,6 +6,12 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import type { ActionState } from "@/lib/actions/profile";
+import {
+  EDITABLE_RBAC_ACTIONS,
+  PROJECT_ROLE_OPTIONS,
+  getDefaultPermissionMatrix,
+  normalizePermissionMatrix,
+} from "@/lib/rbac";
 
 function generateTempPassword() {
   return Math.random().toString(36).slice(-8) + "A1!";
@@ -162,6 +168,40 @@ export async function updateSystemSettingsAction(
 
   revalidatePath("/admin/settings");
   return { success: "Đã lưu cấu hình hệ thống." };
+}
+
+export async function updatePermissionMatrixAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await requireAdmin();
+  if (!session) return { error: "Bạn không có quyền thực hiện thao tác này." };
+
+  const matrix = getDefaultPermissionMatrix();
+  for (const action of EDITABLE_RBAC_ACTIONS) {
+    matrix[action] = PROJECT_ROLE_OPTIONS.filter(
+      (role) => formData.get(`${action}:${role}`) === "on",
+    );
+  }
+
+  const value = normalizePermissionMatrix(matrix);
+
+  await prisma.systemSetting.upsert({
+    where: { key: "rolePermissionMatrix" },
+    update: { value },
+    create: { key: "rolePermissionMatrix", value },
+  });
+
+  await logAudit({
+    actorId: session.user.id,
+    action: "UPDATE",
+    entityType: "SystemSetting",
+    entityId: "rolePermissionMatrix",
+  });
+
+  revalidatePath("/", "layout");
+  revalidatePath("/admin/settings");
+  return { success: "Đã cập nhật ma trận quyền cho toàn bộ app." };
 }
 
 export async function createProjectSubsystemAction(

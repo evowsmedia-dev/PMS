@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { can } from "@/lib/rbac";
+import { canAccess } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProjectEditForm } from "@/components/project-settings-forms";
@@ -18,7 +18,7 @@ export default async function ProjectEditSettingsPage({
   const { projectId } = await params;
 
   const projectRole = await getProjectRole(session.user.id, projectId);
-  if (!can({ systemRole: session.user.systemRole }, "project.editSettings", projectRole)) {
+  if (!(await canAccess({ systemRole: session.user.systemRole }, "project.editSettings", projectRole))) {
     redirect(`/projects/${projectId}/overview`);
   }
 
