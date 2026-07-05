@@ -32,9 +32,19 @@ const allowedAttributes: sanitizeHtml.IOptions["allowedAttributes"] = {
   table: ["style"],
   col: ["style", "width"],
   tr: ["data-row-height", "style"],
-  th: ["colspan", "rowspan", "colwidth"],
-  td: ["colspan", "rowspan", "colwidth"],
+  p: ["style"],
+  h1: ["style"],
+  h2: ["style"],
+  h3: ["style"],
+  h4: ["style"],
+  h5: ["style"],
+  h6: ["style"],
+  th: ["colspan", "rowspan", "colwidth", "style"],
+  td: ["colspan", "rowspan", "colwidth", "style"],
 };
+
+const textAlignStyle = [/^(left|center|right)$/];
+const verticalAlignStyle = [/^(top|middle|bottom)$/];
 
 export function sanitizeDocumentHtml(html: string) {
   return sanitizeHtml(html, {
@@ -56,8 +66,37 @@ export function sanitizeDocumentHtml(html: string) {
       span: {
         "font-size": [/^\d{2}px$/],
       },
+      p: {
+        "text-align": textAlignStyle,
+      },
+      h1: {
+        "text-align": textAlignStyle,
+      },
+      h2: {
+        "text-align": textAlignStyle,
+      },
+      h3: {
+        "text-align": textAlignStyle,
+      },
+      h4: {
+        "text-align": textAlignStyle,
+      },
+      h5: {
+        "text-align": textAlignStyle,
+      },
+      h6: {
+        "text-align": textAlignStyle,
+      },
       tr: {
         height: [/^\d{2,3}px$/],
+      },
+      td: {
+        "text-align": textAlignStyle,
+        "vertical-align": verticalAlignStyle,
+      },
+      th: {
+        "text-align": textAlignStyle,
+        "vertical-align": verticalAlignStyle,
       },
     },
     transformTags: {

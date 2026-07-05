@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { upload } from "@vercel/blob/client";
-import { Mark, mergeAttributes } from "@tiptap/core";
+import { Extension, Mark, mergeAttributes } from "@tiptap/core";
 import { EditorContent, useEditor } from "@tiptap/react";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
@@ -33,6 +33,12 @@ import {
   Plus,
   Minus,
   Trash2,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignVerticalJustifyStart,
+  AlignVerticalJustifyCenter,
+  AlignVerticalJustifyEnd,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -72,6 +78,45 @@ const TEXT_SIZE_OPTIONS = [
   { value: "20px", label: "20px" },
   { value: "24px", label: "24px" },
 ] as const;
+const HORIZONTAL_ALIGNMENTS = [
+  { value: "left", label: "Căn trái", Icon: AlignLeft },
+  { value: "center", label: "Căn giữa", Icon: AlignCenter },
+  { value: "right", label: "Căn phải", Icon: AlignRight },
+] as const;
+const VERTICAL_ALIGNMENTS = [
+  { value: "top", label: "Căn trên", Icon: AlignVerticalJustifyStart },
+  { value: "middle", label: "Căn giữa dọc", Icon: AlignVerticalJustifyCenter },
+  { value: "bottom", label: "Căn dưới", Icon: AlignVerticalJustifyEnd },
+] as const;
+
+const TextBlockAlignment = Extension.create({
+  name: "textBlockAlignment",
+
+  addGlobalAttributes() {
+    return [
+      {
+        types: ["paragraph", "heading"],
+        attributes: {
+          textAlign: {
+            default: null,
+            parseHTML: (element) => {
+              const align = (element as HTMLElement).style.textAlign;
+
+              return ["left", "center", "right"].includes(align) ? align : null;
+            },
+            renderHTML: (attributes) => {
+              const textAlign = String(attributes.textAlign ?? "");
+
+              if (!["left", "center", "right"].includes(textAlign)) return {};
+
+              return { style: `text-align: ${textAlign}` };
+            },
+          },
+        },
+      },
+    ];
+  },
+});
 
 const TextSize = Mark.create({
   name: "textSize",
@@ -283,6 +328,52 @@ const ResizableTableRow = TableRow.extend({
   },
 });
 
+const AlignableTableCell = TableCell.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      verticalAlign: {
+        default: null,
+        parseHTML: (element) => {
+          const align = (element as HTMLElement).style.verticalAlign;
+
+          return ["top", "middle", "bottom"].includes(align) ? align : null;
+        },
+        renderHTML: (attributes) => {
+          const verticalAlign = String(attributes.verticalAlign ?? "");
+
+          if (!["top", "middle", "bottom"].includes(verticalAlign)) return {};
+
+          return { style: `vertical-align: ${verticalAlign}` };
+        },
+      },
+    };
+  },
+});
+
+const AlignableTableHeader = TableHeader.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      verticalAlign: {
+        default: null,
+        parseHTML: (element) => {
+          const align = (element as HTMLElement).style.verticalAlign;
+
+          return ["top", "middle", "bottom"].includes(align) ? align : null;
+        },
+        renderHTML: (attributes) => {
+          const verticalAlign = String(attributes.verticalAlign ?? "");
+
+          if (!["top", "middle", "bottom"].includes(verticalAlign)) return {};
+
+          return { style: `vertical-align: ${verticalAlign}` };
+        },
+      },
+    };
+  },
+});
+
 export function DocumentEditForm({
   projectId,
   moduleId,
@@ -319,6 +410,7 @@ export function DocumentEditForm({
       StarterKit,
       Underline,
       TextSize,
+      TextBlockAlignment,
       LinkExtension.configure({
         openOnClick: false,
         autolink: true,
@@ -327,8 +419,8 @@ export function DocumentEditForm({
       Image.configure({ inline: false, allowBase64: false }),
       Table.configure({ resizable: true }),
       ResizableTableRow,
-      TableHeader,
-      TableCell,
+      AlignableTableHeader,
+      AlignableTableCell,
     ],
     content: initial.content,
     editorProps: {
@@ -419,6 +511,20 @@ export function DocumentEditForm({
     editor.chain().focus().setMark("textSize", { fontSize: value }).run();
   }
 
+  function setHorizontalAlignment(value: "left" | "center" | "right") {
+    if (!editor) return;
+
+    editor.chain().focus().updateAttributes("paragraph", { textAlign: value }).run();
+    editor.chain().focus().updateAttributes("heading", { textAlign: value }).run();
+    editor.chain().focus().setCellAttribute("align", value).run();
+  }
+
+  function setVerticalAlignment(value: "top" | "middle" | "bottom") {
+    if (!editor) return;
+
+    editor.chain().focus().setCellAttribute("verticalAlign", value).run();
+  }
+
   const tableSelected = editor?.isActive("table") ?? false;
 
   return (
@@ -507,6 +613,37 @@ export function DocumentEditForm({
             ))}
           </SelectContent>
         </Select>
+        <div className="flex items-center gap-1 border-l pl-1">
+          {HORIZONTAL_ALIGNMENTS.map(({ value, label, Icon }) => (
+            <Button
+              key={value}
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-7"
+              title={label}
+              onClick={() => setHorizontalAlignment(value)}
+            >
+              <Icon className="size-3.5" />
+            </Button>
+          ))}
+        </div>
+        <div className="flex items-center gap-1 border-l pl-1">
+          {VERTICAL_ALIGNMENTS.map(({ value, label, Icon }) => (
+            <Button
+              key={value}
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-7"
+              title={label}
+              disabled={!tableSelected}
+              onClick={() => setVerticalAlignment(value)}
+            >
+              <Icon className="size-3.5" />
+            </Button>
+          ))}
+        </div>
         <Button type="button" variant="ghost" size="icon" className="size-7" title="Tiêu đề" onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}>
           <Heading2 className="size-3.5" />
         </Button>

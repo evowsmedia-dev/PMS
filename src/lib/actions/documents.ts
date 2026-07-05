@@ -39,6 +39,8 @@ export async function createDocumentAction(
   }
   const values = parsed.data;
   const templateId = String(formData.get("templateId") ?? "").trim() || null;
+  const rfidDescription = getRfidDescription(formData);
+  const description = [values.description, rfidDescription].filter(Boolean).join("\n");
   let docId = "";
 
   await prisma.$transaction(async (tx) => {
@@ -49,7 +51,7 @@ export async function createDocumentAction(
         title: values.title,
         category: values.category,
         role: values.role,
-        description: values.description || null,
+        description: description || null,
         currentContent: values.content || "",
         contentFormat: "MARKDOWN",
         authorId: session.user.id,
@@ -87,6 +89,23 @@ export async function createDocumentAction(
   revalidatePath(`/projects/${projectId}/overview`);
   revalidatePath(`/projects/${projectId}/modules/${moduleId}/documents`);
   redirect(`/projects/${projectId}/modules/${moduleId}/documents/${docId}`);
+}
+
+function getRfidDescription(formData: FormData) {
+  const templateId = String(formData.get("templateId") ?? "").trim();
+
+  if (templateId !== "rfid-process-flow") return "";
+
+  const actor = String(formData.get("rfidActor") ?? "").trim();
+  const rfid = String(formData.get("rfidMode") ?? "").trim();
+  const document = String(formData.get("rfidDocument") ?? "").trim();
+  const parts = [
+    actor ? `Actor: ${actor}` : "",
+    rfid ? `RFID: ${rfid}` : "",
+    document ? `Chứng từ: ${document}` : "",
+  ].filter(Boolean);
+
+  return parts.join("\n");
 }
 
 /** Adds another process-flow document to the same flow group as `docId`

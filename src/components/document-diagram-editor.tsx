@@ -8,6 +8,7 @@ import { Plus, Upload } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ImagePreviewScope } from "@/components/image-preview-scope";
 import { setDocumentDiagramUrlAction } from "@/lib/actions/documents";
 
 const DEFAULT_TITLE = "Sơ đồ quy trình";
@@ -81,12 +82,14 @@ export function DocumentDiagramEditor({
           <p className="text-xs font-semibold text-muted-foreground">
             {diagramTitle || DEFAULT_TITLE}
           </p>
-          {/* eslint-disable-next-line @next/next/no-img-element -- external, unpredictable image host */}
-          <img
-            src={diagramUrl}
-            alt={diagramTitle || DEFAULT_TITLE}
-            className="mt-1 max-h-40 max-w-full object-contain"
-          />
+          <ImagePreviewScope>
+            {/* eslint-disable-next-line @next/next/no-img-element -- external, unpredictable image host */}
+            <img
+              src={diagramUrl}
+              alt={diagramTitle || DEFAULT_TITLE}
+              className="mt-1 max-h-40 max-w-full object-contain"
+            />
+          </ImagePreviewScope>
         </div>
       ) : null}
 

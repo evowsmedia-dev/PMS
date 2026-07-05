@@ -124,7 +124,7 @@ export default async function DocumentDetailPage({
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-muted text-xs font-semibold text-foreground">
+                    <tr className="bg-muted text-sm font-semibold text-foreground">
                       <th className="px-3 py-2 text-left">Phiên bản</th>
                       <th className="px-3 py-2 text-left">Ngày</th>
                       <th className="px-3 py-2 text-left">Người thực hiện</th>
@@ -140,7 +140,10 @@ export default async function DocumentDetailPage({
                         <td className="px-3 py-2">{v.editedBy.fullName}</td>
                         <td className="px-3 py-2 text-muted-foreground">{v.changeNote ?? "—"}</td>
                         <td className="px-3 py-2">
-                          <Badge variant={v.versionNo === 1 ? "default" : "outline"}>
+                          <Badge
+                            variant={v.versionNo === 1 ? "default" : "outline"}
+                            className="text-sm"
+                          >
                             {v.versionNo === 1 ? "Tạo mới" : "Chỉnh sửa"}
                           </Badge>
                         </td>

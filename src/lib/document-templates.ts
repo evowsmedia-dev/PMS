@@ -12,11 +12,7 @@ export const DOC_TEMPLATES: Record<DocTemplateId, DocTemplate> = {
   },
   "rfid-process-flow": {
     label: "Sơ đồ quy trình nghiệp vụ (RFID)",
-    content: `**Actor:** _(VD: Thủ kho)_
-**RFID:** _(VD: Scan hàng loạt / Scan đơn lẻ)_
-**Chứng từ:** _(VD: Phiếu nhập/xuất NPL)_
-
-## Mô tả nghiệp vụ
+    content: `## Mô tả nghiệp vụ
 
 _Mô tả ngắn gọn mục đích và phạm vi của quy trình..._
 

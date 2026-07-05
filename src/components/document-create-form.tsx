@@ -19,6 +19,11 @@ import type { ActionState } from "@/lib/actions/profile";
 import { DOC_TEMPLATES, type DocTemplateId } from "@/lib/document-templates";
 
 const initialState: ActionState = {};
+const RFID_INFO_FIELDS = [
+  { name: "rfidActor", label: "Actor", placeholder: "VD: Thủ kho" },
+  { name: "rfidMode", label: "RFID", placeholder: "VD: Scan hàng loạt / Scan đơn lẻ" },
+  { name: "rfidDocument", label: "Chứng từ", placeholder: "VD: Phiếu nhập/xuất NPL" },
+] as const;
 
 export function DocumentCreateForm({
   projectId,
@@ -81,6 +86,20 @@ export function DocumentCreateForm({
           </Select>
         </div>
       </div>
+
+      {templateId === "rfid-process-flow" ? (
+        <div className="rounded-md border bg-muted/30 p-3">
+          <p className="text-sm font-semibold">Thông tin RFID</p>
+          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+            {RFID_INFO_FIELDS.map((field) => (
+              <div key={field.name} className="space-y-2">
+                <Label htmlFor={field.name}>{field.label}</Label>
+                <Input id={field.name} name={field.name} placeholder={field.placeholder} />
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <div className="space-y-2">
         <Label htmlFor="description">Mô tả ngắn</Label>
