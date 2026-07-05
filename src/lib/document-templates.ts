@@ -28,15 +28,7 @@ _Mô tả ngắn gọn mục đích và phạm vi của quy trình..._
   },
   "functional-specification": {
     label: "Functional Specification Document",
-    content: `# FUNCTIONAL SPECIFICATION DOCUMENT
-
-**Tác giả:** [Họ tên người viết]
-**Ngày tạo:** [YYYY-MM-DD]
-**Trạng thái:** [Nháp / Đang review / Đã duyệt]
-
----
-
-## 1. Feature Summary
+    content: `## 1. Feature Summary
 
 **Feature Name:** [Tên chức năng]
 
@@ -171,15 +163,6 @@ _Mô tả ngắn gọn mục đích và phạm vi của quy trình..._
 |---|---|---|---|---|
 | Q01 | [Cần confirm rule nào?] | [PO/Client] | Open |  |
 | Q02 | [Cần confirm permission nào?] | [PO/Client] | Open |  |
-
----
-
-## 10. Lịch sử thay đổi
-
-| Ngày | Phiên bản | Người sửa | Nội dung thay đổi |
-|------|-----------|-----------|-------------------|
-| 2026-07-04 | 1.0 | [Tên] | Tạo mới tài liệu |
-| 2026-07-05 | 1.1 | [Tên] | Bổ sung use cases UC05, UC06 |
 `,
   },
 };
