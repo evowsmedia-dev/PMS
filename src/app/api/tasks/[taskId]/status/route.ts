@@ -4,8 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { canAccess } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { logAudit } from "@/lib/audit";
+import { TASK_STATUS_ORDER } from "@/lib/validation/task";
 
-const VALID_STATUSES = ["TODO", "IN_PROGRESS", "REVIEW", "DONE"];
+const VALID_STATUSES: readonly string[] = TASK_STATUS_ORDER;
 
 export async function PATCH(
   request: Request,

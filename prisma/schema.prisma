@@ -62,10 +62,31 @@ enum ContentFormat {
 }
 
 enum TaskStatus {
+  BACKLOG
   TODO
   IN_PROGRESS
-  REVIEW
+  CODE_REVIEW
+  READY_FOR_QA
+  TESTING
+  BUG_FIXING
+  REOPENED
+  READY_FOR_UAT
   DONE
+  CANCELLED
+  BLOCKED
+}
+
+enum TaskType {
+  EPIC
+  STORY
+  TASK
+  SUBTASK
+  BUG
+  IMPROVEMENT
+  RESEARCH
+  DOCUMENTATION
+  TEST
+  UAT
 }
 
 enum TaskPriority {
@@ -73,6 +94,61 @@ enum TaskPriority {
   MEDIUM
   HIGH
   CRITICAL
+}
+
+enum BugSeverity {
+  MINOR
+  MEDIUM
+  MAJOR
+  CRITICAL
+  BLOCKER
+}
+
+enum BugStatus {
+  OPEN
+  IN_PROGRESS
+  FIXED
+  VERIFIED
+  CLOSED
+  REOPENED
+}
+
+enum TestCaseStatus {
+  DRAFT
+  ACTIVE
+  DEPRECATED
+}
+
+enum TestRunStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum TestResultStatus {
+  PASS
+  FAIL
+  BLOCKED
+  SKIPPED
+}
+
+enum EpicStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+enum SprintStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+}
+
+enum MilestoneStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
 }
 
 enum ProjectPriority {
@@ -137,11 +213,28 @@ model User {
   attachments        Attachment[]
   comments           Comment[]
   tasksAssigned      Task[]            @relation("TaskAssignee")
+  tasksReported      Task[]            @relation("TaskReporter")
+  tasksReviewing     Task[]            @relation("TaskReviewer")
+  tasksTesting       Task[]            @relation("TaskTester")
   tasksCreated       Task[]            @relation("TaskCreatedBy")
   taskHistory        TaskHistory[]
   auditLogs          AuditLog[]
   mentionsReceived   CommentMention[]
   templatesCreated   Template[]
+
+  epicsCreated        Epic[]
+  sprintsCreated      Sprint[]
+  milestonesCreated   Milestone[]
+  taskAssignments     TaskAssignment[] @relation("TaskAssignmentUser")
+  taskAssignmentsMade TaskAssignment[] @relation("TaskAssignmentAssignedBy")
+  timeLogs            TimeLog[]
+  bugsReported        Bug[]            @relation("BugReportedBy")
+  bugsAssigned        Bug[]            @relation("BugAssignedTo")
+  bugsFixed           Bug[]            @relation("BugFixedBy")
+  bugsVerified        Bug[]            @relation("BugVerifiedBy")
+  testCasesCreated    TestCase[]
+  testRunsCreated     TestRun[]
+  testResultsExecuted TestResult[]
 
   @@index([systemRole, isActive])
 }
@@ -165,9 +258,9 @@ model Project {
   subsystem   ProjectSubsystem? @relation(fields: [subsystemId], references: [id], onDelete: SetNull)
 
   createdById String
-  createdBy   User     @relation("ProjectCreatedBy", fields: [createdById], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdBy   User      @relation("ProjectCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   archivedAt  DateTime?
   deletedAt   DateTime?
 
@@ -175,6 +268,14 @@ model Project {
   modules   Module[]
   documents Document[]
   tasks     Task[]
+
+  epics      Epic[]
+  sprints    Sprint[]
+  milestones Milestone[]
+  bugs       Bug[]
+  testCases  TestCase[]
+  testRuns   TestRun[]
+  snapshots  DailyProjectSnapshot[]
 
   @@index([status, deletedAt])
   @@index([subsystemId])
@@ -197,8 +298,8 @@ model ProjectMember {
   role      ProjectRole @default(DEV)
   addedAt   DateTime    @default(now())
 
-  project                 Project                                @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user                    User                                   @relation(fields: [userId], references: [id])
+  project                 Project                               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user                    User                                  @relation(fields: [userId], references: [id])
   documentTypeAssignments ProjectMemberDocumentTypeAssignment[]
 
   @@unique([projectId, userId])
@@ -228,26 +329,26 @@ model Module {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  documents Document[]
-  tasks     Task[]
+  project           Project                               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  documents         Document[]
+  tasks             Task[]
   memberAssignments ProjectMemberDocumentTypeAssignment[]
 
   @@index([projectId, sortOrder])
 }
 
 model Document {
-  id               String      @id @default(cuid())
+  id               String        @id @default(cuid())
   projectId        String
   moduleId         String
   title            String
   category         DocCategory
   role             DocRole
-  status           DocStatus   @default(DRAFT)
+  status           DocStatus     @default(DRAFT)
   description      String?
   currentContent   String
   contentFormat    ContentFormat @default(MARKDOWN)
-  currentVersionNo Int         @default(1)
+  currentVersionNo Int           @default(1)
   diagramUrl       String?
   diagramTitle     String?
   templateId       String?
@@ -256,8 +357,8 @@ model Document {
   author   User   @relation("DocumentAuthor", fields: [authorId], references: [id])
 
   parentDocumentId String?
-  parentDocument    Document?  @relation("DocumentFlows", fields: [parentDocumentId], references: [id])
-  childDocuments    Document[] @relation("DocumentFlows")
+  parentDocument   Document?  @relation("DocumentFlows", fields: [parentDocumentId], references: [id])
+  childDocuments   Document[] @relation("DocumentFlows")
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -276,18 +377,18 @@ model Document {
 }
 
 model DocumentVersion {
-  id          String      @id @default(cuid())
-  documentId  String
-  versionNo   Int
-  title       String
-  category    DocCategory
-  role        DocRole
-  status      DocStatus
-  description String?
-  content     String
+  id            String        @id @default(cuid())
+  documentId    String
+  versionNo     Int
+  title         String
+  category      DocCategory
+  role          DocRole
+  status        DocStatus
+  description   String?
+  content       String
   contentFormat ContentFormat @default(MARKDOWN)
-  changeNote  String?
-  createdAt   DateTime    @default(now())
+  changeNote    String?
+  createdAt     DateTime      @default(now())
 
   editedById String
   editedBy   User   @relation(fields: [editedById], references: [id])
@@ -299,14 +400,14 @@ model DocumentVersion {
 }
 
 model Attachment {
-  id           String         @id @default(cuid())
-  documentId   String
-  kind         AttachmentKind
-  fileName     String?
-  url          String
-  mimeType     String?
-  sizeBytes    Int?
-  createdAt    DateTime       @default(now())
+  id         String         @id @default(cuid())
+  documentId String
+  kind       AttachmentKind
+  fileName   String?
+  url        String
+  mimeType   String?
+  sizeBytes  Int?
+  createdAt  DateTime       @default(now())
 
   uploadedById String
   uploadedBy   User   @relation(fields: [uploadedById], references: [id])
@@ -329,11 +430,11 @@ model Comment {
   updatedAt  DateTime  @updatedAt
   deletedAt  DateTime?
 
-  document Document? @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  task     Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  author   User      @relation(fields: [authorId], references: [id])
-  parent   Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
-  replies  Comment[] @relation("CommentReplies")
+  document Document?        @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  task     Task?            @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author   User             @relation(fields: [authorId], references: [id])
+  parent   Comment?         @relation("CommentReplies", fields: [parentId], references: [id])
+  replies  Comment[]        @relation("CommentReplies")
   mentions CommentMention[]
 
   @@index([documentId])
@@ -341,7 +442,7 @@ model Comment {
 }
 
 model CommentMention {
-  id        String  @id @default(cuid())
+  id        String @id @default(cuid())
   commentId String
   userId    String
 
@@ -354,17 +455,47 @@ model CommentMention {
 model Task {
   id          String       @id @default(cuid())
   projectId   String
-  moduleId    String
+  moduleId    String?
+  taskCode    String?
   title       String
   description String?
-  status      TaskStatus   @default(TODO)
+  type        TaskType     @default(TASK)
+  status      TaskStatus   @default(BACKLOG)
   priority    TaskPriority @default(MEDIUM)
+  severity    BugSeverity?
   dueDate     DateTime?
+  startDate   DateTime?
+  completedAt DateTime?
   sortOrder   Int          @default(0)
   pinned      Boolean      @default(false)
 
+  estimateHours   Decimal @default(0) @db.Decimal(10, 2)
+  actualHours     Decimal @default(0) @db.Decimal(10, 2)
+  storyPoint      Decimal @default(0) @db.Decimal(10, 2)
+  progressPercent Int     @default(0)
+
+  blockedReason      String?
+  acceptanceCriteria String?
+  requirementId      String?
+
+  epicId       String?
+  epic         Epic?      @relation(fields: [epicId], references: [id], onDelete: SetNull)
+  sprintId     String?
+  sprint       Sprint?    @relation(fields: [sprintId], references: [id], onDelete: SetNull)
+  milestoneId  String?
+  milestone    Milestone? @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  parentTaskId String?
+  parentTask   Task?      @relation("TaskSubtasks", fields: [parentTaskId], references: [id], onDelete: SetNull)
+  subtasks     Task[]     @relation("TaskSubtasks")
+
   assigneeId String?
   assignee   User?   @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  reporterId String?
+  reporter   User?   @relation("TaskReporter", fields: [reporterId], references: [id])
+  reviewerId String?
+  reviewer   User?   @relation("TaskReviewer", fields: [reviewerId], references: [id])
+  testerId   String?
+  tester     User?   @relation("TaskTester", fields: [testerId], references: [id])
 
   createdById String
   createdBy   User   @relation("TaskCreatedBy", fields: [createdById], references: [id])
@@ -379,14 +510,27 @@ model Task {
   deletedAt DateTime?
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  module  Module  @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  module  Module? @relation(fields: [moduleId], references: [id], onDelete: Cascade)
 
-  comments Comment[]
-  history  TaskHistory[]
+  comments     Comment[]
+  history      TaskHistory[]
+  assignments  TaskAssignment[]
+  dependencies TaskDependency[] @relation("TaskDependent")
+  dependents   TaskDependency[] @relation("TaskDependsOn")
+  timeLogs     TimeLog[]
+  bugs         Bug[]
+  testCases    TestCase[]
+  testResults  TestResult[]
 
   @@index([projectId, moduleId, status])
+  @@index([projectId, status])
   @@index([assigneeId, status])
+  @@index([testerId, status])
+  @@index([epicId])
+  @@index([sprintId])
+  @@index([milestoneId])
   @@index([dueDate])
+  @@index([createdAt])
 }
 
 model TaskHistory {
@@ -395,6 +539,7 @@ model TaskHistory {
   field     String
   oldValue  String?
   newValue  String?
+  reason    String?
   createdAt DateTime @default(now())
 
   changedById String
@@ -403,6 +548,262 @@ model TaskHistory {
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   @@index([taskId])
+  @@index([createdAt])
+}
+
+model Epic {
+  id          String     @id @default(cuid())
+  projectId   String
+  epicCode    String
+  name        String
+  description String?
+  status      EpicStatus @default(OPEN)
+  startDate   DateTime?
+  dueDate     DateTime?
+
+  createdById String
+  createdBy   User      @relation(fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks   Task[]
+
+  @@unique([projectId, epicCode])
+  @@index([projectId, status])
+}
+
+model Sprint {
+  id        String       @id @default(cuid())
+  projectId String
+  name      String
+  goal      String?
+  status    SprintStatus @default(PLANNED)
+  startDate DateTime
+  endDate   DateTime
+
+  createdById String
+  createdBy   User      @relation(fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  project  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks    Task[]
+  testRuns TestRun[]
+
+  @@index([projectId, status])
+}
+
+model Milestone {
+  id          String          @id @default(cuid())
+  projectId   String
+  name        String
+  description String?
+  status      MilestoneStatus @default(PLANNED)
+  dueDate     DateTime
+  completedAt DateTime?
+
+  createdById String
+  createdBy   User      @relation(fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks   Task[]
+
+  @@index([projectId, status])
+}
+
+model TaskAssignment {
+  id           String    @id @default(cuid())
+  taskId       String
+  userId       String
+  role         String
+  assignedById String?
+  assignedAt   DateTime  @default(now())
+  unassignedAt DateTime?
+
+  task       Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user       User  @relation("TaskAssignmentUser", fields: [userId], references: [id])
+  assignedBy User? @relation("TaskAssignmentAssignedBy", fields: [assignedById], references: [id])
+
+  @@index([taskId])
+  @@index([userId])
+}
+
+model TaskDependency {
+  id              String   @id @default(cuid())
+  taskId          String
+  dependsOnTaskId String
+  dependencyType  String   @default("finish_to_start")
+  createdById     String?
+  createdAt       DateTime @default(now())
+
+  task          Task @relation("TaskDependent", fields: [taskId], references: [id], onDelete: Cascade)
+  dependsOnTask Task @relation("TaskDependsOn", fields: [dependsOnTaskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, dependsOnTaskId])
+  @@index([taskId])
+  @@index([dependsOnTaskId])
+}
+
+model TimeLog {
+  id          String   @id @default(cuid())
+  taskId      String
+  userId      String
+  workDate    DateTime @db.Date
+  hours       Decimal  @db.Decimal(10, 2)
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([taskId])
+  @@index([userId, workDate])
+}
+
+model Bug {
+  id               String       @id @default(cuid())
+  projectId        String
+  taskId           String?
+  bugCode          String
+  title            String
+  description      String?
+  severity         BugSeverity  @default(MEDIUM)
+  priority         TaskPriority @default(MEDIUM)
+  status           BugStatus    @default(OPEN)
+  environment      String?
+  stepsToReproduce String?
+  expectedResult   String?
+  actualResult     String?
+
+  reportedById String?
+  reportedBy   User?   @relation("BugReportedBy", fields: [reportedById], references: [id])
+  assignedToId String?
+  assignedTo   User?   @relation("BugAssignedTo", fields: [assignedToId], references: [id])
+  fixedById    String?
+  fixedBy      User?   @relation("BugFixedBy", fields: [fixedById], references: [id])
+  verifiedById String?
+  verifiedBy   User?   @relation("BugVerifiedBy", fields: [verifiedById], references: [id])
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  closedAt  DateTime?
+  deletedAt DateTime?
+
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task        Task?        @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  testResults TestResult[]
+
+  @@unique([projectId, bugCode])
+  @@index([projectId, status])
+  @@index([taskId])
+  @@index([severity])
+}
+
+model TestCase {
+  id             String         @id @default(cuid())
+  projectId      String
+  taskId         String?
+  requirementId  String?
+  testCaseCode   String
+  title          String
+  precondition   String?
+  steps          String?
+  expectedResult String?
+  priority       TaskPriority   @default(MEDIUM)
+  status         TestCaseStatus @default(DRAFT)
+
+  createdById String
+  createdBy   User      @relation(fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  project Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task    Task?        @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  results TestResult[]
+
+  @@unique([projectId, testCaseCode])
+  @@index([projectId, status])
+  @@index([taskId])
+}
+
+model TestRun {
+  id          String        @id @default(cuid())
+  projectId   String
+  sprintId    String?
+  name        String
+  status      TestRunStatus @default(PLANNED)
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+
+  project Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sprint  Sprint?      @relation(fields: [sprintId], references: [id], onDelete: SetNull)
+  results TestResult[]
+
+  @@index([projectId, status])
+}
+
+model TestResult {
+  id           String           @id @default(cuid())
+  testRunId    String
+  testCaseId   String
+  taskId       String?
+  result       TestResultStatus
+  actualResult String?
+  bugId        String?
+
+  executedById String?
+  executedBy   User?    @relation(fields: [executedById], references: [id])
+  executedAt   DateTime @default(now())
+
+  testRun  TestRun  @relation(fields: [testRunId], references: [id], onDelete: Cascade)
+  testCase TestCase @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+  task     Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  bug      Bug?     @relation(fields: [bugId], references: [id], onDelete: SetNull)
+
+  @@index([testRunId])
+  @@index([testCaseId])
+}
+
+model DailyProjectSnapshot {
+  id           String   @id @default(cuid())
+  projectId    String
+  snapshotDate DateTime @db.Date
+
+  totalTasks      Int @default(0)
+  completedTasks  Int @default(0)
+  inProgressTasks Int @default(0)
+  overdueTasks    Int @default(0)
+  blockedTasks    Int @default(0)
+
+  totalBugs    Int @default(0)
+  openBugs     Int @default(0)
+  closedBugs   Int @default(0)
+  criticalBugs Int @default(0)
+
+  totalEstimateHours Decimal @default(0) @db.Decimal(10, 2)
+  totalActualHours   Decimal @default(0) @db.Decimal(10, 2)
+
+  plannedProgressPercent Decimal @default(0) @db.Decimal(5, 2)
+  actualProgressPercent  Decimal @default(0) @db.Decimal(5, 2)
+
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, snapshotDate])
+  @@index([projectId, snapshotDate])
 }
 
 model Template {

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TASK_PRIORITY_LABEL } from "@/lib/validation/task";
+import { taskHref, taskDocumentHref } from "@/lib/task-href";
 import { PageShell, PageSection, PageToolbar } from "@/components/page-shell";
 
 type Tab = "mine" | "due-soon" | "overdue" | "done";
@@ -43,17 +44,16 @@ export default async function MyTasksPage({
     where,
     include: {
       project: { select: { id: true, name: true } },
-      module: { select: { id: true } },
     },
     orderBy: { dueDate: "asc" },
     take: 100,
   });
 
-  function taskHref(task: (typeof tasks)[number]) {
+  function hrefFor(task: (typeof tasks)[number]) {
     if (task.isReviewRequest && task.relatedDocumentId) {
-      return `/projects/${task.project.id}/modules/${task.module.id}/documents/${task.relatedDocumentId}`;
+      return taskDocumentHref(task.project.id, task.moduleId, task.relatedDocumentId);
     }
-    return `/projects/${task.project.id}/modules/${task.module.id}/tasks/${task.id}`;
+    return taskHref(task.project.id, task.moduleId, task.id);
   }
 
   return (
@@ -76,7 +76,7 @@ export default async function MyTasksPage({
       ) : (
         <div className="space-y-2">
           {tasks.map((task) => (
-            <Link key={task.id} href={taskHref(task)}>
+            <Link key={task.id} href={hrefFor(task)}>
               <Card className="transition-colors hover:bg-muted/40">
                 <CardContent className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0">
