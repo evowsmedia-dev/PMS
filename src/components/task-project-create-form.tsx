@@ -35,12 +35,18 @@ export function TaskProjectCreateForm({
   epics,
   sprints,
   milestones,
+  defaultRelatedDocumentId,
+  defaultSourceHighlight,
+  relatedDocumentTitle,
 }: {
   projectId: string;
   members: { userId: string; fullName: string }[];
   epics: Option[];
   sprints: Option[];
   milestones: Option[];
+  defaultRelatedDocumentId?: string;
+  defaultSourceHighlight?: string;
+  relatedDocumentTitle?: string;
 }) {
   const action = createProjectTaskAction.bind(null, projectId);
   const [state, formAction, pending] = useActionState(action, initialState);
@@ -51,6 +57,19 @@ export function TaskProjectCreateForm({
 
   return (
     <form action={formAction} className="space-y-4">
+      {defaultRelatedDocumentId ? (
+        <div className="rounded-md border bg-muted/50 p-3 text-sm">
+          <p className="text-xs font-semibold uppercase text-muted-foreground">
+            Tạo từ tài liệu{relatedDocumentTitle ? `: ${relatedDocumentTitle}` : ""}
+          </p>
+          {defaultSourceHighlight ? (
+            <p className="mt-1 italic text-muted-foreground">&quot;{defaultSourceHighlight}&quot;</p>
+          ) : null}
+          <input type="hidden" name="relatedDocumentId" value={defaultRelatedDocumentId} />
+          <input type="hidden" name="sourceHighlight" value={defaultSourceHighlight ?? ""} />
+        </div>
+      ) : null}
+
       <div className="space-y-2">
         <Label htmlFor="title">Tiêu đề</Label>
         <Input id="title" name="title" required />

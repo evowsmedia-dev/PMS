@@ -59,6 +59,29 @@ export default async function DocumentDetailPage({
   });
   const approvers = members.map((m) => ({ id: m.user.id, fullName: m.user.fullName }));
 
+  // Options for the "create task from selection" dialog — mirrors /tasks/new.
+  const [allMembers, epics, sprints, milestones] = await Promise.all([
+    prisma.projectMember.findMany({
+      where: { projectId },
+      include: { user: { select: { id: true, fullName: true } } },
+    }),
+    prisma.epic.findMany({
+      where: { projectId, deletedAt: null },
+      select: { id: true, name: true },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.sprint.findMany({
+      where: { projectId, deletedAt: null },
+      select: { id: true, name: true },
+      orderBy: { startDate: "desc" },
+    }),
+    prisma.milestone.findMany({
+      where: { projectId, deletedAt: null },
+      select: { id: true, name: true },
+      orderBy: { dueDate: "asc" },
+    }),
+  ]);
+
   return (
     <DocumentDetailShell>
       <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,75%)_minmax(0,25%)] lg:items-start">
@@ -106,7 +129,15 @@ export default async function DocumentDetailPage({
           <Card>
             <CardContent className="pt-6">
               <CreateCommentFromSelection>
-                <CreateTaskFromSelection projectId={projectId} moduleId={moduleId} docId={docId}>
+                <CreateTaskFromSelection
+                  projectId={projectId}
+                  docId={docId}
+                  docTitle={doc.title}
+                  members={allMembers.map((m) => ({ userId: m.userId, fullName: m.user.fullName }))}
+                  epics={epics.map((e) => ({ id: e.id, label: e.name }))}
+                  sprints={sprints.map((s) => ({ id: s.id, label: s.name }))}
+                  milestones={milestones.map((m) => ({ id: m.id, label: m.name }))}
+                >
                   <DocumentContentRenderer
                     content={doc.currentContent}
                     format={doc.contentFormat}

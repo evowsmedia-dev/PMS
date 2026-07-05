@@ -159,6 +159,8 @@ export async function createProjectTaskAction(
       estimateHours: values.estimateHours ?? 0,
       storyPoint: values.storyPoint ?? 0,
       acceptanceCriteria: values.acceptanceCriteria || null,
+      relatedDocumentId: values.relatedDocumentId || null,
+      sourceHighlight: values.sourceHighlight || null,
       createdById: session.user.id,
       reporterId: session.user.id,
       sortOrder: (maxOrder._max.sortOrder ?? -1) + 1,
