@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SystemSettingsForm } from "@/components/system-settings-form";
 import { PageShell, PageSection } from "@/components/page-shell";
+import { AdminRoleSettings } from "@/components/admin-role-settings";
 
 const ROLE_MATRIX: { action: string; roles: string }[] = [
   { action: "Xem tài liệu / task", roles: "Mọi vai trò (Viewer: chỉ xem)" },
@@ -17,7 +18,19 @@ const ROLE_MATRIX: { action: string; roles: string }[] = [
 ];
 
 export default async function AdminSettingsPage() {
-  const settings = await prisma.systemSetting.findMany();
+  const [settings, users] = await Promise.all([
+    prisma.systemSetting.findMany(),
+    prisma.user.findMany({
+      orderBy: [{ isActive: "desc" }, { fullName: "asc" }],
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        systemRole: true,
+        isActive: true,
+      },
+    }),
+  ]);
   const get = (key: string) => (settings.find((s) => s.key === key)?.value as string) ?? "";
 
   return (
@@ -40,7 +53,16 @@ export default async function AdminSettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">Phân quyền theo vai trò (cố định)</CardTitle>
+          <CardTitle className="text-sm">Chỉnh sửa phân quyền user</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <AdminRoleSettings users={users} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Ma trận quyền theo vai trò</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           {ROLE_MATRIX.map((row) => (

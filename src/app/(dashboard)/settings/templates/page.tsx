@@ -6,6 +6,7 @@ import { can } from "@/lib/rbac";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageShell, PageSection, PageToolbar } from "@/components/page-shell";
+import { TemplateNav } from "@/components/template-nav";
 import { Plus } from "lucide-react";
 
 export default async function TemplatesPage() {
@@ -22,7 +23,10 @@ export default async function TemplatesPage() {
   });
 
   return (
-    <PageShell size="standard">
+    <PageShell size="standard" className="space-y-4">
+      <PageSection>
+        <TemplateNav />
+      </PageSection>
       <PageSection>
       <PageToolbar
         title="Quản lý template"

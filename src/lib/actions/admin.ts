@@ -222,3 +222,73 @@ export async function deleteProjectSubsystemAction(subsystemId: string) {
   revalidatePath("/projects/new");
   revalidatePath("/dashboard/overview");
 }
+
+export async function addProjectAccessAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await requireAdmin();
+  if (!session) return { error: "Bạn không có quyền thực hiện thao tác này." };
+
+  const projectId = String(formData.get("projectId") ?? "").trim();
+  const userId = String(formData.get("userId") ?? "").trim();
+  const role = String(formData.get("role") ?? "VIEWER");
+
+  if (!projectId || !userId) return { error: "Vui lòng chọn dự án và người dùng." };
+
+  const [project, user] = await Promise.all([
+    prisma.project.findFirst({ where: { id: projectId, deletedAt: null } }),
+    prisma.user.findFirst({ where: { id: userId, isActive: true } }),
+  ]);
+  if (!project) return { error: "Không tìm thấy dự án." };
+  if (!user) return { error: "Không tìm thấy người dùng đang hoạt động." };
+
+  const existing = await prisma.projectMember.findUnique({
+    where: { projectId_userId: { projectId, userId } },
+  });
+  if (existing) return { error: "Người dùng đã có quyền trong dự án này." };
+
+  await prisma.projectMember.create({
+    data: { projectId, userId, role: role as never },
+  });
+
+  await logAudit({
+    actorId: session.user.id,
+    action: "MEMBER_ADD",
+    entityType: "Project",
+    entityId: projectId,
+    projectId,
+    metadata: { userId, role, source: "admin-projects" },
+  });
+
+  revalidatePath("/admin/projects");
+  revalidatePath(`/projects/${projectId}/settings/members`);
+  revalidatePath(`/projects/${projectId}/overview`);
+  return { success: `Đã thêm ${user.fullName} vào dự án ${project.name}.` };
+}
+
+export async function removeProjectAccessAction(projectId: string, memberId: string) {
+  const session = await requireAdmin();
+  if (!session) return;
+
+  const member = await prisma.projectMember.findFirst({
+    where: { id: memberId, projectId },
+    include: { user: { select: { id: true, fullName: true } } },
+  });
+  if (!member) return;
+
+  await prisma.projectMember.delete({ where: { id: member.id } });
+
+  await logAudit({
+    actorId: session.user.id,
+    action: "MEMBER_REMOVE",
+    entityType: "Project",
+    entityId: projectId,
+    projectId,
+    metadata: { userId: member.user.id, source: "admin-projects" },
+  });
+
+  revalidatePath("/admin/projects");
+  revalidatePath(`/projects/${projectId}/settings/members`);
+  revalidatePath(`/projects/${projectId}/overview`);
+}

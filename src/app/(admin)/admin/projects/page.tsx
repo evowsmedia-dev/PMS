@@ -3,14 +3,19 @@ import { prisma } from "@/lib/prisma";
 import { Badge } from "@/components/ui/badge";
 import { PageShell, PageSection, ResponsiveTableFrame } from "@/components/page-shell";
 import { ProjectSubsystemsAdmin } from "@/components/project-subsystems-admin";
+import { AdminProjectAccessManager } from "@/components/admin-project-access-manager";
 
 export default async function AdminProjectsPage() {
-  const [projects, subsystems] = await Promise.all([
+  const [projects, subsystems, users] = await Promise.all([
     prisma.project.findMany({
       where: { deletedAt: null },
       include: {
         createdBy: { select: { fullName: true } },
         subsystem: { select: { name: true } },
+        members: {
+          orderBy: { addedAt: "desc" },
+          include: { user: { select: { fullName: true, email: true } } },
+        },
         _count: {
           select: {
             members: true,
@@ -25,6 +30,11 @@ export default async function AdminProjectsPage() {
       orderBy: { name: "asc" },
       include: { _count: { select: { projects: true } } },
     }),
+    prisma.user.findMany({
+      where: { isActive: true },
+      orderBy: { fullName: "asc" },
+      select: { id: true, fullName: true, email: true },
+    }),
   ]);
 
   return (
@@ -37,6 +47,23 @@ export default async function AdminProjectsPage() {
             description: subsystem.description,
             projectCount: subsystem._count.projects,
           }))}
+        />
+      </PageSection>
+
+      <PageSection>
+        <h1 className="text-lg font-semibold">Phân quyền xem dự án</h1>
+        <AdminProjectAccessManager
+          projects={projects.map((project) => ({
+            id: project.id,
+            name: project.name,
+            code: project.code,
+            members: project.members.map((member) => ({
+              id: member.id,
+              role: member.role,
+              user: member.user,
+            })),
+          }))}
+          users={users}
         />
       </PageSection>
 
