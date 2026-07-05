@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -138,9 +139,14 @@ export function DocumentCreateForm({
         />
       </div>
 
-      <Button type="submit" disabled={pending}>
-        {pending ? "Đang tạo..." : "Tạo tài liệu"}
-      </Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="submit" disabled={pending}>
+          {pending ? "Đang tạo..." : "Tạo tài liệu"}
+        </Button>
+        <Button asChild type="button" variant="outline">
+          <Link href={`/projects/${projectId}/modules/${moduleId}/documents`}>Hủy tạo tài liệu</Link>
+        </Button>
+      </div>
     </form>
   );
 }
