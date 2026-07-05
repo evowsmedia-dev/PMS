@@ -1,4 +1,8 @@
-export type DocTemplateId = "blank" | "rfid-process-flow" | "functional-specification";
+export type DocTemplateId =
+  | "blank"
+  | "rfid-process-flow"
+  | "functional-specification"
+  | "change-request";
 
 interface DocTemplate {
   label: string;
@@ -218,6 +222,15 @@ _Mô tả ngắn gọn mục đích và phạm vi của quy trình..._
 | Q02 | [Email có được phép chỉnh sửa trong Profile không?] | UC02 | PO/Client | Open |  |
 | Q03 | [Manager có được xóa document của user khác không?] | UC05/UC06 | PO/Client | Open |  |
 | Q04 | [Có cần preview tất cả định dạng file hay chỉ text/PDF?] | UC06 | PO/Client/Dev | Open |  |
+`,
+  },
+  "change-request": {
+    label: "Change Request Document",
+    content: `# BẢNG QUẢN LÝ REQUEST CHANGE (1 ROW = 1 REQUEST)
+
+| ID | Mức ưu tiên | Loại thay đổi | Người đề xuất | Ngày gửi | Tiêu đề (Tóm tắt) | Trạng thái hiện tại (Tóm tắt) | Thay đổi đề xuất (Tóm tắt) | Công sức (giờ) | Module ảnh hưởng | Thay đổi CSDL? | Rủi ro & Tác động tiến độ | Người phê duyệt | Quyết định | Trạng thái thực hiện | Ngày hoàn thành |
+| :--- | :---: | :--- | :--- | :--- | :--- | :--- | :--- | :---: | :--- | :---: | :--- | :--- | :---: | :--- | :--- |
+| **RFC-001** | Cao | [Bổ sung tính năng / Sửa giao diện / Sửa lỗi / Thay đổi quy trình] | [Họ tên (Bộ phận)] | [dd/mm/yy] | [Tóm tắt ngắn gọn nội dung request] | [Mô tả hiện trạng trước khi thay đổi] | [Mô tả nội dung thay đổi đề xuất] | [Số giờ ước tính] | [Module/Phân hệ bị ảnh hưởng] | [Có/Không] | [Đánh giá mức độ rủi ro và tác động tiến độ] | [PM/Người phê duyệt] | [⏳ Cần phân tích thêm / ✅ Chấp nhận / ❌ Từ chối] | [Mới tạo / Đang phát triển / Chờ kiểm thử (QA) / Hoàn thành] | [_Chưa có_ / dd/mm/yy] |
 `,
   },
 };
