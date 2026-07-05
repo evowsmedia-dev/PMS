@@ -159,7 +159,7 @@
   min-width: 640px;
   table-layout: fixed;
   overflow: hidden;
-  margin-block: 16px;
+  margin-block: 0;
   border-radius: 10px;
   border: 1px solid var(--border);
   border-collapse: collapse;
@@ -177,7 +177,7 @@
 .prose th,
 .prose td {
   min-height: 14px;
-  padding: 0 5px;
+  padding: 0;
   border: 1px solid #d4d4d4;
   border-left-color: #bdbdbd;
   border-right-color: #bdbdbd;
