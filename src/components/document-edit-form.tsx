@@ -806,7 +806,7 @@ export function DocumentEditForm({
         </Button>
         {uploadingImage ? <span className="text-xs text-muted-foreground">Đang tải ảnh...</span> : null}
       </div>
-        <div className="max-h-[calc(100vh-8rem)] overflow-auto">
+        <div className="max-h-[60vh] overflow-auto">
           <EditorContent editor={editor} />
         </div>
       </div>
