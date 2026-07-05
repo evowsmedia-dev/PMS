@@ -5,7 +5,7 @@ import { getProjectRole } from "@/lib/project-role";
 import { canAccessModule, getAssignedModuleIdsForUser } from "@/lib/document-type-access";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { DocumentContentRenderer } from "@/components/document-content-renderer";
+import { DocumentDiffRenderer } from "@/components/document-diff-renderer";
 
 export default async function DocumentHistoryPage({
   params,
@@ -35,6 +35,8 @@ export default async function DocumentHistoryPage({
   });
   if (!doc) notFound();
 
+  const previousVersionByNo = new Map(doc.versions.map((version) => [version.versionNo + 1, version]));
+
   return (
     <Card>
       <CardHeader>
@@ -57,7 +59,12 @@ export default async function DocumentHistoryPage({
               <p className="mt-1 text-xs text-muted-foreground">{v.changeNote}</p>
             ) : null}
             <div className="mt-2 max-h-80 overflow-y-auto rounded bg-muted p-2">
-              <DocumentContentRenderer content={v.content} format={v.contentFormat} />
+              <DocumentDiffRenderer
+                content={v.content}
+                format={v.contentFormat}
+                previousContent={previousVersionByNo.get(v.versionNo)?.content}
+                previousFormat={previousVersionByNo.get(v.versionNo)?.contentFormat}
+              />
             </div>
           </div>
         ))}
