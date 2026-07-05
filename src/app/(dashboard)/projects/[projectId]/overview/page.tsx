@@ -93,11 +93,25 @@ export default async function ProjectOverviewPage({
           </CardHeader>
           <CardContent className="text-2xl font-semibold">{taskCount}</CardContent>
         </Card>
-        <Card className="min-h-24">
+        <Card className="group relative min-h-24" tabIndex={0}>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground">Thành viên</CardTitle>
           </CardHeader>
           <CardContent className="text-2xl font-semibold">{project.members.length}</CardContent>
+          <div className="pointer-events-none absolute right-0 top-full z-20 mt-2 hidden w-[min(320px,80vw)] rounded-lg border border-border bg-popover p-3 text-popover-foreground group-hover:block group-focus-within:block">
+            <p className="mb-2 text-sm font-medium">Thành viên dự án</p>
+            <div className="max-h-72 space-y-1 overflow-y-auto">
+              {project.members.map((m) => (
+                <div key={m.id} className="flex items-center justify-between gap-3 rounded-md px-2 py-1.5 text-sm">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{m.user.fullName}</p>
+                    <p className="truncate text-xs text-muted-foreground">{m.user.email}</p>
+                  </div>
+                  <Badge variant="secondary">{m.role}</Badge>
+                </div>
+              ))}
+            </div>
+          </div>
         </Card>
       </div>
 
@@ -225,20 +239,6 @@ export default async function ProjectOverviewPage({
           <CardContent className="text-sm">{project.highlightNote}</CardContent>
         </Card>
       ) : null}
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">Thành viên dự án</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-1">
-          {project.members.map((m) => (
-            <div key={m.id} className="flex items-center justify-between gap-3 text-sm">
-              <span className="min-w-0 truncate">{m.user.fullName}</span>
-              <Badge variant="secondary">{m.role}</Badge>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
     </PageSection>
   );
 }
