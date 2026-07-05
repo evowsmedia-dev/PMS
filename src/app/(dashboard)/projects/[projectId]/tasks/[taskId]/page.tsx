@@ -13,7 +13,7 @@ import {
   TaskComments,
 } from "@/components/task-detail-panel";
 import { TaskPlanningEditor } from "@/components/task-planning-editor";
-import { TASK_TYPE_LABEL, TASK_PRIORITY_LABEL } from "@/lib/validation/task";
+import { TASK_TYPE_LABEL, TASK_PRIORITY_LABEL, BUG_STATUS_LABEL } from "@/lib/validation/task";
 
 export default async function ProjectTaskDetailPage({
   params,
@@ -36,6 +36,16 @@ export default async function ProjectTaskDetailPage({
       relatedDocument: { select: { id: true, title: true, moduleId: true } },
       dependencies: {
         include: { dependsOnTask: { select: { id: true, title: true, taskCode: true } } },
+      },
+      bugs: {
+        where: { deletedAt: null },
+        select: { id: true, bugCode: true, title: true, status: true },
+        orderBy: { createdAt: "desc" },
+      },
+      testCases: {
+        where: { deletedAt: null },
+        select: { id: true, testCaseCode: true, title: true, status: true },
+        orderBy: { createdAt: "desc" },
       },
       history: {
         orderBy: { createdAt: "desc" },
@@ -180,6 +190,41 @@ export default async function ProjectTaskDetailPage({
                 }))}
               canEdit={canEdit}
             />
+
+            {task.bugs.length > 0 || task.testCases.length > 0 ? (
+              <div className="border-t pt-3">
+                <p className="text-xs font-semibold uppercase text-muted-foreground">QA liên quan</p>
+                <div className="mt-2 space-y-1 text-sm">
+                  {task.bugs.map((b) => (
+                    <div key={b.id} className="flex items-center gap-2">
+                      <Link
+                        href={`/projects/${projectId}/bugs`}
+                        className="hover:underline"
+                      >
+                        <span className="font-mono text-xs text-muted-foreground">{b.bugCode}</span>{" "}
+                        {b.title}
+                      </Link>
+                      <Badge variant="outline" className="text-[10px]">
+                        {BUG_STATUS_LABEL[b.status]}
+                      </Badge>
+                    </div>
+                  ))}
+                  {task.testCases.map((tc) => (
+                    <div key={tc.id} className="flex items-center gap-2">
+                      <Link
+                        href={`/projects/${projectId}/test-cases`}
+                        className="hover:underline"
+                      >
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {tc.testCaseCode}
+                        </span>{" "}
+                        {tc.title}
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
             <div className="border-t pt-3">
               <p className="text-xs font-semibold uppercase text-muted-foreground">Lịch sử</p>
