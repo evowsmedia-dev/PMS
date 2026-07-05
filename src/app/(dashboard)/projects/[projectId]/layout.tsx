@@ -133,6 +133,18 @@ export default async function ProjectLayout({
             </Link>
           </nav>
 
+          <nav className="space-y-0.5 text-[1.15rem]">
+            <p className="px-2 py-1 text-xs font-semibold uppercase text-muted-foreground">
+              Quản lý công việc
+            </p>
+            <Link href={`/projects/${project.id}/tasks`} className="block rounded-lg px-2 py-1.5 hover:bg-accent">
+              Task
+            </Link>
+            <Link href={`/projects/${project.id}/kanban`} className="block rounded-lg px-2 py-1.5 hover:bg-accent">
+              Kanban
+            </Link>
+          </nav>
+
           <ProjectDocumentsNav
             projectId={project.id}
             modules={visibleModules}

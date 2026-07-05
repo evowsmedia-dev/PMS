@@ -21,17 +21,28 @@ import { CSS } from "@dnd-kit/utilities";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { TASK_STATUS_LABEL, TASK_STATUS_ORDER, TASK_PRIORITY_LABEL } from "@/lib/validation/task";
+import { taskHref } from "@/lib/task-href";
 
 export interface KanbanTask {
   id: string;
   title: string;
+  taskCode?: string | null;
   status: string;
   priority: string;
   dueDate: string | null;
+  moduleId?: string | null;
   assignee: { fullName: string } | null;
 }
 
-function TaskCard({ task, projectId, moduleId }: { task: KanbanTask; projectId: string; moduleId: string }) {
+function TaskCard({
+  task,
+  projectId,
+  moduleId,
+}: {
+  task: KanbanTask;
+  projectId: string;
+  moduleId: string | null;
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
   });
@@ -42,17 +53,25 @@ function TaskCard({ task, projectId, moduleId }: { task: KanbanTask; projectId: 
     opacity: isDragging ? 0.5 : 1,
   };
 
+  const overdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== "DONE";
+  const blocked = task.status === "BLOCKED";
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       {...attributes}
       {...listeners}
-      className="cursor-grab space-y-1 rounded-lg border bg-card p-3 text-sm active:cursor-grabbing"
+      className={`cursor-grab space-y-1 rounded-lg border bg-card p-3 text-sm active:cursor-grabbing ${
+        blocked ? "border-destructive/60" : ""
+      } ${overdue ? "ring-1 ring-destructive/40" : ""}`}
     >
+      {task.taskCode ? (
+        <span className="font-mono text-[10px] text-muted-foreground">{task.taskCode}</span>
+      ) : null}
       <Link
-        href={`/projects/${projectId}/modules/${moduleId}/tasks/${task.id}`}
-        className="font-medium hover:underline"
+        href={taskHref(projectId, task.moduleId ?? moduleId, task.id)}
+        className="block font-medium hover:underline"
         onClick={(e) => e.stopPropagation()}
       >
         {task.title}
@@ -62,7 +81,7 @@ function TaskCard({ task, projectId, moduleId }: { task: KanbanTask; projectId: 
           {TASK_PRIORITY_LABEL[task.priority]}
         </Badge>
         {task.dueDate ? (
-          <span className="text-[10px] text-muted-foreground">
+          <span className={`text-[10px] ${overdue ? "font-medium text-destructive" : "text-muted-foreground"}`}>
             {new Date(task.dueDate).toLocaleDateString("vi-VN")}
           </span>
         ) : null}
@@ -83,7 +102,7 @@ function Column({
   status: string;
   tasks: KanbanTask[];
   projectId: string;
-  moduleId: string;
+  moduleId: string | null;
 }) {
   const { setNodeRef } = useDroppable({ id: status });
 
@@ -110,7 +129,7 @@ export function KanbanBoard({
   initialTasks,
 }: {
   projectId: string;
-  moduleId: string;
+  moduleId: string | null;
   initialTasks: KanbanTask[];
 }) {
   const [tasks, setTasks] = useState(initialTasks);

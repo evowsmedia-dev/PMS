@@ -30,7 +30,7 @@ export function TaskEditForm({
   canEdit,
 }: {
   projectId: string;
-  moduleId: string;
+  moduleId: string | null;
   taskId: string;
   title: string;
   description: string;

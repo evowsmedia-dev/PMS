@@ -42,7 +42,7 @@ export function TaskStatusSelect({
   canEdit,
 }: {
   projectId: string;
-  moduleId: string;
+  moduleId: string | null;
   taskId: string;
   status: string;
   canEdit: boolean;
@@ -85,7 +85,7 @@ export function TaskAssigneeSelect({
   canReassign,
 }: {
   projectId: string;
-  moduleId: string;
+  moduleId: string | null;
   taskId: string;
   assigneeId: string | null;
   members: Member[];
@@ -129,7 +129,7 @@ export function TaskComments({
   canComment,
 }: {
   projectId: string;
-  moduleId: string;
+  moduleId: string | null;
   taskId: string;
   comments: CommentItem[];
   canComment: boolean;
