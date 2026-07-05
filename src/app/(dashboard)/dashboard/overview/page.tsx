@@ -20,7 +20,13 @@ export default async function DashboardOverviewPage() {
       distinct: ["subsystemId"],
       select: { subsystemId: true },
     }),
-    prisma.document.count({ where: { deletedAt: null, project: projectFilter } }),
+    prisma.document.count({
+      where: {
+        deletedAt: null,
+        project: projectFilter,
+        module: { deletedAt: null },
+      },
+    }),
     prisma.task.count({ where: { deletedAt: null, project: projectFilter } }),
   ]);
   const subsystemCount = projectsWithSubsystems.length;
