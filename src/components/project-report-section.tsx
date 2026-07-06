@@ -86,15 +86,18 @@ export async function ProjectReportSection({ projectId }: { projectId: string })
             ) : (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  <HeatmapSummary label="Task đang làm" value={activeAssignedTasks.length} tone="workload" />
-                  <HeatmapSummary label="Sắp đến hạn" value={perMember.reduce((sum, m) => sum + m.dueSoonTasks, 0)} tone="dueSoon" />
-                  <HeatmapSummary label="Trễ hạn" value={overdueAssignedTasks.length} tone="overdue" />
-                  <HeatmapSummary label="Rủi ro" value={`${overdueRatio}%`} tone="risk" />
+                  <HeatmapSummary label="Task đang làm" value={activeAssignedTasks.length} />
+                  <HeatmapSummary
+                    label="Sắp đến hạn"
+                    value={perMember.reduce((sum, m) => sum + m.dueSoonTasks, 0)}
+                  />
+                  <HeatmapSummary label="Trễ hạn" value={overdueAssignedTasks.length} />
+                  <HeatmapSummary label="Rủi ro" value={`${overdueRatio}%`} />
                 </div>
 
                 <div className="overflow-x-auto rounded-[14px] border bg-background p-3">
-                  <div className="grid min-w-[720px] gap-2">
-                    <div className="grid grid-cols-[160px_repeat(4,minmax(88px,1fr))] gap-2 text-xs font-medium text-muted-foreground">
+                  <div className="grid min-w-[560px] gap-2">
+                    <div className="grid grid-cols-[150px_repeat(4,minmax(72px,1fr))] gap-2 text-xs font-medium text-muted-foreground">
                       <div>Nhân sự</div>
                       <div className="text-center">Đang làm</div>
                       <div className="text-center">Sắp hạn</div>
@@ -103,14 +106,14 @@ export async function ProjectReportSection({ projectId }: { projectId: string })
                     </div>
 
                     {perMember.map((member) => (
-                      <div key={member.id} className="grid grid-cols-[160px_repeat(4,minmax(88px,1fr))] gap-2">
+                      <div key={member.id} className="grid grid-cols-[150px_repeat(4,minmax(72px,1fr))] gap-2">
                         <div className="flex min-w-0 items-center rounded-[10px] border bg-muted/40 px-3 text-sm font-medium">
                           <span className="truncate">{member.name}</span>
                         </div>
-                        <HeatmapCell value={member.activeTasks} max={heatmapMax.activeTasks} tone="workload" />
-                        <HeatmapCell value={member.dueSoonTasks} max={heatmapMax.dueSoonTasks} tone="dueSoon" />
-                        <HeatmapCell value={member.lateTasks} max={heatmapMax.lateTasks} tone="overdue" />
-                        <HeatmapCell value={member.available} max={heatmapMax.available} tone="available" />
+                        <HeatmapCell value={member.activeTasks} max={heatmapMax.activeTasks} />
+                        <HeatmapCell value={member.dueSoonTasks} max={heatmapMax.dueSoonTasks} />
+                        <HeatmapCell value={member.lateTasks} max={heatmapMax.lateTasks} />
+                        <HeatmapCell value={member.available} max={heatmapMax.available} />
                       </div>
                     ))}
                   </div>
@@ -118,7 +121,7 @@ export async function ProjectReportSection({ projectId }: { projectId: string })
 
                 <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                   <span className="font-medium text-foreground">Chú giải:</span>
-                  <span>màu càng đậm là giá trị càng cao trong cùng một cột</span>
+                  <span>ô đen càng nhiều là giá trị càng cao trong cùng một cột</span>
                   <span>-</span>
                   <span>khả dụng = không có task đang làm</span>
                 </div>
@@ -152,32 +155,17 @@ export async function ProjectReportSection({ projectId }: { projectId: string })
   );
 }
 
-type HeatmapTone = "workload" | "dueSoon" | "overdue" | "available" | "risk";
-
-const HEATMAP_COLORS: Record<HeatmapTone, string[]> = {
-  workload: ["#eef2ff", "#c7d2fe", "#818cf8", "#4338ca"],
-  dueSoon: ["#fff7ed", "#fed7aa", "#fb923c", "#c2410c"],
-  overdue: ["#fef2f2", "#fecaca", "#f87171", "#b91c1c"],
-  available: ["#f0fdf4", "#bbf7d0", "#4ade80", "#15803d"],
-  risk: ["#f8fafc", "#cbd5e1", "#64748b", "#0f172a"],
-};
-
 function HeatmapSummary({
   label,
   value,
-  tone,
 }: {
   label: string;
   value: number | string;
-  tone: HeatmapTone;
 }) {
-  const numericValue = typeof value === "number" ? value : Number.parseInt(value, 10) || 0;
-  const backgroundColor = getHeatmapColor(numericValue, Math.max(1, numericValue), tone);
-
   return (
-    <div className="rounded-[14px] border p-3" style={{ backgroundColor }}>
-      <p className="text-xs font-medium text-black/70">{label}</p>
-      <p className="mt-2 text-2xl font-semibold leading-none text-black">{value}</p>
+    <div className="rounded-[14px] border bg-muted/30 p-3">
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      <p className="mt-2 text-2xl font-semibold leading-none text-foreground">{value}</p>
     </div>
   );
 }
@@ -185,36 +173,36 @@ function HeatmapSummary({
 function HeatmapCell({
   value,
   max,
-  tone,
 }: {
   value: number;
   max: number;
-  tone: HeatmapTone;
 }) {
-  const backgroundColor = getHeatmapColor(value, max, tone);
-  const color = getHeatmapTextColor(value, max);
-
   return (
     <div
-      className="flex aspect-square min-h-[72px] items-center justify-center rounded-[10px] border text-lg font-semibold"
-      style={{ backgroundColor, color }}
+      className="flex min-h-[34px] items-center justify-center gap-2 rounded-[10px] border bg-background px-2"
       title={`${value}`}
     >
-      {value}
+      <MicroSquares value={value} max={max} />
+      <span className="w-5 text-right text-xs font-medium tabular-nums">{value}</span>
     </div>
   );
 }
 
-function getHeatmapColor(value: number, max: number, tone: HeatmapTone) {
-  if (value <= 0) return "#f5f5f5";
+function MicroSquares({ value, max }: { value: number; max: number }) {
+  const total = 16;
   const ratio = Math.min(1, value / Math.max(1, max));
-  const index = ratio >= 0.75 ? 3 : ratio >= 0.5 ? 2 : ratio >= 0.25 ? 1 : 0;
-  return HEATMAP_COLORS[tone][index];
-}
+  const filled = value <= 0 ? 0 : Math.max(1, Math.ceil(ratio * total));
 
-function getHeatmapTextColor(value: number, max: number) {
-  if (value <= 0) return "#737373";
-  return value / Math.max(1, max) >= 0.5 ? "#ffffff" : "#0a0a0a";
+  return (
+    <div className="grid grid-cols-8 gap-0.5" aria-hidden="true">
+      {Array.from({ length: total }).map((_, index) => (
+        <span
+          key={index}
+          className={`size-1 rounded-[1px] ${index < filled ? "bg-foreground" : "bg-muted"}`}
+        />
+      ))}
+    </div>
+  );
 }
 
 function Burndown({ points }: { points: { date: Date; remaining: number }[] }) {
