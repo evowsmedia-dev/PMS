@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle } from "lucide-react";
 
 const DONE_STATUSES = ["DONE", "CANCELLED"] as const;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -28,10 +27,8 @@ export async function ProjectReportSection({ projectId }: { projectId: string })
         },
         select: {
           id: true,
-          title: true,
           assigneeId: true,
           dueDate: true,
-          assignee: { select: { fullName: true } },
         },
         orderBy: [{ dueDate: "asc" }, { updatedAt: "desc" }],
       }),
@@ -57,23 +54,24 @@ export async function ProjectReportSection({ projectId }: { projectId: string })
       const memberTasks = activeAssignedTasks.filter((t) => t.assigneeId === m.userId);
       const dueSoonTasks = memberTasks.filter((t) => t.dueDate && t.dueDate >= now && t.dueDate <= soon);
       const lateTasks = memberTasks.filter((t) => t.dueDate && t.dueDate < now);
-      const workload = getWorkloadStatus(memberTasks.length, dueSoonTasks.length, lateTasks.length);
 
       return {
         id: m.userId,
         name: m.user.fullName,
         activeTasks: memberTasks.length,
-        dueSoonTasks,
-        lateTasks,
-        workload,
+        dueSoonTasks: dueSoonTasks.length,
+        lateTasks: lateTasks.length,
+        available: memberTasks.length === 0 ? 1 : 0,
       };
     })
-    .sort((a, b) => b.lateTasks.length - a.lateTasks.length || b.activeTasks - a.activeTasks);
+    .sort((a, b) => b.lateTasks - a.lateTasks || b.dueSoonTasks - a.dueSoonTasks || b.activeTasks - a.activeTasks);
 
-  const staffedMembers = perMember.filter((m) => m.activeTasks > 0).length;
-  const availableMembers = perMember.filter((m) => m.activeTasks === 0).length;
-  const staffedRatio = members.length > 0 ? Math.round((staffedMembers / members.length) * 100) : 0;
-  const availableRatio = members.length > 0 ? Math.round((availableMembers / members.length) * 100) : 0;
+  const heatmapMax = {
+    activeTasks: Math.max(1, ...perMember.map((m) => m.activeTasks)),
+    dueSoonTasks: Math.max(1, ...perMember.map((m) => m.dueSoonTasks)),
+    lateTasks: Math.max(1, ...perMember.map((m) => m.lateTasks)),
+    available: 1,
+  };
 
   return (
     <div className="space-y-4">
@@ -82,122 +80,50 @@ export async function ProjectReportSection({ projectId }: { projectId: string })
           <CardHeader>
             <CardTitle className="text-sm">Rủi ro &amp; phân bổ nhân sự</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-5">
-            <section className="rounded-[14px] border border-foreground bg-muted/70 p-4">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="mt-1 size-5 shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-end justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-medium uppercase">Cảnh báo rủi ro</p>
-                      <p className="text-sm text-muted-foreground">Task trễ hạn / task đang làm</p>
+          <CardContent>
+            {perMember.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Chưa có nhân sự.</p>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <HeatmapSummary label="Task đang làm" value={activeAssignedTasks.length} tone="workload" />
+                  <HeatmapSummary label="Sắp đến hạn" value={perMember.reduce((sum, m) => sum + m.dueSoonTasks, 0)} tone="dueSoon" />
+                  <HeatmapSummary label="Trễ hạn" value={overdueAssignedTasks.length} tone="overdue" />
+                  <HeatmapSummary label="Rủi ro" value={`${overdueRatio}%`} tone="risk" />
+                </div>
+
+                <div className="overflow-x-auto rounded-[14px] border bg-background p-3">
+                  <div className="grid min-w-[720px] gap-2">
+                    <div className="grid grid-cols-[160px_repeat(4,minmax(88px,1fr))] gap-2 text-xs font-medium text-muted-foreground">
+                      <div>Nhân sự</div>
+                      <div className="text-center">Đang làm</div>
+                      <div className="text-center">Sắp hạn</div>
+                      <div className="text-center">Trễ hạn</div>
+                      <div className="text-center">Khả dụng</div>
                     </div>
-                    <p className="text-4xl font-semibold leading-none">{overdueRatio}%</p>
-                  </div>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <Badge variant="outline" className="border-foreground">
-                      {overdueAssignedTasks.length} task trễ hạn
-                    </Badge>
-                    <Badge variant="outline">{activeAssignedTasks.length} task đang làm</Badge>
-                  </div>
-                  <div className="mt-4 space-y-2">
-                    {overdueAssignedTasks.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">Không có task được giao đang trễ hạn.</p>
-                    ) : (
-                      overdueAssignedTasks.slice(0, 5).map((task) => (
-                        <div key={task.id} className="rounded-[10px] border bg-background px-3 py-2">
-                          <p className="line-clamp-2 text-sm font-medium">{task.title}</p>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            {task.assignee?.fullName ?? "Chưa rõ nhân sự"} - Trễ{" "}
-                            {getOverdueDays(task.dueDate, now)} ngày
-                          </p>
+
+                    {perMember.map((member) => (
+                      <div key={member.id} className="grid grid-cols-[160px_repeat(4,minmax(88px,1fr))] gap-2">
+                        <div className="flex min-w-0 items-center rounded-[10px] border bg-muted/40 px-3 text-sm font-medium">
+                          <span className="truncate">{member.name}</span>
                         </div>
-                      ))
-                    )}
-                    {overdueAssignedTasks.length > 5 ? (
-                      <p className="text-xs text-muted-foreground">
-                        +{overdueAssignedTasks.length - 5} task trễ hạn khác.
-                      </p>
-                    ) : null}
+                        <HeatmapCell value={member.activeTasks} max={heatmapMax.activeTasks} tone="workload" />
+                        <HeatmapCell value={member.dueSoonTasks} max={heatmapMax.dueSoonTasks} tone="dueSoon" />
+                        <HeatmapCell value={member.lateTasks} max={heatmapMax.lateTasks} tone="overdue" />
+                        <HeatmapCell value={member.available} max={heatmapMax.available} tone="available" />
+                      </div>
+                    ))}
                   </div>
                 </div>
-              </div>
-            </section>
 
-            <div className="space-y-3">
-              <div>
-                <h3 className="text-sm font-medium">Ma trận phân bổ công việc</h3>
-                <p className="text-sm text-muted-foreground">Tập trung người đang quá tải và người còn khả dụng.</p>
+                <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">Chú giải:</span>
+                  <span>màu càng đậm là giá trị càng cao trong cùng một cột</span>
+                  <span>-</span>
+                  <span>khả dụng = không có task đang làm</span>
+                </div>
               </div>
-              <div className="overflow-x-auto rounded-[14px] border">
-                <table className="w-full min-w-[780px] text-sm">
-                  <thead>
-                    <tr className="border-b bg-muted/60 text-left">
-                      <th className="px-3 py-2 font-medium">Nhân sự</th>
-                      <th className="px-3 py-2 font-medium">Task đang làm</th>
-                      <th className="px-3 py-2 font-medium">Sắp đến hạn 3 ngày</th>
-                      <th className="px-3 py-2 font-medium">Đang trễ</th>
-                      <th className="px-3 py-2 font-medium">Khuyến nghị hành động</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {perMember.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="px-3 py-4 text-muted-foreground">
-                          Chưa có nhân sự.
-                        </td>
-                      </tr>
-                    ) : (
-                      perMember.map((member) => (
-                        <tr key={member.id} className="border-b last:border-b-0">
-                          <td className="px-3 py-2 font-medium">{member.name}</td>
-                          <td className="px-3 py-2">{member.activeTasks}</td>
-                          <td className="px-3 py-2">
-                            {member.dueSoonTasks.length}
-                            {member.dueSoonTasks.length > 0 ? (
-                              <TaskNameList tasks={member.dueSoonTasks} />
-                            ) : null}
-                          </td>
-                          <td className="px-3 py-2">
-                            {member.lateTasks.length}
-                            {member.lateTasks.length > 0 ? (
-                              <TaskNameList tasks={member.lateTasks} strong />
-                            ) : null}
-                          </td>
-                          <td className="px-3 py-2">
-                            <Badge
-                              variant="outline"
-                              className={member.workload.alert ? "border-foreground font-medium" : ""}
-                            >
-                              {member.workload.label}
-                            </Badge>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <h3 className="text-sm font-medium">Tiến độ & năng lực</h3>
-                <p className="text-sm text-muted-foreground">Theo số nhân sự trong dự án và task chưa đóng.</p>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <CapacityBar
-                  label="Tỷ lệ nhân sự có việc"
-                  value={staffedRatio}
-                  detail={`${staffedMembers}/${members.length} người có task`}
-                />
-                <CapacityBar
-                  label="Tỷ lệ nhân sự khả dụng thực tế"
-                  value={availableRatio}
-                  detail={`${availableMembers}/${members.length} quỹ thời gian đang trống`}
-                />
-              </div>
-            </div>
+            )}
           </CardContent>
         </Card>
 
@@ -226,57 +152,69 @@ export async function ProjectReportSection({ projectId }: { projectId: string })
   );
 }
 
-function getOverdueDays(dueDate: Date | null, now: Date) {
-  if (!dueDate) return 0;
-  return Math.max(1, Math.ceil((now.getTime() - dueDate.getTime()) / DAY_MS));
-}
+type HeatmapTone = "workload" | "dueSoon" | "overdue" | "available" | "risk";
 
-function getWorkloadStatus(active: number, dueSoon: number, late: number) {
-  if (late > 0 || active > 5) return { label: "Quá tải - cần hỗ trợ", alert: true };
-  if (active === 0) return { label: "Có thể nhận thêm", alert: false };
-  if (dueSoon > 0) return { label: "Cần theo dõi hạn gần", alert: false };
-  return { label: "Ổn định", alert: false };
-}
+const HEATMAP_COLORS: Record<HeatmapTone, string[]> = {
+  workload: ["#eef2ff", "#c7d2fe", "#818cf8", "#4338ca"],
+  dueSoon: ["#fff7ed", "#fed7aa", "#fb923c", "#c2410c"],
+  overdue: ["#fef2f2", "#fecaca", "#f87171", "#b91c1c"],
+  available: ["#f0fdf4", "#bbf7d0", "#4ade80", "#15803d"],
+  risk: ["#f8fafc", "#cbd5e1", "#64748b", "#0f172a"],
+};
 
-function TaskNameList({
-  tasks,
-  strong = false,
+function HeatmapSummary({
+  label,
+  value,
+  tone,
 }: {
-  tasks: { id: string; title: string }[];
-  strong?: boolean;
+  label: string;
+  value: number | string;
+  tone: HeatmapTone;
 }) {
-  const visible = tasks.slice(0, 2);
+  const numericValue = typeof value === "number" ? value : Number.parseInt(value, 10) || 0;
+  const backgroundColor = getHeatmapColor(numericValue, Math.max(1, numericValue), tone);
 
   return (
-    <div className="mt-1 space-y-1">
-      {visible.map((task) => (
-        <p
-          key={task.id}
-          className={`line-clamp-2 text-xs ${strong ? "font-medium" : "text-muted-foreground"}`}
-        >
-          {task.title}
-        </p>
-      ))}
-      {tasks.length > visible.length ? (
-        <p className="text-xs text-muted-foreground">+{tasks.length - visible.length} task khác</p>
-      ) : null}
+    <div className="rounded-[14px] border p-3" style={{ backgroundColor }}>
+      <p className="text-xs font-medium text-black/70">{label}</p>
+      <p className="mt-2 text-2xl font-semibold leading-none text-black">{value}</p>
     </div>
   );
 }
 
-function CapacityBar({ label, value, detail }: { label: string; value: number; detail: string }) {
+function HeatmapCell({
+  value,
+  max,
+  tone,
+}: {
+  value: number;
+  max: number;
+  tone: HeatmapTone;
+}) {
+  const backgroundColor = getHeatmapColor(value, max, tone);
+  const color = getHeatmapTextColor(value, max);
+
   return (
-    <div className="rounded-[14px] border p-3">
-      <div className="flex items-baseline justify-between gap-3">
-        <p className="text-sm font-medium">{label}</p>
-        <p className="text-2xl font-semibold">{value}%</p>
-      </div>
-      <div className="mt-3 h-2 rounded-full bg-muted">
-        <div className="h-2 rounded-full bg-primary" style={{ width: `${value}%` }} />
-      </div>
-      <p className="mt-2 text-xs text-muted-foreground">{detail}</p>
+    <div
+      className="flex aspect-square min-h-[72px] items-center justify-center rounded-[10px] border text-lg font-semibold"
+      style={{ backgroundColor, color }}
+      title={`${value}`}
+    >
+      {value}
     </div>
   );
+}
+
+function getHeatmapColor(value: number, max: number, tone: HeatmapTone) {
+  if (value <= 0) return "#f5f5f5";
+  const ratio = Math.min(1, value / Math.max(1, max));
+  const index = ratio >= 0.75 ? 3 : ratio >= 0.5 ? 2 : ratio >= 0.25 ? 1 : 0;
+  return HEATMAP_COLORS[tone][index];
+}
+
+function getHeatmapTextColor(value: number, max: number) {
+  if (value <= 0) return "#737373";
+  return value / Math.max(1, max) >= 0.5 ? "#ffffff" : "#0a0a0a";
 }
 
 function Burndown({ points }: { points: { date: Date; remaining: number }[] }) {
