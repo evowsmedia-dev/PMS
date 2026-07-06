@@ -75,7 +75,7 @@ export async function ProjectReportSection({ projectId }: { projectId: string })
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)]">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="text-sm">Rủi ro &amp; phân bổ nhân sự</CardTitle>
