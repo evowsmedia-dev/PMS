@@ -6,12 +6,18 @@ import { prisma } from "@/lib/prisma";
 import { canAccess } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { getAssignedModuleIdsForUser } from "@/lib/document-type-access";
+import { computeProjectMetrics } from "@/lib/reports/snapshot";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageSection } from "@/components/page-shell";
 import { ProjectReportSection } from "@/components/project-report-section";
-import { TASK_STATUS_LABEL, TASK_STATUS_ORDER } from "@/lib/validation/task";
+import {
+  TASK_STATUS_LABEL,
+  TASK_STATUS_ORDER,
+  BUG_STATUS_LABEL,
+  BUG_STATUS_ORDER,
+} from "@/lib/validation/task";
 
 // Fixed palette so chart colors stay stable across renders regardless of which
 // statuses happen to be present.
@@ -66,26 +72,28 @@ export default async function ProjectOverviewPage({
   const visibleModuleIds = assignedModuleIds
     ? project.modules.filter((m) => assignedModuleIds.has(m.id)).map((m) => m.id)
     : project.modules.map((m) => m.id);
-  const visibleScope = { projectId, deletedAt: null, moduleId: { in: visibleModuleIds } };
+  const docScope = { projectId, deletedAt: null, moduleId: { in: visibleModuleIds } };
 
-  const [docStatusCounts, taskStatusCounts] = await Promise.all([
-    prisma.document.groupBy({
-      by: ["status"],
-      where: visibleScope,
-      _count: true,
-    }),
-    prisma.task.groupBy({
-      by: ["status"],
-      where: visibleScope,
-      _count: true,
-    }),
+  // Task and bug metrics are project-wide (they include module-less tasks and
+  // subtasks); document status stays module-scoped to what the user can see.
+  const [metrics, taskStatusCounts, bugStatusCounts, docStatusCounts] = await Promise.all([
+    computeProjectMetrics(projectId),
+    prisma.task.groupBy({ by: ["status"], where: { projectId, deletedAt: null }, _count: true }),
+    prisma.bug.groupBy({ by: ["status"], where: { projectId, deletedAt: null }, _count: true }),
+    prisma.document.groupBy({ by: ["status"], where: docScope, _count: true }),
   ]);
 
   const taskCountByStatus = new Map(taskStatusCounts.map((s) => [s.status, s._count]));
-  const totalTasks = taskStatusCounts.reduce((sum, s) => sum + s._count, 0);
   const taskSegments = TASK_STATUS_ORDER.map((status, index) => ({
     label: TASK_STATUS_LABEL[status],
     value: taskCountByStatus.get(status) ?? 0,
+    color: CHART_COLORS[index % CHART_COLORS.length],
+  })).filter((s) => s.value > 0);
+
+  const bugCountByStatus = new Map(bugStatusCounts.map((s) => [s.status, s._count]));
+  const bugSegments = BUG_STATUS_ORDER.map((status, index) => ({
+    label: BUG_STATUS_LABEL[status],
+    value: bugCountByStatus.get(status) ?? 0,
     color: CHART_COLORS[index % CHART_COLORS.length],
   })).filter((s) => s.value > 0);
 
@@ -96,19 +104,54 @@ export default async function ProjectOverviewPage({
     color: CHART_COLORS[index % CHART_COLORS.length],
   }));
 
+  const completionRate =
+    metrics.totalTasks > 0 ? Math.round((metrics.completedTasks / metrics.totalTasks) * 100) : 0;
+
+  const taskStats = [
+    { label: "Tổng task", value: metrics.totalTasks },
+    { label: "Hoàn thành", value: metrics.completedTasks },
+    { label: "Tỷ lệ hoàn thành", value: `${completionRate}%` },
+    { label: "Quá hạn", value: metrics.overdueTasks, alert: metrics.overdueTasks > 0 },
+    {
+      label: "Giờ ước tính / thực tế",
+      value: `${metrics.totalEstimateHours} / ${metrics.totalActualHours}`,
+    },
+  ];
+
+  const bugStats = [
+    { label: "Tổng bug", value: metrics.totalBugs },
+    { label: "Bug mở", value: metrics.openBugs, alert: metrics.openBugs > 0 },
+    { label: "Nghiêm trọng", value: metrics.criticalBugs, alert: metrics.criticalBugs > 0 },
+  ];
+
   return (
     <PageSection>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Card>
           <CardHeader>
             <CardTitle className="text-sm">Trạng thái task</CardTitle>
           </CardHeader>
-          <CardContent>
-            {totalTasks === 0 ? (
+          <CardContent className="space-y-4">
+            {metrics.totalTasks === 0 ? (
               <p className="text-sm text-muted-foreground">Chưa có task.</p>
             ) : (
-              <StatusDonut segments={taskSegments} total={totalTasks} />
+              <StatusDonut segments={taskSegments} total={metrics.totalTasks} />
             )}
+            <StatList stats={taskStats} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Trạng thái test</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {metrics.totalBugs === 0 ? (
+              <p className="text-sm text-muted-foreground">Chưa có bug.</p>
+            ) : (
+              <StatusDonut segments={bugSegments} total={metrics.totalBugs} />
+            )}
+            <StatList stats={bugStats} />
           </CardContent>
         </Card>
 
@@ -195,6 +238,23 @@ export default async function ProjectOverviewPage({
   );
 }
 
+function StatList({
+  stats,
+}: {
+  stats: { label: string; value: string | number; alert?: boolean }[];
+}) {
+  return (
+    <dl className="space-y-1 border-t pt-3 text-sm">
+      {stats.map((s) => (
+        <div key={s.label} className="flex items-center justify-between gap-4">
+          <dt className="text-muted-foreground">{s.label}</dt>
+          <dd className={`font-medium ${s.alert ? "text-destructive" : ""}`}>{s.value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
 function StatusDonut({
   segments,
   total,
@@ -202,14 +262,14 @@ function StatusDonut({
   segments: { label: string; value: number; color: string }[];
   total: number;
 }) {
-  const size = 160;
-  const stroke = 22;
+  const size = 148;
+  const stroke = 20;
   const radius = (size - stroke) / 2;
   const circ = 2 * Math.PI * radius;
   let offset = 0;
 
   return (
-    <div className="flex items-center gap-5">
+    <div className="flex flex-col items-center gap-4">
       <svg
         width={size}
         height={size}
@@ -255,7 +315,7 @@ function StatusDonut({
           {total}
         </text>
       </svg>
-      <ul className="min-w-0 flex-1 space-y-1.5 text-sm">
+      <ul className="w-full space-y-1.5 text-sm">
         {segments.map((s, i) => (
           <li key={i} className="flex items-center gap-2">
             <span className="size-2.5 shrink-0 rounded-full" style={{ background: s.color }} />

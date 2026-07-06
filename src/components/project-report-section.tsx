@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { computeProjectMetrics } from "@/lib/reports/snapshot";
 import {
   TASK_STATUS_LABEL,
   TASK_STATUS_ORDER,
@@ -12,15 +11,16 @@ import {
 const DONE_STATUSES = ["DONE", "CANCELLED"];
 
 /**
- * Project-wide health report (KPIs, task-status & bug-severity bars, per-member
+ * Project-wide health report (task-status & bug-severity bars, per-member
  * workload, burndown). Embedded in the project dashboard for users with
- * `report.view`. All metrics are project-wide (no module scoping).
+ * `report.view`. The headline KPIs live in the dashboard's top cards; this
+ * section holds the detailed breakdowns. All metrics are project-wide (no
+ * module scoping).
  */
 export async function ProjectReportSection({ projectId }: { projectId: string }) {
   const now = new Date();
 
-  const [metrics, statusGroups, severityGroups, tasks, members, snapshots] = await Promise.all([
-    computeProjectMetrics(projectId),
+  const [statusGroups, severityGroups, tasks, members, snapshots] = await Promise.all([
     prisma.task.groupBy({ by: ["status"], where: { projectId, deletedAt: null }, _count: true }),
     prisma.bug.groupBy({ by: ["severity"], where: { projectId, deletedAt: null }, _count: true }),
     prisma.task.findMany({
@@ -53,38 +53,11 @@ export async function ProjectReportSection({ projectId }: { projectId: string })
     };
   });
 
-  const completionRate =
-    metrics.totalTasks > 0 ? Math.round((metrics.completedTasks / metrics.totalTasks) * 100) : 0;
-
-  const healthCards = [
-    { label: "Tổng task", value: metrics.totalTasks },
-    { label: "Hoàn thành", value: metrics.completedTasks },
-    { label: "Tỷ lệ hoàn thành", value: `${completionRate}%` },
-    { label: "Quá hạn", value: metrics.overdueTasks, alert: metrics.overdueTasks > 0 },
-    { label: "Bị chặn", value: metrics.blockedTasks, alert: metrics.blockedTasks > 0 },
-    { label: "Bug mở", value: metrics.openBugs, alert: metrics.openBugs > 0 },
-    { label: "Bug nghiêm trọng", value: metrics.criticalBugs, alert: metrics.criticalBugs > 0 },
-    { label: "Giờ ước tính / thực tế", value: `${metrics.totalEstimateHours} / ${metrics.totalActualHours}` },
-  ];
-
   const maxStatus = Math.max(1, ...[...statusCount.values()]);
   const maxSeverity = Math.max(1, ...[...severityCount.values()]);
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        {healthCards.map((c) => (
-          <Card key={c.label}>
-            <CardHeader className="pb-1">
-              <CardTitle className="text-xs font-medium text-muted-foreground">{c.label}</CardTitle>
-            </CardHeader>
-            <CardContent className={`text-xl font-semibold ${c.alert ? "text-destructive" : ""}`}>
-              {c.value}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
