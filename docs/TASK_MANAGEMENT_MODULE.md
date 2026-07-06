@@ -83,11 +83,16 @@ as-is.
 | `epics` / `sprints` / `milestones` | List + inline create + task counts |
 | `bugs` | Bug list + filter + create + status change |
 | `test-cases` | Test-case list + create + inline execute (pass/fail) |
-| `reports` | Health cards, status / bug-severity bars, workload table, burndown |
+| `reports` | Redirect to project overview; report content is embedded in `/overview` |
 
 Legacy module-scoped task routes (`…/modules/[moduleId]/tasks/…`) keep working —
 `taskHref()` (`src/lib/task-href.ts`) routes module-less tasks to the project-level
 URL and module tasks to their legacy URL.
+
+Report content on the project dashboard currently includes personnel workload
+and burndown. Headline task / bug / document status distributions live in the
+overview's top cards; the old report-only task-status and bug-severity bar cards
+were removed.
 
 Nav lives in the project sidebar under **"Quản lý công việc"**
 (`src/app/(dashboard)/projects/[projectId]/layout.tsx`).
@@ -126,7 +131,7 @@ and dependencies are edited on the task detail page (`TaskPlanningEditor`).
 
 **Daily snapshot** — `GET /api/cron/daily-project-snapshots` (guarded by
 `CRON_SECRET`) iterates active projects and upserts one `DailyProjectSnapshot` per
-project per day; the reports burndown reads from these rows. Scheduled daily at
+project per day; the overview burndown reads from these rows. Scheduled daily at
 01:00 via `vercel.json`.
 
 ---

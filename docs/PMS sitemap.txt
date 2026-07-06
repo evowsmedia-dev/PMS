@@ -40,12 +40,12 @@ Ghi chú:
 │
 └── /projects/:projectId/overview
     ├── Dashboard của dự án.
-    ├── 3 box thống kê: tài liệu, task, thành viên.
-    ├── Tiến độ task có biểu đồ trực quan.
-    ├── Trạng thái tài liệu.
+    ├── 3 card trạng thái: task, test/bug, tài liệu.
+    ├── Task/test/tài liệu dùng donut chart + danh sách chỉ số ngắn.
+    ├── Nếu user có quyền `report.view`: hiển thị báo cáo dự án gồm trạng thái nhân sự và burndown.
+    ├── Không còn card bar riêng cho task-status hoặc bug-severity trong report section.
     ├── Thông tin chung: mã dự án, trạng thái, ưu tiên, phân hệ, ngày bắt đầu/kết thúc, mô tả.
-    ├── Vấn đề nổi bật nếu có.
-    └── Danh sách thành viên dự án.
+    └── Vấn đề nổi bật nếu có.
 
 /projects/:projectId
 │
@@ -53,11 +53,51 @@ Ghi chú:
 │   ├── Sidebar project desktop.
 │   ├── Mobile project navigation bằng sheet.
 │   ├── Mục cùng cấp: Dashboard dự án, Tài liệu, Export JSON.
+│   ├── Nhóm "Quản lý công việc" chứa task list, kanban, gantt, bugs, test cases, planning.
 │   ├── "Tài liệu" hiển thị tài liệu chung và các loại tài liệu/phân hệ.
 │   ├── Icon thêm loại tài liệu đang tạm ẩn.
 │   ├── Nút thêm tài liệu vẫn hiển thị theo quyền.
 │   ├── Menu tài liệu tự wrap khi tên dài.
 │   └── User chỉ thấy phân hệ được phép truy cập theo assignment.
+│
+├── /projects/:projectId/tasks
+│   ├── Task list project-level.
+│   ├── Hiển thị task, subtask và bug liên quan.
+│   └── Filter theo status/priority/assignee nếu màn hình hỗ trợ.
+│
+├── /projects/:projectId/tasks/new
+│   ├── Tạo task hoặc bug ở project-level.
+│   └── Form task hỗ trợ planning metadata, assignee, priority, due date.
+│
+├── /projects/:projectId/tasks/:taskId
+│   ├── Chi tiết task project-level.
+│   ├── Đổi trạng thái, gán lại, planning metadata, dependency, QA links.
+│   └── History và comment task.
+│
+├── /projects/:projectId/kanban
+│   └── Kanban project-level theo 12 trạng thái task.
+│
+├── /projects/:projectId/gantt
+│   └── Timeline/Gantt project-level theo epic/schedule/progress.
+│
+├── /projects/:projectId/epics
+│   └── Danh sách epic, tạo inline, task counts.
+│
+├── /projects/:projectId/sprints
+│   └── Danh sách sprint, tạo inline, task counts.
+│
+├── /projects/:projectId/milestones
+│   └── Danh sách milestone, tạo inline, task counts.
+│
+├── /projects/:projectId/bugs
+│   ├── Danh sách bug.
+│   ├── Tạo bug.
+│   └── Đổi trạng thái bug theo quyền.
+│
+├── /projects/:projectId/test-cases
+│   ├── Danh sách test case.
+│   ├── Tạo test case.
+│   └── Execute pass/fail, có thể tạo bug khi fail.
 │
 ├── /projects/:projectId/modules/:moduleId/documents
 │   ├── Danh sách tài liệu của phân hệ.
@@ -109,6 +149,9 @@ Ghi chú:
 │   ├── Gán lại người thực hiện.
 │   ├── Link document liên quan nếu có.
 │   └── Comment task.
+│
+├── /projects/:projectId/reports
+│   └── Redirect về `/projects/:projectId/overview`; nội dung report hiện nằm trong dashboard dự án.
 │
 ├── /projects/:projectId/settings/edit
 │   ├── Sửa thông tin dự án.

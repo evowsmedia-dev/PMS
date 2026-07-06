@@ -9,10 +9,15 @@ Authentication:
 
 Authorization:
 
-- `src/lib/rbac.ts` is the permission matrix source of truth.
+- `src/lib/rbac.ts` defines the RBAC actions, default project-role grants, and
+  normalization for the editable permission matrix.
+- Runtime project-role checks should use async `canAccess()` so changes saved in
+  system setting `rolePermissionMatrix` apply across the app.
 - `src/lib/project-role.ts` resolves project membership role.
-- System `ADMIN` bypasses project role checks through `can()`.
+- System `ADMIN` bypasses project role checks through RBAC helpers.
 - Template management and admin access are system-admin only.
+- The role-permission matrix is editable at `/admin/settings`; `admin.access`
+  and `template.manage` remain system-admin only.
 
 Required rule:
 
@@ -20,7 +25,9 @@ Required rule:
   check the session and server-side permissions.
 - UI hiding is only a convenience; it is never the authorization boundary.
 - When adding a new action, decide whether it needs a new `Action` in
-  `src/lib/rbac.ts` or can reuse an existing permission.
+  `src/lib/rbac.ts` or can reuse an existing permission. Add user-facing labels
+  and editable default grants when the action should be configurable in
+  `/admin/settings`.
 
 Audit:
 
@@ -36,4 +43,3 @@ Security notes:
 - For project-scoped resources, verify the resource belongs to the project/module
   implied by the route before mutating it.
 - Avoid returning sensitive details in auth errors.
-
