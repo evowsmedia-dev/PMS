@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,6 +36,7 @@ export function TaskProjectCreateForm({
   epics,
   sprints,
   milestones,
+  tasks = [],
   defaultRelatedDocumentId,
   defaultSourceHighlight,
   relatedDocumentTitle,
@@ -44,16 +46,21 @@ export function TaskProjectCreateForm({
   epics: Option[];
   sprints: Option[];
   milestones: Option[];
+  tasks?: Option[];
   defaultRelatedDocumentId?: string;
   defaultSourceHighlight?: string;
   relatedDocumentTitle?: string;
 }) {
   const action = createProjectTaskAction.bind(null, projectId);
   const [state, formAction, pending] = useActionState(action, initialState);
+  const [deps, setDeps] = useState<string[]>([]);
+  const [depPick, setDepPick] = useState("");
 
   useEffect(() => {
     if (state.error) toast.error(state.error);
   }, [state]);
+
+  const taskLabel = (id: string) => tasks.find((t) => t.id === id)?.label ?? id;
 
   return (
     <form action={formAction} className="space-y-4">
@@ -138,6 +145,65 @@ export function TaskProjectCreateForm({
           options={milestones}
         />
       </div>
+
+      {tasks.length > 0 ? (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <OptionalSelect
+            name="parentTaskId"
+            label="Task cha (liên quan)"
+            placeholder="Không có task cha"
+            options={tasks}
+          />
+          <div className="space-y-2">
+            <Label>Phụ thuộc vào</Label>
+            {deps.map((id) => (
+              <input key={id} type="hidden" name="dependsOn" value={id} />
+            ))}
+            <div className="flex flex-wrap gap-1">
+              {deps.map((id) => (
+                <span key={id} className="inline-flex items-center gap-1 rounded border px-2 py-0.5 text-xs">
+                  {taskLabel(id)}
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-destructive"
+                    onClick={() => setDeps((prev) => prev.filter((d) => d !== id))}
+                  >
+                    <X className="size-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <Select value={depPick} onValueChange={setDepPick}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Chọn task phụ thuộc..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {tasks
+                    .filter((t) => !deps.includes(t.id))
+                    .map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.label}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={!depPick}
+                onClick={() => {
+                  setDeps((prev) => (prev.includes(depPick) ? prev : [...prev, depPick]));
+                  setDepPick("");
+                }}
+              >
+                Thêm
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <div className="space-y-2">

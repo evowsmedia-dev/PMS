@@ -14,6 +14,7 @@ import { DocumentAttachments } from "@/components/document-attachments";
 import { DocumentDiagram } from "@/components/document-diagram";
 import { CreateTaskFromSelection } from "@/components/create-task-from-selection";
 import { CreateCommentFromSelection } from "@/components/create-comment-from-selection";
+import { DocumentTestCasePanel } from "@/components/document-test-cases";
 import { DocumentDetailShell } from "@/components/document-detail-shell";
 import { DocumentContentRenderer } from "@/components/document-content-renderer";
 
@@ -147,6 +148,14 @@ export default async function DocumentDetailPage({
               </CreateCommentFromSelection>
             </CardContent>
           </Card>
+
+          {doc.templateId === "test-plan-case" ? (
+            <DocumentTestCasePanel
+              projectId={projectId}
+              canCreate={await canAccess(roleCtx, "testcase.create", projectRole)}
+              canExecute={await canAccess(roleCtx, "test.execute", projectRole)}
+            />
+          ) : null}
 
           <Card className="overflow-hidden py-0">
             <CardHeader className="border-b bg-muted/40 py-3">

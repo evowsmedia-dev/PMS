@@ -9,27 +9,24 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PageSection } from "@/components/page-shell";
 import { TaskViewTabs } from "@/components/task-view-tabs";
+import { BugStatusSelect } from "@/components/qa-forms";
 import { taskHref } from "@/lib/task-href";
 import {
   TASK_STATUS_LABEL,
   TASK_TYPE_LABEL,
   TASK_PRIORITY_LABEL,
-  TASK_STATUS_ORDER,
-  TASK_PRIORITY_ORDER,
+  BUG_SEVERITY_LABEL,
+  BUG_STATUS_LABEL,
 } from "@/lib/validation/task";
-import type { Prisma, TaskPriority, TaskStatus } from "@/generated/prisma/client";
 
 export default async function ProjectTasksPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ projectId: string }>;
-  searchParams: Promise<{ status?: string; priority?: string; assigneeId?: string }>;
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
   const { projectId } = await params;
-  const sp = await searchParams;
 
   const project = await prisma.project.findFirst({
     where: { id: projectId, deletedAt: null },
@@ -41,48 +38,74 @@ export default async function ProjectTasksPage({
   const isAdmin = session.user.systemRole === "ADMIN";
   if (!isAdmin && !projectRole) redirect("/projects");
 
-  const canCreate = await canAccess({ systemRole: session.user.systemRole }, "task.create", projectRole);
+  const roleCtx = { systemRole: session.user.systemRole };
+  const canCreate = await canAccess(roleCtx, "task.create", projectRole);
+  const canEditBug = await canAccess(roleCtx, "bug.edit", projectRole);
 
-  const where: Prisma.TaskWhereInput = {
-    projectId,
-    deletedAt: null,
-    ...(sp.status ? { status: sp.status as TaskStatus } : {}),
-    ...(sp.priority ? { priority: sp.priority as TaskPriority } : {}),
-    ...(sp.assigneeId ? { assigneeId: sp.assigneeId } : {}),
-  };
-
-  const [tasks, members] = await Promise.all([
+  const [tasks, bugs] = await Promise.all([
     prisma.task.findMany({
-      where,
-      include: {
+      where: { projectId, deletedAt: null },
+      select: {
+        id: true,
+        title: true,
+        taskCode: true,
+        type: true,
+        status: true,
+        priority: true,
+        dueDate: true,
+        moduleId: true,
+        parentTaskId: true,
         assignee: { select: { fullName: true } },
-        sprint: { select: { name: true } },
-        epic: { select: { name: true } },
       },
-      orderBy: [{ pinned: "desc" }, { updatedAt: "desc" }],
-      take: 300,
+      orderBy: [{ createdAt: "asc" }],
     }),
-    prisma.projectMember.findMany({
-      where: { projectId },
-      include: { user: { select: { id: true, fullName: true } } },
+    prisma.bug.findMany({
+      where: { projectId, deletedAt: null },
+      select: { id: true, bugCode: true, title: true, status: true, severity: true, taskId: true },
+      orderBy: { createdAt: "asc" },
     }),
   ]);
 
-  function buildHref(overrides: Record<string, string | undefined>) {
-    const next = new URLSearchParams({
-      ...(sp.status ? { status: sp.status } : {}),
-      ...(sp.priority ? { priority: sp.priority } : {}),
-      ...(sp.assigneeId ? { assigneeId: sp.assigneeId } : {}),
-    });
-    for (const [k, v] of Object.entries(overrides)) {
-      if (v) next.set(k, v);
-      else next.delete(k);
+  type TaskRow = (typeof tasks)[number];
+  type BugRow = (typeof bugs)[number];
+
+  const childrenByParent = new Map<string, TaskRow[]>();
+  const topTasks: TaskRow[] = [];
+  const taskIds = new Set(tasks.map((t) => t.id));
+  for (const t of tasks) {
+    if (t.parentTaskId && taskIds.has(t.parentTaskId)) {
+      (childrenByParent.get(t.parentTaskId) ?? childrenByParent.set(t.parentTaskId, []).get(t.parentTaskId)!).push(t);
+    } else {
+      topTasks.push(t);
     }
-    const qs = next.toString();
-    return qs ? `?${qs}` : "?";
+  }
+  const bugsByTask = new Map<string, BugRow[]>();
+  const orphanBugs: BugRow[] = [];
+  for (const b of bugs) {
+    if (b.taskId && taskIds.has(b.taskId)) {
+      (bugsByTask.get(b.taskId) ?? bugsByTask.set(b.taskId, []).get(b.taskId)!).push(b);
+    } else {
+      orphanBugs.push(b);
+    }
   }
 
   const now = new Date();
+
+  // Flatten the hierarchy into indented rows via DFS (guarding against cycles).
+  type Row =
+    | { kind: "task"; depth: number; task: TaskRow }
+    | { kind: "bug"; depth: number; bug: BugRow };
+  const rows: Row[] = [];
+  const seen = new Set<string>();
+  function walk(task: TaskRow, depth: number) {
+    if (seen.has(task.id)) return;
+    seen.add(task.id);
+    rows.push({ kind: "task", depth, task });
+    for (const child of childrenByParent.get(task.id) ?? []) walk(child, depth + 1);
+    for (const bug of bugsByTask.get(task.id) ?? []) rows.push({ kind: "bug", depth: depth + 1, bug });
+  }
+  for (const t of topTasks) walk(t, 0);
+  for (const b of orphanBugs) rows.push({ kind: "bug", depth: 0, bug: b });
 
   return (
     <PageSection>
@@ -93,100 +116,92 @@ export default async function ProjectTasksPage({
           <Button asChild size="sm">
             <Link href={`/projects/${projectId}/tasks/new`}>
               <Plus className="size-4" />
-              Tạo task
+              Tạo mới
             </Link>
           </Button>
         ) : null}
       </div>
+      <p className="text-xs text-muted-foreground">
+        Sơ đồ cây: task cha › task con / bug phụ thuộc.
+      </p>
 
-      <div className="flex flex-wrap gap-2">
-        <Link href={buildHref({ status: undefined })}>
-          <Badge variant={!sp.status ? "default" : "outline"}>Mọi trạng thái</Badge>
-        </Link>
-        {TASK_STATUS_ORDER.map((s) => (
-          <Link key={s} href={buildHref({ status: sp.status === s ? undefined : s })}>
-            <Badge variant={sp.status === s ? "default" : "outline"}>{TASK_STATUS_LABEL[s]}</Badge>
-          </Link>
-        ))}
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        <Link href={buildHref({ priority: undefined })}>
-          <Badge variant={!sp.priority ? "default" : "outline"}>Mọi mức ưu tiên</Badge>
-        </Link>
-        {TASK_PRIORITY_ORDER.map((p) => (
-          <Link key={p} href={buildHref({ priority: sp.priority === p ? undefined : p })}>
-            <Badge variant={sp.priority === p ? "default" : "outline"}>{TASK_PRIORITY_LABEL[p]}</Badge>
-          </Link>
-        ))}
-        <Link href={buildHref({ assigneeId: sp.assigneeId ? undefined : session.user.id })}>
-          <Badge variant={sp.assigneeId === session.user.id ? "default" : "outline"}>Của tôi</Badge>
-        </Link>
-        {members.map((m) => (
-          <Link
-            key={m.userId}
-            href={buildHref({ assigneeId: sp.assigneeId === m.userId ? undefined : m.userId })}
-          >
-            <Badge variant={sp.assigneeId === m.userId ? "default" : "outline"}>{m.user.fullName}</Badge>
-          </Link>
-        ))}
-      </div>
-
-      {tasks.length === 0 ? (
+      {rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">Chưa có task nào.</p>
       ) : (
-        <div className="overflow-x-auto rounded-md border">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-muted/40 text-left">
-                <th className="px-3 py-2 font-medium">Mã</th>
-                <th className="px-3 py-2 font-medium">Tiêu đề</th>
-                <th className="px-3 py-2 font-medium">Loại</th>
-                <th className="px-3 py-2 font-medium">Trạng thái</th>
-                <th className="px-3 py-2 font-medium">Ưu tiên</th>
-                <th className="px-3 py-2 font-medium">Người thực hiện</th>
-                <th className="px-3 py-2 font-medium">Hạn</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tasks.map((t) => {
-                const overdue = t.dueDate && t.dueDate < now && t.status !== "DONE";
-                return (
-                  <tr key={t.id} className="border-b last:border-none hover:bg-muted/30">
-                    <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
-                      {t.taskCode ?? "—"}
-                    </td>
-                    <td className="px-3 py-2">
-                      <Link
-                        href={taskHref(projectId, t.moduleId, t.id)}
-                        className="font-medium hover:underline"
-                      >
-                        {t.title}
-                      </Link>
-                      {t.sprint ? (
-                        <span className="ml-2 text-xs text-muted-foreground">· {t.sprint.name}</span>
-                      ) : null}
-                    </td>
-                    <td className="px-3 py-2 text-xs">{TASK_TYPE_LABEL[t.type]}</td>
-                    <td className="px-3 py-2">
-                      <Badge variant="outline">{TASK_STATUS_LABEL[t.status]}</Badge>
-                    </td>
-                    <td className="px-3 py-2 text-xs">{TASK_PRIORITY_LABEL[t.priority]}</td>
-                    <td className="px-3 py-2 text-xs">{t.assignee?.fullName ?? "—"}</td>
-                    <td className="px-3 py-2 text-xs">
-                      {t.dueDate ? (
-                        <span className={overdue ? "font-medium text-destructive" : ""}>
-                          {t.dueDate.toLocaleDateString("vi-VN")}
-                        </span>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="divide-y rounded-md border">
+          {rows.map((row) =>
+            row.kind === "task" ? (
+              <div
+                key={`t-${row.task.id}`}
+                className="flex flex-wrap items-center gap-2 px-3 py-2 hover:bg-muted/30"
+                style={{ paddingLeft: `${row.depth * 20 + 12}px` }}
+              >
+                {row.depth > 0 ? <span className="text-muted-foreground">↳</span> : null}
+                {row.task.taskCode ? (
+                  <span className="font-mono text-xs text-muted-foreground">{row.task.taskCode}</span>
+                ) : null}
+                <Link
+                  href={taskHref(projectId, row.task.moduleId, row.task.id)}
+                  className="font-medium hover:underline"
+                >
+                  {row.task.title}
+                </Link>
+                <Badge variant="secondary" className="text-[10px]">
+                  {TASK_TYPE_LABEL[row.task.type]}
+                </Badge>
+                <Badge variant="outline" className="text-[10px]">
+                  {TASK_STATUS_LABEL[row.task.status]}
+                </Badge>
+                <span className="text-xs text-muted-foreground">
+                  {TASK_PRIORITY_LABEL[row.task.priority]}
+                </span>
+                {row.task.assignee ? (
+                  <span className="text-xs text-muted-foreground">· {row.task.assignee.fullName}</span>
+                ) : null}
+                {row.task.dueDate ? (
+                  <span
+                    className={`ml-auto text-xs ${
+                      row.task.dueDate < now && row.task.status !== "DONE"
+                        ? "font-medium text-destructive"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    {row.task.dueDate.toLocaleDateString("vi-VN")}
+                  </span>
+                ) : null}
+              </div>
+            ) : (
+              <div
+                key={`b-${row.bug.id}`}
+                className="flex flex-wrap items-center gap-2 px-3 py-2 hover:bg-muted/30"
+                style={{ paddingLeft: `${row.depth * 20 + 12}px` }}
+              >
+                <span className="text-muted-foreground">↳</span>
+                <Badge variant="secondary" className="border-destructive/40 text-[10px] text-destructive">
+                  BUG
+                </Badge>
+                <span className="font-mono text-xs text-muted-foreground">{row.bug.bugCode}</span>
+                <span className="font-medium">{row.bug.title}</span>
+                <span className="text-xs text-muted-foreground">
+                  {BUG_SEVERITY_LABEL[row.bug.severity]}
+                </span>
+                <div className="ml-auto">
+                  {canEditBug ? (
+                    <BugStatusSelect
+                      projectId={projectId}
+                      bugId={row.bug.id}
+                      status={row.bug.status}
+                      canEdit={canEditBug}
+                    />
+                  ) : (
+                    <Badge variant="outline" className="text-[10px]">
+                      {BUG_STATUS_LABEL[row.bug.status]}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            ),
+          )}
         </div>
       )}
     </PageSection>

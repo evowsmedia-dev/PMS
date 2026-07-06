@@ -19,6 +19,7 @@ import {
   addTaskDependencyAction,
   removeTaskDependencyAction,
 } from "@/lib/actions/gantt";
+import { setTaskParentAction } from "@/lib/actions/tasks";
 
 interface Dependency {
   id: string;
@@ -36,6 +37,7 @@ export function TaskPlanningEditor({
   taskId,
   startDate,
   dueDate,
+  parentTaskId,
   dependencies,
   candidates,
   canEdit,
@@ -44,12 +46,14 @@ export function TaskPlanningEditor({
   taskId: string;
   startDate: string;
   dueDate: string;
+  parentTaskId: string | null;
   dependencies: Dependency[];
   candidates: Option[];
   canEdit: boolean;
 }) {
   const [start, setStart] = useState(startDate);
   const [due, setDue] = useState(dueDate);
+  const [parent, setParent] = useState(parentTaskId ?? "none");
   const [dep, setDep] = useState("");
   const [pending, startTransition] = useTransition();
   const router = useRouter();
@@ -57,6 +61,38 @@ export function TaskPlanningEditor({
   return (
     <div className="space-y-3 border-t pt-3">
       <p className="text-xs font-semibold uppercase text-muted-foreground">Lịch & phụ thuộc</p>
+
+      {candidates.length > 0 ? (
+        <div className="flex items-end gap-2">
+          <div className="space-y-1">
+            <Label className="text-xs">Task cha (liên quan)</Label>
+            <Select
+              value={parent}
+              disabled={!canEdit}
+              onValueChange={(v) => {
+                setParent(v);
+                startTransition(async () => {
+                  await setTaskParentAction(projectId, taskId, v === "none" ? "" : v);
+                  router.refresh();
+                  toast.success("Đã cập nhật task cha.");
+                });
+              }}
+            >
+              <SelectTrigger className="h-8 w-64">
+                <SelectValue placeholder="Không có task cha" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Không có task cha</SelectItem>
+                {candidates.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap items-end gap-2">
         <div className="space-y-1">

@@ -46,6 +46,7 @@ function parseTaskForm(formData: FormData) {
     epicId: formData.get("epicId") ?? "",
     sprintId: formData.get("sprintId") ?? "",
     milestoneId: formData.get("milestoneId") ?? "",
+    parentTaskId: formData.get("parentTaskId") ?? "",
     startDate: formData.get("startDate") ?? "",
     dueDate: formData.get("dueDate") ?? "",
     estimateHours: formData.get("estimateHours") ?? undefined,
@@ -154,6 +155,7 @@ export async function createProjectTaskAction(
       epicId: values.epicId || null,
       sprintId: values.sprintId || null,
       milestoneId: values.milestoneId || null,
+      parentTaskId: values.parentTaskId || null,
       startDate: values.startDate ? new Date(values.startDate) : null,
       dueDate: values.dueDate ? new Date(values.dueDate) : null,
       estimateHours: values.estimateHours ?? 0,
@@ -167,6 +169,23 @@ export async function createProjectTaskAction(
     },
   });
 
+  // Dependencies chosen at creation time.
+  const creatorId = session.user.id;
+  const dependsOn = formData
+    .getAll("dependsOn")
+    .map((v) => String(v))
+    .filter((id) => id && id !== task.id);
+  if (dependsOn.length > 0) {
+    await prisma.taskDependency.createMany({
+      data: dependsOn.map((dependsOnTaskId) => ({
+        taskId: task.id,
+        dependsOnTaskId,
+        createdById: creatorId,
+      })),
+      skipDuplicates: true,
+    });
+  }
+
   await logAudit({
     actorId: session.user.id,
     action: "CREATE",
@@ -178,6 +197,25 @@ export async function createProjectTaskAction(
 
   revalidateTaskPaths(projectId, null);
   redirect(`/projects/${projectId}/tasks/${task.id}`);
+}
+
+/** Sets (or clears) a task's parent for the tree hierarchy. */
+export async function setTaskParentAction(
+  projectId: string,
+  taskId: string,
+  parentTaskId: string,
+) {
+  const session = await auth();
+  if (!session?.user) return;
+  if (!(await requireTaskEditAccess(session.user.id, session.user.systemRole, projectId))) return;
+  if (parentTaskId === taskId) return;
+
+  await prisma.task.update({
+    where: { id: taskId },
+    data: { parentTaskId: parentTaskId || null },
+  });
+
+  revalidateTaskPaths(projectId, null, taskId);
 }
 
 async function requireTaskEditAccess(userId: string, systemRole: string, projectId: string) {

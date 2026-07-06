@@ -140,12 +140,6 @@ export default async function ProjectLayout({
             <Link href={`/projects/${project.id}/tasks`} className="block rounded-lg px-2 py-1.5 hover:bg-accent">
               Task
             </Link>
-            <Link href={`/projects/${project.id}/bugs`} className="block rounded-lg px-2 py-1.5 hover:bg-accent">
-              Bug
-            </Link>
-            <Link href={`/projects/${project.id}/test-cases`} className="block rounded-lg px-2 py-1.5 hover:bg-accent">
-              Test Case
-            </Link>
             <Link href={`/projects/${project.id}/reports`} className="block rounded-lg px-2 py-1.5 hover:bg-accent">
               Báo cáo
             </Link>

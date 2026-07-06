@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { canAccess } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { PageSection } from "@/components/page-shell";
-import { TaskProjectCreateForm } from "@/components/task-project-create-form";
+import { CreateTaskOrBug } from "@/components/create-task-or-bug";
 
 export default async function NewProjectTaskPage({
   params,
@@ -48,15 +48,23 @@ export default async function NewProjectTaskPage({
     }),
   ]);
 
+  const tasks = await prisma.task.findMany({
+    where: { projectId, deletedAt: null },
+    select: { id: true, title: true, taskCode: true },
+    orderBy: { updatedAt: "desc" },
+    take: 200,
+  });
+
   return (
     <PageSection>
-      <h1 className="text-lg font-semibold">Tạo task mới</h1>
-      <TaskProjectCreateForm
+      <h1 className="text-lg font-semibold">Tạo mới</h1>
+      <CreateTaskOrBug
         projectId={projectId}
         members={members.map((m) => ({ userId: m.userId, fullName: m.user.fullName }))}
         epics={epics.map((e) => ({ id: e.id, label: e.name }))}
         sprints={sprints.map((s) => ({ id: s.id, label: s.name }))}
         milestones={milestones.map((m) => ({ id: m.id, label: m.name }))}
+        tasks={tasks.map((t) => ({ id: t.id, label: `${t.taskCode ? t.taskCode + " · " : ""}${t.title}` }))}
       />
     </PageSection>
   );

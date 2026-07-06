@@ -177,6 +177,7 @@ export default async function ProjectTaskDetailPage({
               taskId={taskId}
               startDate={task.startDate ? task.startDate.toISOString().slice(0, 10) : ""}
               dueDate={task.dueDate ? task.dueDate.toISOString().slice(0, 10) : ""}
+              parentTaskId={task.parentTaskId}
               dependencies={task.dependencies.map((d) => ({
                 id: d.id,
                 title: d.dependsOnTask.title,

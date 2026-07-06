@@ -162,6 +162,7 @@ export const taskFormSchema = z.object({
   epicId: z.string().optional().or(z.literal("")),
   sprintId: z.string().optional().or(z.literal("")),
   milestoneId: z.string().optional().or(z.literal("")),
+  parentTaskId: z.string().optional().or(z.literal("")),
   startDate: z.string().optional().or(z.literal("")),
   dueDate: z.string().optional().or(z.literal("")),
   estimateHours: z.coerce.number().min(0).max(100000).optional(),
