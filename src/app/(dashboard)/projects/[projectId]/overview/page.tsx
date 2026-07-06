@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PageSection } from "@/components/page-shell";
+import { ProjectReportSection } from "@/components/project-report-section";
 import { TASK_STATUS_LABEL, TASK_STATUS_ORDER } from "@/lib/validation/task";
 
 export default async function ProjectOverviewPage({
@@ -37,11 +38,9 @@ export default async function ProjectOverviewPage({
   if (!project) notFound();
 
   const projectRole = await getProjectRole(session.user.id, projectId);
-  const canEditSettings = await canAccess(
-    { systemRole: session.user.systemRole },
-    "project.editSettings",
-    projectRole,
-  );
+  const roleCtx = { systemRole: session.user.systemRole };
+  const canEditSettings = await canAccess(roleCtx, "project.editSettings", projectRole);
+  const canViewReports = await canAccess(roleCtx, "report.view", projectRole);
 
   const assignedModuleIds = await getAssignedModuleIdsForUser({
     projectId,
@@ -124,6 +123,8 @@ export default async function ProjectOverviewPage({
         </Popover>
       </div>
 
+      {canViewReports ? <ProjectReportSection projectId={projectId} /> : null}
+
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
@@ -141,48 +142,51 @@ export default async function ProjectOverviewPage({
             )}
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Tiến độ task</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {taskStatusCounts.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Chưa có task.</p>
-            ) : (
-              <>
-                <div className="flex items-end justify-between gap-4">
-                  <div>
-                    <p className="text-3xl font-semibold">{taskCompletion}%</p>
-                    <p className="text-sm text-muted-foreground">Hoàn thành</p>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    {doneTasks}/{totalTasks} task
-                  </p>
-                </div>
-                <div className="flex h-3 overflow-hidden rounded-4xl border border-border bg-muted">
-                  {taskSegments.map((segment) =>
-                    segment.count > 0 ? (
-                      <div
-                        key={segment.status}
-                        className={segment.className}
-                        style={{ width: `${(segment.count / totalTasks) * 100}%` }}
-                        title={`${segment.label}: ${segment.count}`}
-                      />
-                    ) : null,
-                  )}
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {taskSegments.map((segment) => (
-                    <div key={segment.status} className="flex items-center justify-between gap-2 rounded-lg border border-border px-2 py-1.5 text-sm">
-                      <span className="min-w-0 truncate text-muted-foreground">{segment.label}</span>
-                      <span className="font-medium">{segment.count}</span>
+
+        {!canViewReports ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Tiến độ task</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {taskStatusCounts.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Chưa có task.</p>
+              ) : (
+                <>
+                  <div className="flex items-end justify-between gap-4">
+                    <div>
+                      <p className="text-3xl font-semibold">{taskCompletion}%</p>
+                      <p className="text-sm text-muted-foreground">Hoàn thành</p>
                     </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
+                    <p className="text-sm text-muted-foreground">
+                      {doneTasks}/{totalTasks} task
+                    </p>
+                  </div>
+                  <div className="flex h-3 overflow-hidden rounded-4xl border border-border bg-muted">
+                    {taskSegments.map((segment) =>
+                      segment.count > 0 ? (
+                        <div
+                          key={segment.status}
+                          className={segment.className}
+                          style={{ width: `${(segment.count / totalTasks) * 100}%` }}
+                          title={`${segment.label}: ${segment.count}`}
+                        />
+                      ) : null,
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {taskSegments.map((segment) => (
+                      <div key={segment.status} className="flex items-center justify-between gap-2 rounded-lg border border-border px-2 py-1.5 text-sm">
+                        <span className="min-w-0 truncate text-muted-foreground">{segment.label}</span>
+                        <span className="font-medium">{segment.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        ) : null}
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
