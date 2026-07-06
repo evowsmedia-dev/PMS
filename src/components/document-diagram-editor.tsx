@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ImagePreviewScope } from "@/components/image-preview-scope";
 import { setDocumentDiagramUrlAction } from "@/lib/actions/documents";
+import { toAppBlobUrl } from "@/lib/blob-proxy";
 
 const DEFAULT_TITLE = "Sơ đồ quy trình";
 
@@ -56,12 +57,13 @@ export function DocumentDiagramEditor({
     setUploading(true);
     try {
       const blob = await upload(file.name, file, {
-        access: "public",
+        access: "private",
         handleUploadUrl: "/api/upload",
       });
-      setUrl(blob.url);
+      const appUrl = toAppBlobUrl(blob.url);
+      setUrl(appUrl);
       const titleValue = title.trim() || DEFAULT_TITLE;
-      await setDocumentDiagramUrlAction(projectId, moduleId, docId, blob.url, titleValue);
+      await setDocumentDiagramUrlAction(projectId, moduleId, docId, appUrl, titleValue);
       router.refresh();
       toast.success("Đã tải ảnh sơ đồ lên.");
       setEditing(false);

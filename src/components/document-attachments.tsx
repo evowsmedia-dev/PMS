@@ -20,6 +20,7 @@ import {
   recordUploadedAttachmentAction,
   deleteAttachmentAction,
 } from "@/lib/actions/documents";
+import { toAppBlobUrl } from "@/lib/blob-proxy";
 
 interface Attachment {
   id: string;
@@ -66,12 +67,12 @@ export function DocumentAttachments({
     setUploading(true);
     try {
       const blob = await upload(file.name, file, {
-        access: "public",
+        access: "private",
         handleUploadUrl: "/api/upload",
       });
       await recordUploadedAttachmentAction(projectId, moduleId, docId, {
         kind: kindFromMime(file.type),
-        url: blob.url,
+        url: toAppBlobUrl(blob.url),
         fileName: file.name,
         mimeType: file.type,
         sizeBytes: file.size,

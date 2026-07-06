@@ -2,6 +2,7 @@ import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { toAppBlobUrl } from "@/lib/blob-proxy";
 
 const ALLOWED_CONTENT_TYPES = [
   "image/png",
@@ -58,12 +59,17 @@ async function handleServerUpload(request: Request) {
     }
 
     const blob = await put(`uploads/${Date.now()}-${sanitizeFileName(file.name)}`, file, {
-      access: "public",
+      access: "private",
       contentType: file.type,
       addRandomSuffix: true,
     });
 
-    return NextResponse.json(blob);
+    return NextResponse.json({
+      ...blob,
+      blobUrl: blob.url,
+      url: toAppBlobUrl(blob.url),
+      downloadUrl: toAppBlobUrl(blob.downloadUrl),
+    });
   } catch (error) {
     return NextResponse.json({ error: getBlobErrorMessage(error) }, { status: 400 });
   }
@@ -78,6 +84,9 @@ function getBlobErrorMessage(error: unknown) {
 
   if (message.includes("BLOB_READ_WRITE_TOKEN") || message.includes("Invalid `token`")) {
     return "Vercel Blob chưa được cấu hình đúng. Cần liên kết Blob store và BLOB_READ_WRITE_TOKEN.";
+  }
+  if (message.includes("Cannot use public access on a private store")) {
+    return "Blob store đang ở chế độ private. Upload đã được chuyển qua proxy nội bộ; hãy thử lại.";
   }
 
   return message;

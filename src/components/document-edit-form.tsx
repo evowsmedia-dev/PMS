@@ -62,6 +62,7 @@ import {
 } from "@/components/ui/select";
 import { DOC_CATEGORY_LABEL } from "@/lib/validation/document";
 import { saveDocumentEditAction, autosaveDocumentAction } from "@/lib/actions/documents";
+import { toAppBlobUrl } from "@/lib/blob-proxy";
 import { DocumentDiagramEditor } from "@/components/document-diagram-editor";
 import type { ActionState } from "@/lib/actions/profile";
 
@@ -474,9 +475,9 @@ export function DocumentEditForm({
   async function uploadEditorImage(file: File) {
     try {
       return await upload(file.name, file, {
-        access: "public",
+        access: "private",
         handleUploadUrl: "/api/upload",
-      });
+      }).then((blob) => ({ ...blob, url: toAppBlobUrl(blob.url) }));
     } catch (error) {
       const formData = new FormData();
       formData.append("file", file);
