@@ -1,29 +1,21 @@
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  TASK_STATUS_LABEL,
-  TASK_STATUS_ORDER,
-  BUG_SEVERITY_LABEL,
-  BUG_SEVERITY_ORDER,
-} from "@/lib/validation/task";
 
 const DONE_STATUSES = ["DONE", "CANCELLED"] as const;
 
 /**
- * Project-wide health report (task-status & bug-severity bars, per-member
- * workload, burndown). Embedded in the project dashboard for users with
- * `report.view`. The headline KPIs live in the dashboard's top cards; this
- * section holds the detailed breakdowns. All metrics are project-wide (no
+ * Project-wide health report (personnel status + burndown). Embedded in the
+ * project dashboard for users with `report.view`. The headline KPIs and
+ * status distributions live in the dashboard's top cards; this section holds
+ * the personnel workload and burndown. All metrics are project-wide (no
  * module scoping).
  */
 export async function ProjectReportSection({ projectId }: { projectId: string }) {
   const now = new Date();
 
-  const [statusGroups, severityGroups, tasks, totalTasks, overdueTasks, members, snapshots] =
+  const [tasks, totalTasks, overdueTasks, members, snapshots] =
     await Promise.all([
-      prisma.task.groupBy({ by: ["status"], where: { projectId, deletedAt: null }, _count: true }),
-      prisma.bug.groupBy({ by: ["severity"], where: { projectId, deletedAt: null }, _count: true }),
       prisma.task.findMany({
         where: { projectId, deletedAt: null, assigneeId: { not: null } },
         select: { assigneeId: true },
@@ -48,9 +40,6 @@ export async function ProjectReportSection({ projectId }: { projectId: string })
       }),
     ]);
 
-  const statusCount = new Map(statusGroups.map((g) => [g.status, g._count]));
-  const severityCount = new Map(severityGroups.map((g) => [g.severity, g._count]));
-
   // Per-member assigned-task counts for the personnel chart.
   const perMember = members
     .map((m) => ({
@@ -70,65 +59,8 @@ export async function ProjectReportSection({ projectId }: { projectId: string })
     { label: "Trễ hạn", value: `${overdueRatio}%`, alert: overdueTasks > 0 },
   ];
 
-  const maxStatus = Math.max(1, ...[...statusCount.values()]);
-  const maxSeverity = Math.max(1, ...[...severityCount.values()]);
-
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Phân bố trạng thái task</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1.5">
-            {TASK_STATUS_ORDER.filter((s) => (statusCount.get(s) ?? 0) > 0).map((s) => {
-              const count = statusCount.get(s) ?? 0;
-              return (
-                <div key={s} className="flex items-center gap-2 text-xs">
-                  <span className="w-28 shrink-0 text-muted-foreground">{TASK_STATUS_LABEL[s]}</span>
-                  <div className="h-3 flex-1 rounded bg-muted">
-                    <div
-                      className="h-3 rounded bg-primary/60"
-                      style={{ width: `${(count / maxStatus) * 100}%` }}
-                    />
-                  </div>
-                  <span className="w-6 text-right font-medium">{count}</span>
-                </div>
-              );
-            })}
-            {statusCount.size === 0 ? (
-              <p className="text-sm text-muted-foreground">Chưa có task.</p>
-            ) : null}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Bug theo mức độ</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1.5">
-            {BUG_SEVERITY_ORDER.filter((s) => (severityCount.get(s) ?? 0) > 0).map((s) => {
-              const count = severityCount.get(s) ?? 0;
-              return (
-                <div key={s} className="flex items-center gap-2 text-xs">
-                  <span className="w-28 shrink-0 text-muted-foreground">{BUG_SEVERITY_LABEL[s]}</span>
-                  <div className="h-3 flex-1 rounded bg-muted">
-                    <div
-                      className="h-3 rounded bg-destructive/60"
-                      style={{ width: `${(count / maxSeverity) * 100}%` }}
-                    />
-                  </div>
-                  <span className="w-6 text-right font-medium">{count}</span>
-                </div>
-              );
-            })}
-            {severityCount.size === 0 ? (
-              <p className="text-sm text-muted-foreground">Chưa có bug.</p>
-            ) : null}
-          </CardContent>
-        </Card>
-      </div>
-
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
