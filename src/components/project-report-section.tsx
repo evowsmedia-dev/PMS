@@ -77,36 +77,47 @@ export async function ProjectReportSection({ projectId }: { projectId: string })
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)]">
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Trạng thái nhân sự</CardTitle>
+            <CardTitle className="text-sm">Rủi ro &amp; phân bổ nhân sự</CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
-            <section className="rounded-[14px] border border-red-300 bg-red-50 p-4 text-red-700">
+            <section className="rounded-[14px] border border-foreground bg-muted/70 p-4">
               <div className="flex items-start gap-3">
                 <AlertTriangle className="mt-1 size-5 shrink-0" />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-end justify-between gap-3">
                     <div>
                       <p className="text-xs font-medium uppercase">Cảnh báo rủi ro</p>
-                      <p className="text-sm text-red-600">Task trễ hạn / task đang làm</p>
+                      <p className="text-sm text-muted-foreground">Task trễ hạn / task đang làm</p>
                     </div>
                     <p className="text-4xl font-semibold leading-none">{overdueRatio}%</p>
                   </div>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Badge variant="outline" className="border-foreground">
+                      {overdueAssignedTasks.length} task trễ hạn
+                    </Badge>
+                    <Badge variant="outline">{activeAssignedTasks.length} task đang làm</Badge>
+                  </div>
                   <div className="mt-4 space-y-2">
                     {overdueAssignedTasks.length === 0 ? (
-                      <p className="text-sm text-red-600">Không có task được giao đang trễ hạn.</p>
+                      <p className="text-sm text-muted-foreground">Không có task được giao đang trễ hạn.</p>
                     ) : (
                       overdueAssignedTasks.slice(0, 5).map((task) => (
-                        <p key={task.id} className="text-sm font-medium">
-                          {task.title} - {task.assignee?.fullName ?? "Chưa rõ nhân sự"} - Trễ{" "}
-                          {getOverdueDays(task.dueDate, now)} ngày
-                        </p>
+                        <div key={task.id} className="rounded-[10px] border bg-background px-3 py-2">
+                          <p className="line-clamp-2 text-sm font-medium">{task.title}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {task.assignee?.fullName ?? "Chưa rõ nhân sự"} - Trễ{" "}
+                            {getOverdueDays(task.dueDate, now)} ngày
+                          </p>
+                        </div>
                       ))
                     )}
                     {overdueAssignedTasks.length > 5 ? (
-                      <p className="text-xs text-red-600">+{overdueAssignedTasks.length - 5} task trễ hạn khác.</p>
+                      <p className="text-xs text-muted-foreground">
+                        +{overdueAssignedTasks.length - 5} task trễ hạn khác.
+                      </p>
                     ) : null}
                   </div>
                 </div>
@@ -119,14 +130,14 @@ export async function ProjectReportSection({ projectId }: { projectId: string })
                 <p className="text-sm text-muted-foreground">Tập trung người đang quá tải và người còn khả dụng.</p>
               </div>
               <div className="overflow-x-auto rounded-[14px] border">
-                <table className="w-full min-w-[720px] text-sm">
+                <table className="w-full min-w-[780px] text-sm">
                   <thead>
                     <tr className="border-b bg-muted/60 text-left">
                       <th className="px-3 py-2 font-medium">Nhân sự</th>
                       <th className="px-3 py-2 font-medium">Task đang làm</th>
-                      <th className="px-3 py-2 font-medium">Sắp đến hạn</th>
+                      <th className="px-3 py-2 font-medium">Sắp đến hạn 3 ngày</th>
                       <th className="px-3 py-2 font-medium">Đang trễ</th>
-                      <th className="px-3 py-2 font-medium">Trạng thái khối lượng</th>
+                      <th className="px-3 py-2 font-medium">Khuyến nghị hành động</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -144,21 +155,22 @@ export async function ProjectReportSection({ projectId }: { projectId: string })
                           <td className="px-3 py-2">
                             {member.dueSoonTasks.length}
                             {member.dueSoonTasks.length > 0 ? (
-                              <span className="ml-1 text-muted-foreground">
-                                ({member.dueSoonTasks.map((t) => t.title).join(", ")})
-                              </span>
+                              <TaskNameList tasks={member.dueSoonTasks} />
                             ) : null}
                           </td>
                           <td className="px-3 py-2">
                             {member.lateTasks.length}
                             {member.lateTasks.length > 0 ? (
-                              <span className="ml-1 text-red-600">
-                                ({member.lateTasks.map((t) => t.title).join(", ")})
-                              </span>
+                              <TaskNameList tasks={member.lateTasks} strong />
                             ) : null}
                           </td>
-                          <td className={`px-3 py-2 font-medium ${member.workload.alert ? "text-red-600" : ""}`}>
-                            {member.workload.label}
+                          <td className="px-3 py-2">
+                            <Badge
+                              variant="outline"
+                              className={member.workload.alert ? "border-foreground font-medium" : ""}
+                            >
+                              {member.workload.label}
+                            </Badge>
                           </td>
                         </tr>
                       ))
@@ -220,11 +232,36 @@ function getOverdueDays(dueDate: Date | null, now: Date) {
 }
 
 function getWorkloadStatus(active: number, dueSoon: number, late: number) {
-  if (late > 0) return { label: "🔴 Quá tải (Cần hỗ trợ)", alert: true };
-  if (active === 0) return { label: "🟢 Sẵn sàng (Khuyến khích giao task)", alert: false };
+  if (late > 0 || active > 5) return { label: "Quá tải - cần hỗ trợ", alert: true };
+  if (active === 0) return { label: "Có thể nhận thêm", alert: false };
   if (dueSoon > 0) return { label: "Cần theo dõi hạn gần", alert: false };
-  if (active <= 2) return { label: "🟢 Nhàn rỗi", alert: false };
   return { label: "Ổn định", alert: false };
+}
+
+function TaskNameList({
+  tasks,
+  strong = false,
+}: {
+  tasks: { id: string; title: string }[];
+  strong?: boolean;
+}) {
+  const visible = tasks.slice(0, 2);
+
+  return (
+    <div className="mt-1 space-y-1">
+      {visible.map((task) => (
+        <p
+          key={task.id}
+          className={`line-clamp-2 text-xs ${strong ? "font-medium" : "text-muted-foreground"}`}
+        >
+          {task.title}
+        </p>
+      ))}
+      {tasks.length > visible.length ? (
+        <p className="text-xs text-muted-foreground">+{tasks.length - visible.length} task khác</p>
+      ) : null}
+    </div>
+  );
 }
 
 function CapacityBar({ label, value, detail }: { label: string; value: number; detail: string }) {
