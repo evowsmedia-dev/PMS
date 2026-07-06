@@ -8,7 +8,7 @@ import {
   BUG_SEVERITY_ORDER,
 } from "@/lib/validation/task";
 
-const DONE_STATUSES = ["DONE", "CANCELLED"];
+const DONE_STATUSES = ["DONE", "CANCELLED"] as const;
 
 /**
  * Project-wide health report (task-status & bug-severity bars, per-member
@@ -20,38 +20,55 @@ const DONE_STATUSES = ["DONE", "CANCELLED"];
 export async function ProjectReportSection({ projectId }: { projectId: string }) {
   const now = new Date();
 
-  const [statusGroups, severityGroups, tasks, members, snapshots] = await Promise.all([
-    prisma.task.groupBy({ by: ["status"], where: { projectId, deletedAt: null }, _count: true }),
-    prisma.bug.groupBy({ by: ["severity"], where: { projectId, deletedAt: null }, _count: true }),
-    prisma.task.findMany({
-      where: { projectId, deletedAt: null, assigneeId: { not: null } },
-      select: { assigneeId: true, status: true, dueDate: true, actualHours: true },
-    }),
-    prisma.projectMember.findMany({
-      where: { projectId },
-      include: { user: { select: { id: true, fullName: true } } },
-    }),
-    prisma.dailyProjectSnapshot.findMany({
-      where: { projectId },
-      orderBy: { snapshotDate: "asc" },
-      take: 60,
-    }),
-  ]);
+  const [statusGroups, severityGroups, tasks, totalTasks, overdueTasks, members, snapshots] =
+    await Promise.all([
+      prisma.task.groupBy({ by: ["status"], where: { projectId, deletedAt: null }, _count: true }),
+      prisma.bug.groupBy({ by: ["severity"], where: { projectId, deletedAt: null }, _count: true }),
+      prisma.task.findMany({
+        where: { projectId, deletedAt: null, assigneeId: { not: null } },
+        select: { assigneeId: true },
+      }),
+      prisma.task.count({ where: { projectId, deletedAt: null } }),
+      prisma.task.count({
+        where: {
+          projectId,
+          deletedAt: null,
+          dueDate: { lt: now },
+          status: { notIn: [...DONE_STATUSES] },
+        },
+      }),
+      prisma.projectMember.findMany({
+        where: { projectId },
+        include: { user: { select: { id: true, fullName: true } } },
+      }),
+      prisma.dailyProjectSnapshot.findMany({
+        where: { projectId },
+        orderBy: { snapshotDate: "asc" },
+        take: 60,
+      }),
+    ]);
 
   const statusCount = new Map(statusGroups.map((g) => [g.status, g._count]));
   const severityCount = new Map(severityGroups.map((g) => [g.severity, g._count]));
 
-  const workload = members.map((m) => {
-    const own = tasks.filter((t) => t.assigneeId === m.userId);
-    return {
+  // Per-member assigned-task counts for the personnel chart.
+  const perMember = members
+    .map((m) => ({
       name: m.user.fullName,
-      assigned: own.length,
-      inProgress: own.filter((t) => t.status === "IN_PROGRESS").length,
-      overdue: own.filter((t) => t.dueDate && t.dueDate < now && !DONE_STATUSES.includes(t.status)).length,
-      done: own.filter((t) => DONE_STATUSES.includes(t.status)).length,
-      hours: own.reduce((sum, t) => sum + Number(t.actualHours), 0),
-    };
-  });
+      assigned: tasks.filter((t) => t.assigneeId === m.userId).length,
+    }))
+    .sort((a, b) => b.assigned - a.assigned);
+  const maxAssigned = Math.max(1, ...perMember.map((p) => p.assigned));
+
+  const assignedTasks = tasks.length;
+  const assignedRatio = totalTasks > 0 ? Math.round((assignedTasks / totalTasks) * 100) : 0;
+  const overdueRatio = totalTasks > 0 ? Math.round((overdueTasks / totalTasks) * 100) : 0;
+
+  const staffStats = [
+    { label: "Tổng nhân sự", value: members.length },
+    { label: "Tỉ lệ task được giao", value: `${assignedRatio}%` },
+    { label: "Trễ hạn", value: `${overdueRatio}%`, alert: overdueTasks > 0 },
+  ];
 
   const maxStatus = Math.max(1, ...[...statusCount.values()]);
   const maxSeverity = Math.max(1, ...[...severityCount.values()]);
@@ -112,60 +129,62 @@ export async function ProjectReportSection({ projectId }: { projectId: string })
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">Khối lượng theo người</CardTitle>
-        </CardHeader>
-        <CardContent className="overflow-x-auto p-0">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-muted/40 text-left">
-                <th className="px-3 py-2 font-medium">Thành viên</th>
-                <th className="px-3 py-2 font-medium">Được giao</th>
-                <th className="px-3 py-2 font-medium">Đang làm</th>
-                <th className="px-3 py-2 font-medium">Quá hạn</th>
-                <th className="px-3 py-2 font-medium">Hoàn thành</th>
-                <th className="px-3 py-2 font-medium">Giờ thực tế</th>
-              </tr>
-            </thead>
-            <tbody>
-              {workload.map((w) => (
-                <tr key={w.name} className="border-b last:border-none">
-                  <td className="px-3 py-2">{w.name}</td>
-                  <td className="px-3 py-2">{w.assigned}</td>
-                  <td className="px-3 py-2">{w.inProgress}</td>
-                  <td className={`px-3 py-2 ${w.overdue > 0 ? "font-medium text-destructive" : ""}`}>
-                    {w.overdue}
-                  </td>
-                  <td className="px-3 py-2">{w.done}</td>
-                  <td className="px-3 py-2">{w.hours}</td>
-                </tr>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Trạng thái nhân sự</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-1.5">
+              {perMember.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Chưa có nhân sự.</p>
+              ) : (
+                perMember.map((p) => (
+                  <div key={p.name} className="flex items-center gap-2 text-xs">
+                    <span className="w-28 shrink-0 truncate text-muted-foreground">{p.name}</span>
+                    <div className="h-3 flex-1 rounded bg-muted">
+                      <div
+                        className="h-3 rounded bg-primary/60"
+                        style={{ width: `${(p.assigned / maxAssigned) * 100}%` }}
+                      />
+                    </div>
+                    <span className="w-6 text-right font-medium">{p.assigned}</span>
+                  </div>
+                ))
+              )}
+            </div>
+            <dl className="space-y-1 border-t pt-3 text-sm">
+              {staffStats.map((s) => (
+                <div key={s.label} className="flex items-center justify-between gap-4">
+                  <dt className="text-muted-foreground">{s.label}</dt>
+                  <dd className={`font-medium ${s.alert ? "text-destructive" : ""}`}>{s.value}</dd>
+                </div>
               ))}
-            </tbody>
-          </table>
-        </CardContent>
-      </Card>
+            </dl>
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-sm">Burndown</CardTitle>
-          <Badge variant="outline">{snapshots.length} ngày</Badge>
-        </CardHeader>
-        <CardContent>
-          {snapshots.length < 2 ? (
-            <p className="text-sm text-muted-foreground">
-              Cần ít nhất 2 ngày snapshot để vẽ burndown. Snapshot được tạo tự động mỗi ngày.
-            </p>
-          ) : (
-            <Burndown
-              points={snapshots.map((s) => ({
-                date: s.snapshotDate,
-                remaining: s.totalTasks - s.completedTasks,
-              }))}
-            />
-          )}
-        </CardContent>
-      </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-sm">Burndown</CardTitle>
+            <Badge variant="outline">{snapshots.length} ngày</Badge>
+          </CardHeader>
+          <CardContent>
+            {snapshots.length < 2 ? (
+              <p className="text-sm text-muted-foreground">
+                Cần ít nhất 2 ngày snapshot để vẽ burndown. Snapshot được tạo tự động mỗi ngày.
+              </p>
+            ) : (
+              <Burndown
+                points={snapshots.map((s) => ({
+                  date: s.snapshotDate,
+                  remaining: s.totalTasks - s.completedTasks,
+                }))}
+              />
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
