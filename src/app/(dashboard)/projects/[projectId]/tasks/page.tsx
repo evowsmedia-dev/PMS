@@ -218,7 +218,7 @@ export default async function ProjectTasksPage({
                     {canDeleteTask ? (
                       <DeleteTaskButton
                         projectId={projectId}
-                        moduleId={row.task.moduleId}
+                        moduleId={null}
                         taskId={row.task.id}
                         taskTitle={row.task.title}
                       />
