@@ -28,6 +28,7 @@ export function TaskEditForm({
   priority,
   dueDate,
   canEdit,
+  showPriorityDueDate = true,
 }: {
   projectId: string;
   moduleId: string | null;
@@ -37,6 +38,7 @@ export function TaskEditForm({
   priority: string;
   dueDate: string;
   canEdit: boolean;
+  showPriorityDueDate?: boolean;
 }) {
   const action = updateTaskAction.bind(null, projectId, moduleId, taskId);
   const [state, formAction, pending] = useActionState(action, initialState);
@@ -66,26 +68,35 @@ export function TaskEditForm({
           disabled={!canEdit}
         />
       </div>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="priority">Độ ưu tiên</Label>
-          <Select name="priority" defaultValue={priority} disabled={!canEdit}>
-            <SelectTrigger id="priority" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="LOW">Thấp</SelectItem>
-              <SelectItem value="MEDIUM">Trung bình</SelectItem>
-              <SelectItem value="HIGH">Cao</SelectItem>
-              <SelectItem value="CRITICAL">Khẩn cấp</SelectItem>
-            </SelectContent>
-          </Select>
+      {showPriorityDueDate ? (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="priority">Độ ưu tiên</Label>
+            <Select name="priority" defaultValue={priority} disabled={!canEdit}>
+              <SelectTrigger id="priority" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="LOW">Thấp</SelectItem>
+                <SelectItem value="MEDIUM">Trung bình</SelectItem>
+                <SelectItem value="HIGH">Cao</SelectItem>
+                <SelectItem value="CRITICAL">Khẩn cấp</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="dueDate">Hạn hoàn thành</Label>
+            <Input id="dueDate" name="dueDate" type="date" defaultValue={dueDate} disabled={!canEdit} />
+          </div>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="dueDate">Hạn hoàn thành</Label>
-          <Input id="dueDate" name="dueDate" type="date" defaultValue={dueDate} disabled={!canEdit} />
-        </div>
-      </div>
+      ) : (
+        // Priority/due date are edited inline at the top of the page; keep the
+        // current values in the form so saving title/description doesn't reset them.
+        <>
+          <input type="hidden" name="priority" value={priority} />
+          <input type="hidden" name="dueDate" value={dueDate} />
+        </>
+      )}
       {canEdit ? (
         <Button type="submit" size="sm" disabled={pending}>
           {pending ? "Đang lưu..." : "Lưu thay đổi"}

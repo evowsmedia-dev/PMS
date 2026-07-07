@@ -14,7 +14,7 @@ import {
   isAiTaskGenerationConfigured,
   type AutoTaskCandidate,
 } from "@/lib/auto-task-generator";
-import { taskFormSchema } from "@/lib/validation/task";
+import { taskFormSchema, TASK_PRIORITY_ORDER } from "@/lib/validation/task";
 import type { ActionState } from "@/lib/actions/profile";
 
 /** Revalidate both the module-scoped and project-scoped task views so a change
@@ -558,6 +558,87 @@ export async function setTaskParentAction(
 async function requireTaskEditAccess(userId: string, systemRole: string, projectId: string) {
   const projectRole = await getProjectRole(userId, projectId);
   return await canAccess({ systemRole: systemRole as never }, "task.edit", projectRole);
+}
+
+export async function updateTaskPriorityAction(
+  projectId: string,
+  moduleId: string | null,
+  taskId: string,
+  priority: string,
+) {
+  const session = await auth();
+  if (!session?.user) return;
+  if (!(await requireTaskEditAccess(session.user.id, session.user.systemRole, projectId))) return;
+  if (!TASK_PRIORITY_ORDER.includes(priority as (typeof TASK_PRIORITY_ORDER)[number])) return;
+
+  const before = await prisma.task.findUniqueOrThrow({ where: { id: taskId } });
+  if (before.priority === priority) return;
+
+  await prisma.task.update({
+    where: { id: taskId },
+    data: { priority: priority as never },
+  });
+
+  await prisma.taskHistory.create({
+    data: {
+      taskId,
+      changedById: session.user.id,
+      field: "priority",
+      oldValue: before.priority,
+      newValue: priority,
+    },
+  });
+
+  await logAudit({
+    actorId: session.user.id,
+    action: "UPDATE",
+    entityType: "Task",
+    entityId: taskId,
+    projectId,
+  });
+
+  revalidateTaskPaths(projectId, moduleId, taskId);
+}
+
+export async function updateTaskDueDateAction(
+  projectId: string,
+  moduleId: string | null,
+  taskId: string,
+  dueDate: string,
+) {
+  const session = await auth();
+  if (!session?.user) return;
+  if (!(await requireTaskEditAccess(session.user.id, session.user.systemRole, projectId))) return;
+
+  const before = await prisma.task.findUniqueOrThrow({ where: { id: taskId } });
+  const nextDue = dueDate ? new Date(dueDate) : null;
+  const beforeDue = before.dueDate ? before.dueDate.toISOString().slice(0, 10) : "";
+  if (beforeDue === dueDate) return;
+
+  await prisma.task.update({
+    where: { id: taskId },
+    data: { dueDate: nextDue },
+  });
+
+  await prisma.taskHistory.create({
+    data: {
+      taskId,
+      changedById: session.user.id,
+      field: "dueDate",
+      oldValue: beforeDue || null,
+      newValue: dueDate || null,
+    },
+  });
+
+  await logAudit({
+    actorId: session.user.id,
+    action: "UPDATE",
+    entityType: "Task",
+    entityId: taskId,
+    projectId,
+  });
+
+  revalidateTaskPaths(projectId, moduleId, taskId);
 }
 
 export async function updateTaskAction(

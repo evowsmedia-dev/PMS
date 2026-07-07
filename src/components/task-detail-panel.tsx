@@ -4,6 +4,7 @@ import { useActionState, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -16,8 +17,15 @@ import {
   changeTaskStatusAction,
   reassignTaskAction,
   addTaskCommentAction,
+  updateTaskPriorityAction,
+  updateTaskDueDateAction,
 } from "@/lib/actions/tasks";
-import { TASK_STATUS_LABEL, TASK_STATUS_ORDER } from "@/lib/validation/task";
+import {
+  TASK_STATUS_LABEL,
+  TASK_STATUS_ORDER,
+  TASK_PRIORITY_LABEL,
+  TASK_PRIORITY_ORDER,
+} from "@/lib/validation/task";
 import type { ActionState } from "@/lib/actions/profile";
 
 const initialState: ActionState = {};
@@ -118,6 +126,83 @@ export function TaskAssigneeSelect({
         ))}
       </SelectContent>
     </Select>
+  );
+}
+
+export function TaskPrioritySelect({
+  projectId,
+  moduleId,
+  taskId,
+  priority,
+  canEdit,
+}: {
+  projectId: string;
+  moduleId: string | null;
+  taskId: string;
+  priority: string;
+  canEdit: boolean;
+}) {
+  const [, startTransition] = useTransition();
+  const router = useRouter();
+
+  return (
+    <Select
+      defaultValue={priority}
+      disabled={!canEdit}
+      onValueChange={(value) =>
+        startTransition(async () => {
+          await updateTaskPriorityAction(projectId, moduleId, taskId, value);
+          router.refresh();
+          toast.success("Đã cập nhật độ ưu tiên.");
+        })
+      }
+    >
+      <SelectTrigger className="w-40">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {TASK_PRIORITY_ORDER.map((p) => (
+          <SelectItem key={p} value={p}>
+            {TASK_PRIORITY_LABEL[p]}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+export function TaskDueDateInput({
+  projectId,
+  moduleId,
+  taskId,
+  dueDate,
+  canEdit,
+}: {
+  projectId: string;
+  moduleId: string | null;
+  taskId: string;
+  dueDate: string;
+  canEdit: boolean;
+}) {
+  const [, startTransition] = useTransition();
+  const router = useRouter();
+
+  return (
+    <Input
+      type="date"
+      defaultValue={dueDate}
+      disabled={!canEdit}
+      className="w-44"
+      onChange={(e) => {
+        const value = e.target.value;
+        if (value === dueDate) return;
+        startTransition(async () => {
+          await updateTaskDueDateAction(projectId, moduleId, taskId, value);
+          router.refresh();
+          toast.success("Đã cập nhật hạn hoàn thành.");
+        });
+      }}
+    />
   );
 }
 

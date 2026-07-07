@@ -10,6 +10,8 @@ import { TaskEditForm } from "@/components/task-edit-form";
 import {
   TaskStatusSelect,
   TaskAssigneeSelect,
+  TaskPrioritySelect,
+  TaskDueDateInput,
   TaskComments,
 } from "@/components/task-detail-panel";
 
@@ -79,6 +81,20 @@ export default async function TaskDetailPage({
                 members={members.map((m) => ({ userId: m.userId, fullName: m.user.fullName }))}
                 canReassign={canReassign}
               />
+              <TaskPrioritySelect
+                projectId={projectId}
+                moduleId={moduleId}
+                taskId={taskId}
+                priority={task.priority}
+                canEdit={canEdit}
+              />
+              <TaskDueDateInput
+                projectId={projectId}
+                moduleId={moduleId}
+                taskId={taskId}
+                dueDate={task.dueDate ? task.dueDate.toISOString().slice(0, 10) : ""}
+                canEdit={canEdit}
+              />
             </div>
 
             {task.relatedDocument ? (
@@ -107,6 +123,7 @@ export default async function TaskDetailPage({
               priority={task.priority}
               dueDate={task.dueDate ? task.dueDate.toISOString().slice(0, 10) : ""}
               canEdit={canEdit}
+              showPriorityDueDate={false}
             />
 
             <div className="border-t pt-3">
