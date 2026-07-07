@@ -12,8 +12,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageSection } from "@/components/page-shell";
 import { ProjectReportSection } from "@/components/project-report-section";
-import { AutoTaskFromDocumentsDialog } from "@/components/auto-task-from-documents-dialog";
-import { generateTaskCandidatesFromDocuments } from "@/lib/auto-task-generator";
 import {
   TASK_STATUS_LABEL,
   TASK_STATUS_ORDER,
@@ -64,7 +62,6 @@ export default async function ProjectOverviewPage({
   const roleCtx = { systemRole: session.user.systemRole };
   const canEditSettings = await canAccess(roleCtx, "project.editSettings", projectRole);
   const canViewReports = await canAccess(roleCtx, "report.view", projectRole);
-  const canCreateTask = await canAccess(roleCtx, "task.create", projectRole);
 
   const assignedModuleIds = await getAssignedModuleIdsForUser({
     projectId,
@@ -79,31 +76,12 @@ export default async function ProjectOverviewPage({
 
   // Task and bug metrics are project-wide (they include module-less tasks and
   // subtasks); document status stays module-scoped to what the user can see.
-  const [metrics, taskStatusCounts, bugStatusCounts, docStatusCounts, autoTaskDocs] = await Promise.all([
+  const [metrics, taskStatusCounts, bugStatusCounts, docStatusCounts] = await Promise.all([
     computeProjectMetrics(projectId),
     prisma.task.groupBy({ by: ["status"], where: { projectId, deletedAt: null }, _count: true }),
     prisma.bug.groupBy({ by: ["status"], where: { projectId, deletedAt: null }, _count: true }),
     prisma.document.groupBy({ by: ["status"], where: docScope, _count: true }),
-    canCreateTask
-      ? prisma.document.findMany({
-          where: { ...docScope, module: { deletedAt: null } },
-          select: {
-            id: true,
-            title: true,
-            description: true,
-            currentContent: true,
-            contentFormat: true,
-            moduleId: true,
-            module: { select: { name: true } },
-          },
-          orderBy: [{ module: { sortOrder: "asc" } }, { updatedAt: "desc" }],
-          take: 200,
-        })
-      : Promise.resolve([]),
   ]);
-  const autoTaskCandidateCount = canCreateTask
-    ? generateTaskCandidatesFromDocuments(autoTaskDocs).length
-    : 0;
 
   const taskCountByStatus = new Map(taskStatusCounts.map((s) => [s.status, s._count]));
   const taskSegments = TASK_STATUS_ORDER.map((status, index) => ({
@@ -148,16 +126,6 @@ export default async function ProjectOverviewPage({
 
   return (
     <PageSection>
-      {canCreateTask ? (
-        <div className="flex justify-end">
-          <AutoTaskFromDocumentsDialog
-            projectId={projectId}
-            documentCount={autoTaskDocs.length}
-            candidateCount={autoTaskCandidateCount}
-          />
-        </div>
-      ) : null}
-
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Card>
           <CardHeader>

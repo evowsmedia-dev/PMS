@@ -40,8 +40,6 @@ Ghi chú:
 │
 └── /projects/:projectId/overview
     ├── Dashboard của dự án.
-    ├── Button "Tự động tạo task từ tài liệu" theo quyền `task.create`.
-    ├── Auto task quét tài liệu active user có quyền xem, tạo task Backlog chưa assign và bỏ qua task trùng.
     ├── 3 card trạng thái: task, test/bug, tài liệu.
     ├── Task/test/tài liệu dùng donut chart + danh sách chỉ số ngắn.
     ├── Nếu user có quyền `report.view`: hiển thị báo cáo dự án gồm trạng thái nhân sự và burndown.
@@ -64,6 +62,8 @@ Ghi chú:
 │
 ├── /projects/:projectId/tasks
 │   ├── Task list project-level.
+│   ├── Button "Tự động tạo task từ tài liệu" theo quyền `task.create`.
+│   ├── Auto task quét tài liệu active user có quyền xem, tạo task Backlog chưa assign và bỏ qua task trùng.
 │   ├── Hiển thị task, subtask và bug liên quan.
 │   └── Filter theo status/priority/assignee nếu màn hình hỗ trợ.
 │

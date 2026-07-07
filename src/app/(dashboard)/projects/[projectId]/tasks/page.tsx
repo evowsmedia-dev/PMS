@@ -5,11 +5,14 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canAccess } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
+import { getAssignedModuleIdsForUser } from "@/lib/document-type-access";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PageSection } from "@/components/page-shell";
 import { TaskViewTabs } from "@/components/task-view-tabs";
 import { BugStatusSelect } from "@/components/qa-forms";
+import { AutoTaskFromDocumentsDialog } from "@/components/auto-task-from-documents-dialog";
+import { generateTaskCandidatesFromDocuments } from "@/lib/auto-task-generator";
 import { taskHref } from "@/lib/task-href";
 import {
   TASK_STATUS_LABEL,
@@ -41,8 +44,14 @@ export default async function ProjectTasksPage({
   const roleCtx = { systemRole: session.user.systemRole };
   const canCreate = await canAccess(roleCtx, "task.create", projectRole);
   const canEditBug = await canAccess(roleCtx, "bug.edit", projectRole);
+  const assignedModuleIds = await getAssignedModuleIdsForUser({
+    projectId,
+    userId: session.user.id,
+    systemRole: session.user.systemRole,
+    projectRole,
+  });
 
-  const [tasks, bugs] = await Promise.all([
+  const [tasks, bugs, autoTaskDocs] = await Promise.all([
     prisma.task.findMany({
       where: { projectId, deletedAt: null },
       select: {
@@ -64,7 +73,31 @@ export default async function ProjectTasksPage({
       select: { id: true, bugCode: true, title: true, status: true, severity: true, taskId: true },
       orderBy: { createdAt: "asc" },
     }),
+    canCreate
+      ? prisma.document.findMany({
+          where: {
+            projectId,
+            deletedAt: null,
+            ...(assignedModuleIds ? { moduleId: { in: [...assignedModuleIds] } } : {}),
+            module: { deletedAt: null },
+          },
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            currentContent: true,
+            contentFormat: true,
+            moduleId: true,
+            module: { select: { name: true } },
+          },
+          orderBy: [{ module: { sortOrder: "asc" } }, { updatedAt: "desc" }],
+          take: 200,
+        })
+      : Promise.resolve([]),
   ]);
+  const autoTaskCandidateCount = canCreate
+    ? generateTaskCandidatesFromDocuments(autoTaskDocs).length
+    : 0;
 
   type TaskRow = (typeof tasks)[number];
   type BugRow = (typeof bugs)[number];
@@ -112,14 +145,23 @@ export default async function ProjectTasksPage({
       <TaskViewTabs projectId={projectId} active="list" />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-lg font-semibold">Task ({tasks.length})</h1>
-        {canCreate ? (
-          <Button asChild size="sm">
-            <Link href={`/projects/${projectId}/tasks/new`}>
-              <Plus className="size-4" />
-              Tạo mới
-            </Link>
-          </Button>
-        ) : null}
+        <div className="flex flex-wrap items-center gap-2">
+          {canCreate ? (
+            <>
+              <AutoTaskFromDocumentsDialog
+                projectId={projectId}
+                documentCount={autoTaskDocs.length}
+                candidateCount={autoTaskCandidateCount}
+              />
+              <Button asChild size="sm" variant="outline">
+                <Link href={`/projects/${projectId}/tasks/new`}>
+                  <Plus className="size-4" />
+                  Tạo mới
+                </Link>
+              </Button>
+            </>
+          ) : null}
+        </div>
       </div>
       <p className="text-xs text-muted-foreground">
         Sơ đồ cây: task cha › task con / bug phụ thuộc.
