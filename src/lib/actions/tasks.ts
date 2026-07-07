@@ -6,7 +6,9 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canAccess } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
+import { getAssignedModuleIdsForUser } from "@/lib/document-type-access";
 import { logAudit } from "@/lib/audit";
+import { generateTaskCandidatesWithAiFallback } from "@/lib/auto-task-generator";
 import { taskFormSchema } from "@/lib/validation/task";
 import type { ActionState } from "@/lib/actions/profile";
 
@@ -55,6 +57,13 @@ function parseTaskForm(formData: FormData) {
     relatedDocumentId: formData.get("relatedDocumentId") ?? "",
     sourceHighlight: formData.get("sourceHighlight") ?? "",
   });
+}
+
+export interface AutoGenerateTasksState extends ActionState {
+  created?: number;
+  skipped?: number;
+  scannedDocuments?: number;
+  candidates?: number;
 }
 
 /** Module-scoped create (legacy route). Keeps the original lightweight fields. */
@@ -197,6 +206,162 @@ export async function createProjectTaskAction(
 
   revalidateTaskPaths(projectId, null);
   redirect(`/projects/${projectId}/tasks/${task.id}`);
+}
+
+export async function autoGenerateTasksFromDocumentsAction(
+  projectId: string,
+  _prevState: AutoGenerateTasksState,
+): Promise<AutoGenerateTasksState> {
+  void _prevState;
+
+  const session = await auth();
+  if (!session?.user) return { error: "Bạn cần đăng nhập." };
+
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, deletedAt: null },
+    select: { id: true, code: true },
+  });
+  if (!project) return { error: "Không tìm thấy dự án." };
+
+  const projectRole = await getProjectRole(session.user.id, projectId);
+  if (!(await canAccess({ systemRole: session.user.systemRole }, "task.create", projectRole))) {
+    return { error: "Bạn không có quyền tạo task." };
+  }
+
+  const assignedModuleIds = await getAssignedModuleIdsForUser({
+    projectId,
+    userId: session.user.id,
+    systemRole: session.user.systemRole,
+    projectRole,
+  });
+
+  const documents = await prisma.document.findMany({
+    where: {
+      projectId,
+      deletedAt: null,
+      ...(assignedModuleIds ? { moduleId: { in: [...assignedModuleIds] } } : {}),
+      module: { deletedAt: null },
+    },
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      currentContent: true,
+      contentFormat: true,
+      moduleId: true,
+      module: { select: { name: true } },
+    },
+    orderBy: [{ module: { sortOrder: "asc" } }, { updatedAt: "desc" }],
+    take: 200,
+  });
+
+  if (documents.length === 0) {
+    return {
+      success: "Không có tài liệu active để tạo task.",
+      created: 0,
+      skipped: 0,
+      scannedDocuments: 0,
+      candidates: 0,
+    };
+  }
+
+  const candidates = await generateTaskCandidatesWithAiFallback(documents);
+  if (candidates.length === 0) {
+    return {
+      success: `Đã quét ${documents.length} tài liệu nhưng chưa tìm thấy nội dung đủ rõ để tạo task.`,
+      created: 0,
+      skipped: 0,
+      scannedDocuments: documents.length,
+      candidates: 0,
+    };
+  }
+
+  const sourceKeys = candidates.map((candidate) => candidate.sourceKey);
+  const existingTasks = await prisma.task.findMany({
+    where: {
+      projectId,
+      deletedAt: null,
+      relatedDocumentId: { in: documents.map((doc) => doc.id) },
+      sourceHighlight: { in: sourceKeys },
+    },
+    select: { relatedDocumentId: true, sourceHighlight: true },
+  });
+  const existingKeys = new Set(
+    existingTasks.map((task) => `${task.relatedDocumentId ?? ""}:${task.sourceHighlight ?? ""}`),
+  );
+  const creatableCandidates = candidates.filter(
+    (candidate) => !existingKeys.has(`${candidate.documentId}:${candidate.sourceKey}`),
+  );
+
+  if (creatableCandidates.length === 0) {
+    return {
+      success: `Không tạo task mới. ${candidates.length} task dự kiến đã tồn tại.`,
+      created: 0,
+      skipped: candidates.length,
+      scannedDocuments: documents.length,
+      candidates: candidates.length,
+    };
+  }
+
+  const [taskCount, maxOrder] = await Promise.all([
+    prisma.task.count({ where: { projectId } }),
+    prisma.task.aggregate({
+      where: { projectId, status: "BACKLOG", deletedAt: null },
+      _max: { sortOrder: true },
+    }),
+  ]);
+  const taskCodePrefix = (project.code || "TASK").toUpperCase();
+  const firstSortOrder = (maxOrder._max.sortOrder ?? -1) + 1;
+
+  const createdTasks = await prisma.$transaction(
+    creatableCandidates.map((candidate, index) =>
+      prisma.task.create({
+        data: {
+          projectId,
+          moduleId: candidate.moduleId,
+          taskCode: `${taskCodePrefix}-${taskCount + index + 1}`,
+          title: candidate.title,
+          description: candidate.description,
+          acceptanceCriteria: candidate.acceptanceCriteria,
+          type: candidate.type,
+          priority: "MEDIUM",
+          status: "BACKLOG",
+          assigneeId: null,
+          relatedDocumentId: candidate.documentId,
+          sourceHighlight: candidate.sourceKey,
+          createdById: session.user.id,
+          reporterId: session.user.id,
+          sortOrder: firstSortOrder + index,
+        },
+      }),
+    ),
+  );
+
+  await logAudit({
+    actorId: session.user.id,
+    action: "CREATE",
+    entityType: "Task",
+    entityId: createdTasks[0]?.id,
+    projectId,
+    metadata: {
+      mode: "auto_from_documents",
+      created: createdTasks.length,
+      skipped: candidates.length - creatableCandidates.length,
+      scannedDocuments: documents.length,
+    },
+  });
+
+  revalidateTaskPaths(projectId, null);
+  revalidatePath(`/projects/${projectId}/overview`);
+  revalidatePath("/dashboard/my-tasks");
+
+  return {
+    success: `Đã tạo ${createdTasks.length} task, bỏ qua ${candidates.length - creatableCandidates.length} task trùng.`,
+    created: createdTasks.length,
+    skipped: candidates.length - creatableCandidates.length,
+    scannedDocuments: documents.length,
+    candidates: candidates.length,
+  };
 }
 
 /** Sets (or clears) a task's parent for the tree hierarchy. */

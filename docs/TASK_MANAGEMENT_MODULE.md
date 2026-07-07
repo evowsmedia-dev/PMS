@@ -103,7 +103,7 @@ Nav lives in the project sidebar under **"Quản lý công việc"**
 
 | File | Actions |
 |---|---|
-| `src/lib/actions/tasks.ts` | `createTaskAction` (module), `createProjectTaskAction`, `updateTaskAction`, `reassignTaskAction`, `changeTaskStatusAction`, `addTaskCommentAction`, `deleteTaskAction` |
+| `src/lib/actions/tasks.ts` | `createTaskAction` (module), `createProjectTaskAction`, `autoGenerateTasksFromDocumentsAction`, `updateTaskAction`, `reassignTaskAction`, `changeTaskStatusAction`, `addTaskCommentAction`, `deleteTaskAction` |
 | `src/lib/actions/planning.ts` | create / soft-delete for Epic, Sprint, Milestone |
 | `src/lib/actions/qa.ts` | `createBugAction`, `changeBugStatusAction`, `createTestCaseAction`, `submitTestResultAction` |
 | `src/lib/actions/gantt.ts` | `updateTaskScheduleAction`, `addTaskDependencyAction`, `removeTaskDependencyAction` |
@@ -124,6 +124,14 @@ per-project count; mutations `revalidatePath` both the module and project views.
 with the "create bug" toggle: creates a `TestRun` + `TestResult`, auto-creates a
 `Bug` (linked to the case's task), and moves the linked task to **BUG_FIXING** with
 a `TaskHistory` reason. Implements plan §6.3 / §23 data-quality rules.
+
+**Auto task from documents** (`autoGenerateTasksFromDocumentsAction`) — the
+project overview can generate Backlog tasks from active documents the caller can
+access. The rule-based generator prioritizes Functional Spec tables, falls back
+to document sections, links each task to `relatedDocumentId`, stores a stable
+`sourceHighlight` key to avoid duplicate generation, leaves `assigneeId` empty,
+and writes an audit log. The generator exposes a stable internal candidate shape
+so an AI provider can be added later without changing the task-create flow.
 
 **Gantt** — bars positioned across the project's min→max date window, inner fill =
 `progressPercent`, red = overdue, vertical line = today, grouped by epic. Schedule
