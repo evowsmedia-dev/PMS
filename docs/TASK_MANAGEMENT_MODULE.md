@@ -132,8 +132,14 @@ and only persist the selected proposals as Backlog tasks. Proposals must describ
 the work in four blocks: system behavior, user goal, correctness conditions, and
 dev/test checklist. Created tasks link to `relatedDocumentId`, store a stable
 `sourceHighlight` key to avoid duplicate generation, leave `assigneeId` empty,
-and write an audit log. `autoGenerateTasksFromDocumentsAction` remains as a
-compatibility wrapper around the new preview/create flow.
+write an audit log, and record token/cost usage in `AiUsageLog`.
+`autoGenerateTasksFromDocumentsAction` remains as a compatibility wrapper around
+the new preview/create flow.
+
+**AI usage report** (`/admin/ai-usage`) — system admins can view total AI calls,
+input/output tokens, estimated cost, per-user summaries, and recent usage logs.
+Costs are stored per call using the token rates configured in code at the time
+of the AI request.
 
 **Gantt** — bars positioned across the project's min→max date window, inner fill =
 `progressPercent`, red = overdue, vertical line = today, grouped by epic. Schedule

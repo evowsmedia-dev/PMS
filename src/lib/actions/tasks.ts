@@ -10,10 +10,11 @@ import { getProjectRole } from "@/lib/project-role";
 import { getAssignedModuleIdsForUser } from "@/lib/document-type-access";
 import { logAudit } from "@/lib/audit";
 import {
-  generateAiTaskCandidatesFromDocuments,
+  generateAiTaskCandidateResult,
   isAiTaskGenerationConfigured,
   type AutoTaskCandidate,
 } from "@/lib/auto-task-generator";
+import { logAiUsage } from "@/lib/ai-usage";
 import { taskFormSchema, TASK_PRIORITY_ORDER } from "@/lib/validation/task";
 import type { ActionState } from "@/lib/actions/profile";
 
@@ -335,7 +336,19 @@ export async function previewAutoTasksFromDocumentsAction(
 
   let candidates: AutoTaskCandidate[];
   try {
-    candidates = await generateAiTaskCandidatesFromDocuments(documents);
+    const aiResult = await generateAiTaskCandidateResult(documents);
+    candidates = aiResult.candidates;
+    await logAiUsage({
+      userId: session.user.id,
+      projectId,
+      operation: "auto_task_preview",
+      model: aiResult.model,
+      usage: aiResult.usage,
+      metadata: {
+        scannedDocuments: documents.length,
+        generatedCandidates: candidates.length,
+      },
+    });
   } catch (error) {
     console.error("AI task generation failed", {
       name: error instanceof Error ? error.name : "UnknownError",

@@ -206,6 +206,12 @@ Ghi chú:
 ├── /admin/logs
 │   └── Xem audit logs, lọc theo dữ liệu màn hình hỗ trợ.
 │
+├── /admin/ai-usage
+│   ├── Báo cáo token và chi phí AI.
+│   ├── Tổng lượt gọi, input/output token, tổng token, chi phí ước tính.
+│   ├── Bảng thống kê theo user.
+│   └── Log gần đây theo user, dự án, tác vụ, model.
+│
 └── /admin/settings
     ├── Cài đặt hệ thống.
     └── Tổng quan role/permission.
@@ -244,5 +250,6 @@ Admin flow:
   -> [/admin/users]
   -> [/admin/projects]
   -> [/admin/logs]
+  -> [/admin/ai-usage]
   -> [/admin/settings]
   -> [/settings/templates]

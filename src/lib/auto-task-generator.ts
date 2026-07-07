@@ -1,4 +1,4 @@
-import { generateObject } from "ai";
+import { generateObject, type LanguageModelUsage } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 import type { ContentFormat, TaskPriority, TaskType } from "@/generated/prisma/enums";
@@ -69,6 +69,12 @@ const aiTaskProposalSchema = z.object({
 type AiTaskProposalResult = z.infer<typeof aiTaskProposalSchema>;
 type AiTaskProposal = AiTaskProposalResult["tasks"][number];
 
+export interface AiTaskGenerationResult {
+  candidates: AutoTaskCandidate[];
+  usage: LanguageModelUsage;
+  model: string;
+}
+
 export function isAiTaskGenerationConfigured() {
   return Boolean(process.env.OPENAI_API_KEY);
 }
@@ -76,15 +82,29 @@ export function isAiTaskGenerationConfigured() {
 export async function generateAiTaskCandidatesFromDocuments(
   documents: AutoTaskSourceDocument[],
 ): Promise<AutoTaskCandidate[]> {
+  const result = await generateAiTaskCandidateResult(documents);
+  return result.candidates;
+}
+
+export async function generateAiTaskCandidateResult(
+  documents: AutoTaskSourceDocument[],
+): Promise<AiTaskGenerationResult> {
   if (!isAiTaskGenerationConfigured()) {
     throw new Error("AI_TASK_NOT_CONFIGURED");
   }
 
   const contextDocuments = buildAiDocumentContext(documents);
-  if (contextDocuments.length === 0) return [];
+  if (contextDocuments.length === 0) {
+    return {
+      candidates: [],
+      usage: emptyUsage(),
+      model: process.env.AI_TASK_MODEL || DEFAULT_AI_TASK_MODEL,
+    };
+  }
 
-  const { object } = await generateObject({
-    model: openai(process.env.AI_TASK_MODEL || DEFAULT_AI_TASK_MODEL),
+  const model = process.env.AI_TASK_MODEL || DEFAULT_AI_TASK_MODEL;
+  const { object, usage } = await generateObject({
+    model: openai(model),
     schema: aiTaskProposalSchema,
     schemaName: "ProjectTaskProposalList",
     schemaDescription: "Danh sách task dev/test được suy luận từ logic tài liệu dự án.",
@@ -124,7 +144,24 @@ export async function generateAiTaskCandidatesFromDocuments(
     candidates.push(candidate);
   }
 
-  return candidates.slice(0, MAX_CANDIDATES);
+  return { candidates: candidates.slice(0, MAX_CANDIDATES), usage, model };
+}
+
+function emptyUsage(): LanguageModelUsage {
+  return {
+    inputTokens: 0,
+    inputTokenDetails: {
+      noCacheTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+    },
+    outputTokens: 0,
+    outputTokenDetails: {
+      textTokens: 0,
+      reasoningTokens: 0,
+    },
+    totalTokens: 0,
+  };
 }
 
 export function generateTaskCandidatesFromDocuments(

@@ -8,6 +8,7 @@ const ADMIN_NAV = [
   { href: "/admin/users", label: "Người dùng" },
   { href: "/admin/projects", label: "Dự án" },
   { href: "/admin/logs", label: "Nhật ký" },
+  { href: "/admin/ai-usage", label: "AI usage" },
   { href: "/admin/settings", label: "Cài đặt" },
   { href: "/settings/templates", label: "Template" },
 ];
