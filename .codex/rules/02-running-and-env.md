@@ -27,7 +27,8 @@ Environment variables:
 - `SHADOW_DATABASE_URL`: only needed for local `prisma migrate dev`.
 - `NEXTAUTH_URL`: canonical app URL.
 - `NEXTAUTH_SECRET`: JWT signing secret.
-- `BLOB_READ_WRITE_TOKEN`: required for Vercel Blob uploads.
+- `BLOB_READ_WRITE_TOKEN`: required for Vercel Blob uploads and private Blob
+  proxy reads.
 - `ADMIN_EMAIL` / `ADMIN_PASSWORD`: optional seed inputs.
 
 Safety rules:
@@ -37,4 +38,3 @@ Safety rules:
 - If a command fails because the database or network is unavailable, report that
   clearly instead of guessing.
 - Use `npm` for this project because `package-lock.json` is present.
-

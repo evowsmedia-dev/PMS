@@ -8,7 +8,9 @@ Current implementation:
 - React 19, TypeScript, Tailwind CSS v4, shadcn/ui style components.
 - PostgreSQL through Prisma 7 and `@prisma/adapter-pg`.
 - NextAuth v5 Credentials provider with JWT sessions.
-- Vercel Blob for document attachments.
+- Vercel Blob for document attachments and images. Blob stores may be private;
+  uploaded files should render through the authenticated `/api/blob?url=...`
+  proxy rather than assuming public Blob URLs.
 - Server Actions in `src/lib/actions`.
 - Route Handlers in `src/app/api`.
 

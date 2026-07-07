@@ -26,7 +26,8 @@ Deployment notes:
   not visible on the production site until it is committed and pushed.
 - Vercel deployment needs `DATABASE_URL`, `DIRECT_URL`, `NEXTAUTH_URL`,
   `NEXTAUTH_SECRET`, and Blob configuration.
-- `BLOB_READ_WRITE_TOKEN` is required for attachment uploads.
+- `BLOB_READ_WRITE_TOKEN` is required for attachment/image uploads and for
+  streaming private Blob files through `/api/blob`.
 - Seed production once after first deploy when needed.
 - Do not wire seed into the build pipeline.
 
@@ -47,3 +48,5 @@ Risk checks:
 - Confirm soft-deleted records stay hidden from user-facing pages.
 - Confirm document saves create versions, while autosave does not.
 - Confirm upload paths fail gracefully when Blob is not configured.
+- Confirm private Blob uploads do not request public access and uploaded images
+  render through the authenticated `/api/blob?url=...` proxy.

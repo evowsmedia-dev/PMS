@@ -210,7 +210,10 @@ Ghi chú:
 │   └── NextAuth route.
 │
 ├── /api/upload
-│   └── Upload file.
+│   └── Upload file/ảnh lên Vercel Blob private và trả URL proxy nội bộ.
+│
+├── /api/blob
+│   └── Stream file/ảnh từ private Blob qua app auth bằng query `url`.
 │
 ├── /api/projects/:projectId/export
 │   └── Export JSON dự án.

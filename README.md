@@ -7,7 +7,7 @@ Multi-project document & task management app — Next.js (App Router) + PostgreS
 - Next.js 16 (App Router, Turbopack), TypeScript, Tailwind CSS v4, shadcn/ui (strict monochrome theme per `docs/DESIGN_new.md` in the repo root)
 - PostgreSQL via Prisma 7 (driver-adapter architecture — `@prisma/adapter-pg`)
 - NextAuth.js v5 (Credentials provider, JWT sessions)
-- Vercel Blob for file attachments
+- Vercel Blob for file attachments and document images, accessed through app-authenticated proxy URLs when the Blob store is private
 - `@dnd-kit` (module sidebar + Kanban drag-and-drop), `react-markdown` (document rendering), `zod` (validation)
 
 ## Local development
@@ -30,7 +30,7 @@ Multi-project document & task management app — Next.js (App Router) + PostgreS
 | `SHADOW_DATABASE_URL` | Only needed for `prisma migrate dev` locally |
 | `NEXTAUTH_URL` | Canonical app URL (e.g. `http://localhost:3000` or the Vercel deployment URL) |
 | `NEXTAUTH_SECRET` | JWT signing secret — generate with `openssl rand -base64 32` |
-| `BLOB_READ_WRITE_TOKEN` | Auto-injected by Vercel when a Blob store is linked to the project |
+| `BLOB_READ_WRITE_TOKEN` | Auto-injected by Vercel when a Blob store is linked to the project; required for private Blob uploads and proxy reads |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Optional, used only by `prisma/seed.ts` |
 
 ## Deploying to Vercel
@@ -42,7 +42,7 @@ Multi-project document & task management app — Next.js (App Router) + PostgreS
    ```
    (or add this as the `"build"` script in `package.json` so Vercel's default `npm run build` picks it up).
 3. **Auth**: set `NEXTAUTH_SECRET` and `NEXTAUTH_URL` per Vercel environment (Production/Preview).
-4. **Blob storage**: enable Vercel Blob from the dashboard and link it to the project — this auto-injects `BLOB_READ_WRITE_TOKEN`, required for document attachments (`/api/upload`).
+4. **Blob storage**: enable Vercel Blob from the dashboard and link it to the project — this auto-injects `BLOB_READ_WRITE_TOKEN`, required for document attachments and images. Uploads use `/api/upload`; private Blob reads are streamed through `/api/blob?url=...` after app auth.
 5. **Seed data**: after the first successful deploy, run the seed once against the production database (`ADMIN_EMAIL=... ADMIN_PASSWORD=... DATABASE_URL=<prod-url> npx prisma db seed`, run locally with the Vercel-provided `DATABASE_URL`, or via `vercel env pull` + local run). Do not wire seeding into the build pipeline — it should not re-run on every deploy.
 6. Runtime: all Prisma-touching Route Handlers/Server Actions run on the Node.js runtime (default); `src/proxy.ts` (the renamed Next.js 16 middleware) also defaults to the Node.js runtime and only does a lightweight session/role check, no DB calls.
 
