@@ -174,7 +174,7 @@ admin role-permission matrix (system setting `rolePermissionMatrix`).
   When missing, the UI reports that AI is not configured and does not create
   tasks.
 - **`AI_TASK_MODEL`** — optional OpenAI model override for AI task generation.
-  Defaults to `gpt-5.5`.
+  Defaults to `gpt-5.4-mini`.
 - **`vercel.json`** — `crons` entry runs `/api/cron/daily-project-snapshots` at
   `0 1 * * *`.
 - **Migration** — applied on deploy by `prisma migrate deploy` (in the build

@@ -336,9 +336,13 @@ export async function previewAutoTasksFromDocumentsAction(
   let candidates: AutoTaskCandidate[];
   try {
     candidates = await generateAiTaskCandidatesFromDocuments(documents);
-  } catch {
+  } catch (error) {
+    console.error("AI task generation failed", {
+      name: error instanceof Error ? error.name : "UnknownError",
+      message: error instanceof Error ? error.message : String(error),
+    });
     return {
-      error: "AI chưa tạo được task từ tài liệu. Vui lòng kiểm tra cấu hình model/API key hoặc thử lại.",
+      error: getAiTaskGenerationErrorMessage(error),
       scannedDocuments: documents.length,
       candidates: 0,
       proposals: [],
@@ -366,6 +370,24 @@ export async function previewAutoTasksFromDocumentsAction(
     candidates: candidates.length,
     proposals,
   };
+}
+
+function getAiTaskGenerationErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  const lowerMessage = message.toLowerCase();
+  if (lowerMessage.includes("model") || lowerMessage.includes("not found") || lowerMessage.includes("404")) {
+    return "AI model hiện không khả dụng. Vui lòng kiểm tra AI_TASK_MODEL hoặc dùng model khác.";
+  }
+  if (lowerMessage.includes("api key") || lowerMessage.includes("unauthorized") || lowerMessage.includes("401")) {
+    return "OPENAI_API_KEY không hợp lệ hoặc không có quyền gọi model hiện tại.";
+  }
+  if (lowerMessage.includes("rate limit") || lowerMessage.includes("429")) {
+    return "OpenAI đang giới hạn request. Vui lòng thử lại sau ít phút.";
+  }
+  if (lowerMessage.includes("schema") || lowerMessage.includes("validation")) {
+    return "AI trả dữ liệu chưa đúng format task. Vui lòng thử lại.";
+  }
+  return "AI chưa tạo được task từ tài liệu. Vui lòng kiểm tra cấu hình model/API key hoặc thử lại.";
 }
 
 export async function createAutoTasksFromDocumentsAction(

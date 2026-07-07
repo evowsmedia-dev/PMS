@@ -32,7 +32,7 @@ Multi-project document & task management app — Next.js (App Router) + PostgreS
 | `NEXTAUTH_SECRET` | JWT signing secret — generate with `openssl rand -base64 32` |
 | `BLOB_READ_WRITE_TOKEN` | Auto-injected by Vercel when a Blob store is linked to the project; required for private Blob uploads and proxy reads |
 | `OPENAI_API_KEY` | Required for AI auto task generation from project documents |
-| `AI_TASK_MODEL` | Optional model override for AI auto task generation; defaults to `gpt-5.5` |
+| `AI_TASK_MODEL` | Optional model override for AI auto task generation; defaults to `gpt-5.4-mini` |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Optional, used only by `prisma/seed.ts` |
 
 ## Deploying to Vercel

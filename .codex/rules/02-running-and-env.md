@@ -32,7 +32,7 @@ Environment variables:
 - `OPENAI_API_KEY`: required for AI auto task generation from project
   documents.
 - `AI_TASK_MODEL`: optional OpenAI model override for AI auto task generation;
-  defaults to `gpt-5.5` in code when unset.
+  defaults to `gpt-5.4-mini` in code when unset.
 - `ADMIN_EMAIL` / `ADMIN_PASSWORD`: optional seed inputs.
 
 Safety rules:

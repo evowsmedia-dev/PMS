@@ -43,22 +43,23 @@ const AI_CONFIDENCE_THRESHOLD = 0.65;
 const MAX_AI_DOCUMENTS = 60;
 const MAX_CONTEXT_CHARS_PER_DOCUMENT = 12000;
 const MAX_TOTAL_CONTEXT_CHARS = 90000;
+const DEFAULT_AI_TASK_MODEL = "gpt-5.4-mini";
 
 const aiTaskProposalSchema = z.object({
   tasks: z.array(
     z.object({
-      title: z.string().min(8).max(180),
+      title: z.string().min(1).max(180),
       type: z.enum(["STORY", "TASK", "TEST"]),
       priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]),
       sourceDocumentId: z.string().min(1),
       sourceKey: z.string().min(1).max(180),
-      sourceEvidence: z.string().min(12).max(500),
-      systemNeed: z.string().min(12).max(1500),
-      userGoal: z.string().min(12).max(1500),
-      correctnessConditions: z.array(z.string().min(3).max(400)).max(12),
-      devChecklist: z.array(z.string().min(3).max(400)).max(12),
-      testChecklist: z.array(z.string().min(3).max(400)).max(12),
-      acceptanceCriteria: z.array(z.string().min(3).max(400)).max(12),
+      sourceEvidence: z.string().min(1).max(500),
+      systemNeed: z.string().min(1).max(1500),
+      userGoal: z.string().min(1).max(1500),
+      correctnessConditions: z.array(z.string().min(1).max(400)).max(12),
+      devChecklist: z.array(z.string().min(1).max(400)).max(12),
+      testChecklist: z.array(z.string().min(1).max(400)).max(12),
+      acceptanceCriteria: z.array(z.string().min(1).max(400)).max(12),
       confidence: z.number().min(0).max(1),
       needsClarification: z.boolean(),
     }),
@@ -83,7 +84,7 @@ export async function generateAiTaskCandidatesFromDocuments(
   if (contextDocuments.length === 0) return [];
 
   const { object } = await generateObject({
-    model: openai(process.env.AI_TASK_MODEL || "gpt-5.5"),
+    model: openai(process.env.AI_TASK_MODEL || DEFAULT_AI_TASK_MODEL),
     schema: aiTaskProposalSchema,
     schemaName: "ProjectTaskProposalList",
     schemaDescription: "Danh sách task dev/test được suy luận từ logic tài liệu dự án.",
