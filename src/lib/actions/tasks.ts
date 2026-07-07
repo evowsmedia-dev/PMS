@@ -15,7 +15,8 @@ import {
   type AutoTaskCandidate,
 } from "@/lib/auto-task-generator";
 import { logAiUsage } from "@/lib/ai-usage";
-import { taskFormSchema, TASK_PRIORITY_ORDER } from "@/lib/validation/task";
+import { taskFormSchema, taskTimeLogSchema, TASK_PRIORITY_ORDER } from "@/lib/validation/task";
+import { deriveTaskEffortFields, refreshTaskDerivedFields } from "@/lib/task-rules";
 import type { ActionState } from "@/lib/actions/profile";
 
 /** Revalidate both the module-scoped and project-scoped task views so a change
@@ -23,6 +24,8 @@ import type { ActionState } from "@/lib/actions/profile";
 function revalidateTaskPaths(projectId: string, moduleId: string | null, taskId?: string) {
   revalidatePath(`/projects/${projectId}/tasks`);
   revalidatePath(`/projects/${projectId}/kanban`);
+  revalidatePath(`/projects/${projectId}/overview`);
+  revalidatePath(`/dashboard/my-tasks`);
   if (taskId) revalidatePath(`/projects/${projectId}/tasks/${taskId}`);
   if (moduleId) {
     revalidatePath(`/projects/${projectId}/modules/${moduleId}/tasks`);
@@ -56,8 +59,15 @@ function parseTaskForm(formData: FormData) {
     milestoneId: formData.get("milestoneId") ?? "",
     parentTaskId: formData.get("parentTaskId") ?? "",
     startDate: formData.get("startDate") ?? "",
+    plannedStartAt: formData.get("plannedStartAt") ?? formData.get("startDate") ?? "",
     dueDate: formData.get("dueDate") ?? "",
+    devDueAt: formData.get("devDueAt") ?? formData.get("dueDate") ?? "",
+    testDueAt: formData.get("testDueAt") ?? "",
     estimateHours: formData.get("estimateHours") ?? undefined,
+    devEstimateHours: formData.get("devEstimateHours") ?? formData.get("estimateHours") ?? undefined,
+    testEstimateHours: formData.get("testEstimateHours") ?? undefined,
+    testEstimateSource: formData.get("testEstimateSource") || "AUTO",
+    standardEstimateMandays: formData.get("standardEstimateMandays") ?? undefined,
     storyPoint: formData.get("storyPoint") ?? undefined,
     acceptanceCriteria: formData.get("acceptanceCriteria") ?? "",
     relatedDocumentId: formData.get("relatedDocumentId") ?? "",
@@ -124,6 +134,18 @@ export async function createTaskAction(
     where: { projectId, moduleId, status: "TODO", deletedAt: null },
     _max: { sortOrder: true },
   });
+  const status = "TODO";
+  const devDueAt = values.devDueAt ? new Date(values.devDueAt) : values.dueDate ? new Date(values.dueDate) : null;
+  const testDueAt = values.testDueAt ? new Date(values.testDueAt) : null;
+  const derived = deriveTaskEffortFields({
+    status,
+    devEstimateHours: values.devEstimateHours ?? values.estimateHours ?? 0,
+    testEstimateHours: values.testEstimateHours ?? null,
+    testEstimateSource: values.testEstimateSource,
+    standardEstimateMandays: values.standardEstimateMandays ?? 0,
+    devDueAt,
+    testDueAt,
+  });
 
   const task = await prisma.task.create({
     data: {
@@ -134,8 +156,13 @@ export async function createTaskAction(
       description: values.description || null,
       assigneeId: values.assigneeId || null,
       priority: values.priority,
-      status: "TODO",
+      status,
       dueDate: values.dueDate ? new Date(values.dueDate) : null,
+      startDate: values.startDate ? new Date(values.startDate) : null,
+      plannedStartAt: values.plannedStartAt ? new Date(values.plannedStartAt) : null,
+      devDueAt,
+      testDueAt,
+      ...derived,
       relatedDocumentId: values.relatedDocumentId || null,
       sourceHighlight: values.sourceHighlight || null,
       createdById: session.user.id,
@@ -181,6 +208,23 @@ export async function createProjectTaskAction(
     where: { projectId, status: "BACKLOG", deletedAt: null },
     _max: { sortOrder: true },
   });
+  const status = "BACKLOG";
+  const plannedStartAt = values.plannedStartAt
+    ? new Date(values.plannedStartAt)
+    : values.startDate
+      ? new Date(values.startDate)
+      : null;
+  const devDueAt = values.devDueAt ? new Date(values.devDueAt) : values.dueDate ? new Date(values.dueDate) : null;
+  const testDueAt = values.testDueAt ? new Date(values.testDueAt) : null;
+  const derived = deriveTaskEffortFields({
+    status,
+    devEstimateHours: values.devEstimateHours ?? values.estimateHours ?? 0,
+    testEstimateHours: values.testEstimateHours ?? null,
+    testEstimateSource: values.testEstimateSource,
+    standardEstimateMandays: values.standardEstimateMandays ?? 0,
+    devDueAt,
+    testDueAt,
+  });
 
   const task = await prisma.task.create({
     data: {
@@ -190,7 +234,7 @@ export async function createProjectTaskAction(
       description: values.description || null,
       type: values.type,
       priority: values.priority,
-      status: "BACKLOG",
+      status,
       assigneeId: values.assigneeId || null,
       reviewerId: values.reviewerId || null,
       testerId: values.testerId || null,
@@ -199,8 +243,11 @@ export async function createProjectTaskAction(
       milestoneId: values.milestoneId || null,
       parentTaskId: values.parentTaskId || null,
       startDate: values.startDate ? new Date(values.startDate) : null,
+      plannedStartAt,
       dueDate: values.dueDate ? new Date(values.dueDate) : null,
-      estimateHours: values.estimateHours ?? 0,
+      devDueAt,
+      testDueAt,
+      ...derived,
       storyPoint: values.storyPoint ?? 0,
       acceptanceCriteria: values.acceptanceCriteria || null,
       relatedDocumentId: values.relatedDocumentId || null,
@@ -226,6 +273,7 @@ export async function createProjectTaskAction(
       })),
       skipDuplicates: true,
     });
+    await refreshTaskDerivedFields(task.id);
   }
 
   await logAudit({
@@ -630,7 +678,22 @@ export async function updateTaskDueDateAction(
 
   await prisma.task.update({
     where: { id: taskId },
-    data: { dueDate: nextDue },
+    data: {
+      dueDate: nextDue,
+      devDueAt: nextDue,
+      ...deriveTaskEffortFields({
+        status: before.status,
+        devEstimateHours: Number(before.devEstimateHours),
+        testEstimateHours: Number(before.testEstimateHours),
+        testEstimateSource: before.testEstimateSource,
+        standardEstimateMandays: Number(before.standardEstimateMandays),
+        actualDevHours: Number(before.actualDevHours),
+        actualTestHours: Number(before.actualTestHours),
+        devDueAt: nextDue,
+        testDueAt: before.testDueAt,
+        isBlocked: before.isBlocked,
+      }),
+    },
   });
 
   await prisma.taskHistory.create({
@@ -675,26 +738,83 @@ export async function updateTaskAction(
   const values = parsed.data;
 
   const before = await prisma.task.findUniqueOrThrow({ where: { id: taskId } });
+  const has = (key: string) => formData.has(key);
+  const nextType = has("type") ? values.type : before.type;
+  const nextAssigneeId = has("assigneeId") ? values.assigneeId || null : before.assigneeId;
+  const nextReviewerId = has("reviewerId") ? values.reviewerId || null : before.reviewerId;
+  const nextTesterId = has("testerId") ? values.testerId || null : before.testerId;
+  const nextEpicId = has("epicId") ? values.epicId || null : before.epicId;
+  const nextSprintId = has("sprintId") ? values.sprintId || null : before.sprintId;
+  const nextMilestoneId = has("milestoneId") ? values.milestoneId || null : before.milestoneId;
+  const nextParentTaskId = has("parentTaskId") ? values.parentTaskId || null : before.parentTaskId;
+  const nextStartDate = has("startDate")
+    ? values.startDate
+      ? new Date(values.startDate)
+      : null
+    : before.startDate;
+  const plannedStartAt = values.plannedStartAt
+    ? new Date(values.plannedStartAt)
+    : values.startDate && has("plannedStartAt")
+      ? new Date(values.startDate)
+      : has("plannedStartAt")
+        ? null
+        : before.plannedStartAt;
+  const nextDueDate = has("dueDate")
+    ? values.dueDate
+      ? new Date(values.dueDate)
+      : null
+    : before.dueDate;
+  const devDueAt = has("devDueAt")
+    ? values.devDueAt
+      ? new Date(values.devDueAt)
+      : values.dueDate
+        ? new Date(values.dueDate)
+        : null
+    : before.devDueAt;
+  const testDueAt = has("testDueAt") ? (values.testDueAt ? new Date(values.testDueAt) : null) : before.testDueAt;
+  const nextTestEstimateSource = has("testEstimateSource") ? values.testEstimateSource : before.testEstimateSource;
+  const derived = deriveTaskEffortFields({
+    status: before.status,
+    devEstimateHours: has("devEstimateHours")
+      ? values.devEstimateHours ?? 0
+      : has("estimateHours")
+        ? values.estimateHours ?? 0
+        : Number(before.devEstimateHours),
+    testEstimateHours: has("testEstimateHours") ? values.testEstimateHours ?? 0 : Number(before.testEstimateHours),
+    testEstimateSource: nextTestEstimateSource,
+    standardEstimateMandays: has("standardEstimateMandays")
+      ? values.standardEstimateMandays ?? 0
+      : Number(before.standardEstimateMandays),
+    actualDevHours: Number(before.actualDevHours),
+    actualTestHours: Number(before.actualTestHours),
+    devDueAt,
+    testDueAt,
+    isBlocked: before.isBlocked,
+  });
 
   await prisma.task.update({
     where: { id: taskId },
     data: {
       title: values.title,
       description: values.description || null,
-      type: values.type,
-      assigneeId: values.assigneeId || null,
-      reviewerId: values.reviewerId || null,
-      testerId: values.testerId || null,
+      type: nextType,
+      assigneeId: nextAssigneeId,
+      reviewerId: nextReviewerId,
+      testerId: nextTesterId,
       priority: values.priority,
-      epicId: values.epicId || null,
-      sprintId: values.sprintId || null,
-      milestoneId: values.milestoneId || null,
-      startDate: values.startDate ? new Date(values.startDate) : null,
-      dueDate: values.dueDate ? new Date(values.dueDate) : null,
-      estimateHours: values.estimateHours ?? before.estimateHours,
+      epicId: nextEpicId,
+      sprintId: nextSprintId,
+      milestoneId: nextMilestoneId,
+      parentTaskId: nextParentTaskId,
+      startDate: nextStartDate,
+      plannedStartAt,
+      dueDate: nextDueDate,
+      devDueAt,
+      testDueAt,
+      ...derived,
       storyPoint: values.storyPoint ?? before.storyPoint,
       acceptanceCriteria: values.acceptanceCriteria || null,
-      relatedDocumentId: values.relatedDocumentId || null,
+      relatedDocumentId: has("relatedDocumentId") ? values.relatedDocumentId || null : before.relatedDocumentId,
     },
   });
 
@@ -705,13 +825,13 @@ export async function updateTaskAction(
     oldValue: string | null;
     newValue: string | null;
   }[] = [];
-  if (before.assigneeId !== (values.assigneeId || null)) {
+  if (before.assigneeId !== nextAssigneeId) {
     historyEntries.push({
       taskId,
       changedById: session.user.id,
       field: "assignee",
       oldValue: before.assigneeId,
-      newValue: values.assigneeId || null,
+      newValue: nextAssigneeId,
     });
   }
   if (before.priority !== values.priority) {
@@ -797,13 +917,25 @@ export async function changeTaskStatusAction(
 
   const before = await prisma.task.findUniqueOrThrow({ where: { id: taskId } });
   if (before.status === status) return;
+  const derived = deriveTaskEffortFields({
+    status,
+    devEstimateHours: Number(before.devEstimateHours),
+    testEstimateHours: Number(before.testEstimateHours),
+    testEstimateSource: before.testEstimateSource,
+    standardEstimateMandays: Number(before.standardEstimateMandays),
+    actualDevHours: Number(before.actualDevHours),
+    actualTestHours: Number(before.actualTestHours),
+    devDueAt: before.devDueAt,
+    testDueAt: before.testDueAt,
+    isBlocked: before.isBlocked,
+  });
 
   await prisma.task.update({
     where: { id: taskId },
     data: {
       status: status as never,
       completedAt: status === "DONE" ? new Date() : status === before.status ? undefined : null,
-      progressPercent: status === "DONE" ? 100 : before.progressPercent,
+      ...derived,
     },
   });
 
@@ -828,6 +960,11 @@ export async function changeTaskStatusAction(
   });
 
   revalidateTaskPaths(projectId, moduleId, taskId);
+  const dependents = await prisma.taskDependency.findMany({
+    where: { dependsOnTaskId: taskId },
+    select: { taskId: true },
+  });
+  await Promise.all(dependents.map((dependent) => refreshTaskDerivedFields(dependent.taskId)));
 }
 
 export async function addTaskCommentAction(
@@ -848,9 +985,51 @@ export async function addTaskCommentAction(
   const content = String(formData.get("content") ?? "").trim();
   if (!content) return { error: "Nội dung không được để trống." };
 
-  await prisma.comment.create({
-    data: { taskId, authorId: session.user.id, content },
+  const mentionNames = Array.from(content.matchAll(/@([\w.]+)/g)).map((m) => m[1]);
+  const members = mentionNames.length
+    ? await prisma.projectMember.findMany({
+        where: { projectId },
+        include: { user: { select: { id: true, fullName: true, email: true } } },
+      })
+    : [];
+  const mentionedUserIds = new Set<string>();
+  for (const name of mentionNames) {
+    const match = members.find(
+      (m) =>
+        m.user.email.split("@")[0].toLowerCase() === name.toLowerCase() ||
+        m.user.fullName.replaceAll(" ", "").toLowerCase() === name.toLowerCase(),
+    );
+    if (match) mentionedUserIds.add(match.user.id);
+  }
+
+  const task = await prisma.task.findFirst({
+    where: { id: taskId, projectId, deletedAt: null },
+    select: { title: true, taskCode: true },
   });
+
+  const comment = await prisma.comment.create({
+    data: {
+      taskId,
+      authorId: session.user.id,
+      content,
+      mentions: {
+        create: Array.from(mentionedUserIds).map((userId) => ({ userId })),
+      },
+    },
+  });
+  if (mentionedUserIds.size > 0) {
+    await prisma.notification.createMany({
+      data: Array.from(mentionedUserIds).map((userId) => ({
+        userId,
+        type: "task_mention",
+        title: `Bạn được nhắc trong task ${task?.taskCode ?? ""}`.trim(),
+        content: task?.title ?? content.slice(0, 120),
+        entityType: "Task",
+        entityId: taskId,
+        projectId,
+      })),
+    });
+  }
 
   await logAudit({
     actorId: session.user.id,
@@ -858,10 +1037,75 @@ export async function addTaskCommentAction(
     entityType: "Task",
     entityId: taskId,
     projectId,
+    metadata: { commentId: comment.id, mentionedUserIds: Array.from(mentionedUserIds) },
   });
 
   revalidateTaskPaths(projectId, moduleId, taskId);
   return { success: "Đã gửi nhận xét." };
+}
+
+export async function addTaskTimeLogAction(
+  projectId: string,
+  moduleId: string | null,
+  taskId: string,
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await auth();
+  if (!session?.user) return { error: "Bạn cần đăng nhập." };
+
+  const projectRole = await getProjectRole(session.user.id, projectId);
+  if (!(await canAccess({ systemRole: session.user.systemRole }, "task.edit", projectRole))) {
+    return { error: "Bạn không có quyền log giờ cho task này." };
+  }
+
+  const task = await prisma.task.findFirst({
+    where: { id: taskId, projectId, deletedAt: null },
+    select: { id: true },
+  });
+  if (!task) return { error: "Không tìm thấy task." };
+
+  const parsed = taskTimeLogSchema.safeParse({
+    workType: formData.get("workType") || "DEV",
+    workDate: formData.get("workDate") ?? "",
+    hours: formData.get("hours") ?? "",
+    description: formData.get("description") ?? "",
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dữ liệu log giờ không hợp lệ." };
+  }
+  const values = parsed.data;
+
+  const timeLog = await prisma.timeLog.create({
+    data: {
+      taskId,
+      userId: session.user.id,
+      workType: values.workType,
+      workDate: new Date(values.workDate),
+      hours: values.hours,
+      description: values.description || null,
+    },
+  });
+
+  await refreshTaskDerivedFields(taskId);
+
+  await logAudit({
+    actorId: session.user.id,
+    action: "UPDATE",
+    entityType: "Task",
+    entityId: taskId,
+    projectId,
+    metadata: {
+      field: "timeLog",
+      timeLogId: timeLog.id,
+      workType: values.workType,
+      hours: values.hours,
+    },
+  });
+
+  revalidateTaskPaths(projectId, moduleId, taskId);
+  revalidatePath(`/projects/${projectId}/overview`);
+  return { success: "Đã ghi nhận giờ làm." };
 }
 
 /** Soft-delete a task. */

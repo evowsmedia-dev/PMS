@@ -66,7 +66,9 @@ export default async function GanttPage({
   const min = Math.min(...dates);
   const max = Math.max(...dates);
   const spanMs = Math.max(max - min, DAY_MS);
-  const now = Date.now();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const now = today.getTime();
 
   function bar(startMs: number | null, endMs: number | null) {
     const s = startMs ?? endMs ?? min;

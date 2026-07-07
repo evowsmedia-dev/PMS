@@ -106,15 +106,25 @@ export default async function ProjectOverviewPage({
 
   const completionRate =
     metrics.totalTasks > 0 ? Math.round((metrics.completedTasks / metrics.totalTasks) * 100) : 0;
+  const effortVariance =
+    metrics.totalEstimateHours > 0
+      ? Math.round(((metrics.totalActualHours - metrics.totalEstimateHours) / metrics.totalEstimateHours) * 100)
+      : 0;
 
   const taskStats = [
     { label: "Tổng task", value: metrics.totalTasks },
     { label: "Hoàn thành", value: metrics.completedTasks },
     { label: "Tỷ lệ hoàn thành", value: `${completionRate}%` },
     { label: "Quá hạn", value: metrics.overdueTasks, alert: metrics.overdueTasks > 0 },
+    { label: "Blocked", value: metrics.blockedTasks, alert: metrics.blockedTasks > 0 },
     {
       label: "Giờ ước tính / thực tế",
       value: `${metrics.totalEstimateHours} / ${metrics.totalActualHours}`,
+    },
+    {
+      label: "Variance ngày công",
+      value: `${effortVariance}%`,
+      alert: effortVariance > 20,
     },
   ];
 
@@ -266,7 +276,13 @@ function StatusDonut({
   const stroke = 20;
   const radius = (size - stroke) / 2;
   const circ = 2 * Math.PI * radius;
-  let offset = 0;
+  const renderedSegments = segments.map((segment, index) => {
+    const length = (segment.value / total) * circ;
+    const offset = segments
+      .slice(0, index)
+      .reduce((sum, previous) => sum + (previous.value / total) * circ, 0);
+    return { ...segment, length, offset };
+  });
 
   return (
     <div className="flex flex-col items-center gap-4">
@@ -286,24 +302,19 @@ function StatusDonut({
             strokeOpacity={0.12}
             strokeWidth={stroke}
           />
-          {segments.map((s, i) => {
-            const len = (s.value / total) * circ;
-            const el = (
-              <circle
-                key={i}
-                cx={size / 2}
-                cy={size / 2}
-                r={radius}
-                fill="none"
-                stroke={s.color}
-                strokeWidth={stroke}
-                strokeDasharray={`${len} ${circ - len}`}
-                strokeDashoffset={-offset}
-              />
-            );
-            offset += len;
-            return el;
-          })}
+          {renderedSegments.map((s, i) => (
+            <circle
+              key={i}
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              fill="none"
+              stroke={s.color}
+              strokeWidth={stroke}
+              strokeDasharray={`${s.length} ${circ - s.length}`}
+              strokeDashoffset={-s.offset}
+            />
+          ))}
         </g>
         <text
           x="50%"

@@ -35,6 +35,9 @@ tester), dates, and estimate / story-point / progress fields.
 | `TaskStatus` | BACKLOG, TODO, IN_PROGRESS, CODE_REVIEW, READY_FOR_QA, TESTING, BUG_FIXING, REOPENED, READY_FOR_UAT, DONE, CANCELLED, BLOCKED |
 | `TaskType` | EPIC, STORY, TASK, SUBTASK, BUG, IMPROVEMENT, RESEARCH, DOCUMENTATION, TEST, UAT |
 | `TaskPriority` | LOW, MEDIUM, HIGH, CRITICAL |
+| `TestEstimateSource` | AUTO, MANUAL |
+| `TaskWorkType` | DEV, TEST, BA, PM, REVIEW, OTHER |
+| `CommentMentionStatus` | PENDING, SEEN, RESOLVED |
 | `BugSeverity` | MINOR, MEDIUM, MAJOR, CRITICAL, BLOCKER |
 | `BugStatus` | OPEN, IN_PROGRESS, FIXED, VERIFIED, CLOSED, REOPENED |
 | `TestCaseStatus` | DRAFT, ACTIVE, DEPRECATED |
@@ -51,18 +54,26 @@ The Kanban board renders the 12 `TaskStatus` values as columns
 
 ## 3. Data model
 
-Migration: `prisma/migrations/20260705120000_add_task_management_module/`.
+Migrations:
+
+- `prisma/migrations/20260705120000_add_task_management_module/`
+- `prisma/migrations/20260707043000_task_effort_time_tracking/`
 
 **`Task` (extended)** — key added fields: `moduleId` (now **nullable**), `taskCode`,
 `type`, `severity`, `epicId`, `sprintId`, `milestoneId`, `parentTaskId`
 (self-relation `TaskSubtasks`), `reporterId`, `reviewerId`, `testerId`, `startDate`,
 `completedAt`, `estimateHours`, `actualHours`, `storyPoint`, `progressPercent`,
-`blockedReason`, `acceptanceCriteria`, `requirementId`.
+`blockedReason`, `acceptanceCriteria`, `requirementId`, plus reporting-first
+effort fields: `devEstimateHours`, `testEstimateHours`, `testEstimateSource`,
+`standardEstimateMandays`, `actualDevHours`, `actualTestHours`,
+`plannedStartAt`, `devDueAt`, `testDueAt`, `estimateWarningFlag`,
+`isDevOverdue`, `isTestOverdue`, `isBlocked`.
 
 **New models:** `Epic`, `Sprint`, `Milestone`, `TaskAssignment`, `TaskDependency`
 (`task` → `dependsOnTask`, unique per pair), `TimeLog`, `Bug`, `TestCase`,
 `TestRun`, `TestResult`, `DailyProjectSnapshot` (unique per `projectId +
-snapshotDate`). `TaskHistory` gained a `reason` field (required on reopen).
+snapshotDate`), `Notification`. `TaskHistory` gained a `reason` field (required on
+reopen). `CommentMention` tracks pending/seen/resolved mention state.
 
 **Reused, not duplicated:** `AuditLog` + `logAudit()` (`src/lib/audit.ts`) is the
 activity log; `TaskHistory` is the status/field history; `Comment` (already had
@@ -75,9 +86,9 @@ as-is.
 
 | Route | Page |
 |---|---|
-| `tasks` | Task list (filter by status / priority / assignee) |
-| `tasks/new` | Create task (full planning form) |
-| `tasks/[taskId]` | Task detail: status/assignee, planning meta, schedule + dependencies, QA links, history, comments |
+| `tasks` | Task list with hierarchy, status/type/warning filters, effort/deadline/warning fields, AI auto-task action |
+| `tasks/new` | Create task/bug with full planning, Dev/Test/Standard estimates, and dependency fields |
+| `tasks/[taskId]` | Task detail: status/assignee, planning meta, effort/deadline warnings, dependencies, QA links, time log, history, comments |
 | `kanban` | 12-column drag-and-drop board (filter assignee / priority / sprint) |
 | `gantt` | CSS timeline grouped by epic, progress bars, overdue markers, today line |
 | `epics` / `sprints` / `milestones` | List + inline create + task counts |
@@ -103,7 +114,7 @@ Nav lives in the project sidebar under **"Quản lý công việc"**
 
 | File | Actions |
 |---|---|
-| `src/lib/actions/tasks.ts` | `createTaskAction` (module), `createProjectTaskAction`, `previewAutoTasksFromDocumentsAction`, `createAutoTasksFromDocumentsAction`, `autoGenerateTasksFromDocumentsAction` (compat), `updateTaskAction`, `reassignTaskAction`, `changeTaskStatusAction`, `addTaskCommentAction`, `deleteTaskAction` |
+| `src/lib/actions/tasks.ts` | `createTaskAction` (module), `createProjectTaskAction`, `previewAutoTasksFromDocumentsAction`, `createAutoTasksFromDocumentsAction`, `autoGenerateTasksFromDocumentsAction` (compat), `updateTaskAction`, `reassignTaskAction`, `changeTaskStatusAction`, `addTaskCommentAction`, `addTaskTimeLogAction`, `deleteTaskAction` |
 | `src/lib/actions/planning.ts` | create / soft-delete for Epic, Sprint, Milestone |
 | `src/lib/actions/qa.ts` | `createBugAction`, `changeBugStatusAction`, `createTestCaseAction`, `submitTestResultAction` |
 | `src/lib/actions/gantt.ts` | `updateTaskScheduleAction`, `addTaskDependencyAction`, `removeTaskDependencyAction` |
@@ -112,13 +123,33 @@ Nav lives in the project sidebar under **"Quản lý công việc"**
 Conventions: every status/field change writes a `TaskHistory` row **and** a
 `logAudit` entry; `taskCode` / `bugCode` / `testCaseCode` are auto-generated from a
 per-project count; mutations `revalidatePath` both the module and project views.
+Shared task calculations live in `src/lib/task-rules.ts` so create/edit/status,
+dependency, Kanban status changes, time log, snapshot reports, and My Tasks use
+the same effort/progress/overdue/blocked behavior.
 
 ---
 
 ## 6. Key workflows
 
 **Status change** — records `TaskHistory` + audit; sets `completedAt` /
-`progressPercent = 100` on DONE; captures a `reason` on REOPENED / BUG_FIXING.
+`progressPercent = 100` on DONE, maps intermediate statuses to standard progress
+percentages, and refreshes dependent task blocked flags when a dependency moves.
+
+**Effort / deadline tracking** — Dev estimate is entered manually; Test estimate
+defaults to `Dev * 30%` rounded to 0.5h while `testEstimateSource = AUTO`; manual
+test estimates are preserved when `testEstimateSource = MANUAL`. Standard
+estimate is stored in mandays. Actual Dev/Test hours are recalculated from
+`TimeLog` rows by `TaskWorkType`.
+
+**Warnings and progress** — `estimateWarningFlag` stores
+`DEV_OVER_STANDARD` when Dev estimate exceeds Standard * 8h * 120%, or
+`TEST_GREATER_THAN_DEV` when Test estimate is greater than Dev estimate. Dev/Test
+overdue flags and blocked state are refreshed on task edits, status changes,
+dependencies, and time log updates.
+
+**Comment mention + notification** — task comments parse `@username` the same way
+as document comments. Mentioned project members get `CommentMention` rows and a
+`Notification` row; unresolved task mentions appear in `/dashboard/my-tasks`.
 
 **QA fail → auto-bug** (`submitTestResultAction`) — running a test case as **FAIL**
 with the "create bug" toggle: creates a `TestRun` + `TestResult`, auto-creates a

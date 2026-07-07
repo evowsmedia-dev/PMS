@@ -96,6 +96,26 @@ enum TaskPriority {
   CRITICAL
 }
 
+enum TestEstimateSource {
+  AUTO
+  MANUAL
+}
+
+enum TaskWorkType {
+  DEV
+  TEST
+  BA
+  PM
+  REVIEW
+  OTHER
+}
+
+enum CommentMentionStatus {
+  PENDING
+  SEEN
+  RESOLVED
+}
+
 enum BugSeverity {
   MINOR
   MEDIUM
@@ -220,6 +240,7 @@ model User {
   taskHistory        TaskHistory[]
   auditLogs          AuditLog[]
   mentionsReceived   CommentMention[]
+  notifications      Notification[]
   templatesCreated   Template[]
 
   epicsCreated        Epic[]
@@ -444,14 +465,37 @@ model Comment {
 }
 
 model CommentMention {
-  id        String @id @default(cuid())
-  commentId String
-  userId    String
+  id         String               @id @default(cuid())
+  commentId  String
+  userId     String
+  status     CommentMentionStatus @default(PENDING)
+  resolvedAt DateTime?
+  createdAt  DateTime             @default(now())
 
   comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id])
 
   @@unique([commentId, userId])
+  @@index([userId, status])
+}
+
+model Notification {
+  id         String    @id @default(cuid())
+  userId     String
+  type       String
+  title      String
+  content    String?
+  entityType String?
+  entityId   String?
+  projectId  String?
+  isRead     Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  readAt     DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt])
+  @@index([entityType, entityId])
 }
 
 model Task {
@@ -475,6 +519,20 @@ model Task {
   actualHours     Decimal @default(0) @db.Decimal(10, 2)
   storyPoint      Decimal @default(0) @db.Decimal(10, 2)
   progressPercent Int     @default(0)
+
+  devEstimateHours        Decimal            @default(0) @db.Decimal(10, 2)
+  testEstimateHours       Decimal            @default(0) @db.Decimal(10, 2)
+  testEstimateSource      TestEstimateSource @default(AUTO)
+  standardEstimateMandays Decimal            @default(0) @db.Decimal(10, 2)
+  actualDevHours          Decimal            @default(0) @db.Decimal(10, 2)
+  actualTestHours         Decimal            @default(0) @db.Decimal(10, 2)
+  plannedStartAt          DateTime?
+  devDueAt                DateTime?
+  testDueAt               DateTime?
+  estimateWarningFlag     String?
+  isDevOverdue            Boolean            @default(false)
+  isTestOverdue           Boolean            @default(false)
+  isBlocked               Boolean            @default(false)
 
   blockedReason      String?
   acceptanceCriteria String?
@@ -653,14 +711,15 @@ model TaskDependency {
 }
 
 model TimeLog {
-  id          String   @id @default(cuid())
+  id          String       @id @default(cuid())
   taskId      String
   userId      String
-  workDate    DateTime @db.Date
-  hours       Decimal  @db.Decimal(10, 2)
+  workType    TaskWorkType @default(DEV)
+  workDate    DateTime     @db.Date
+  hours       Decimal      @db.Decimal(10, 2)
   description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id])

@@ -45,10 +45,11 @@ export default async function AdminAiUsagePage() {
           description="Thống kê token và chi phí từ các lần gọi AI đã được hệ thống ghi nhận."
         />
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <MetricCard label="Lượt gọi AI" value={formatNumber(totalCalls)} />
           <MetricCard label="Input tokens" value={formatNumber(totalInputTokens)} />
           <MetricCard label="Output tokens" value={formatNumber(totalOutputTokens)} />
+          <MetricCard label="Tổng tokens" value={formatNumber(totalTokens)} />
           <MetricCard label="Chi phí ước tính" value={formatUsd(totalCostUsd)} />
         </div>
 

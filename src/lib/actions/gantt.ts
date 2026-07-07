@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { canAccess } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { logAudit } from "@/lib/audit";
+import { refreshTaskDerivedFields } from "@/lib/task-rules";
 
 async function requireEdit(userId: string, systemRole: string, projectId: string) {
   const projectRole = await getProjectRole(userId, projectId);
@@ -60,7 +61,9 @@ export async function addTaskDependencyAction(
     update: {},
   });
 
+  await refreshTaskDerivedFields(taskId);
   revalidatePath(`/projects/${projectId}/gantt`);
+  revalidatePath(`/projects/${projectId}/tasks/${taskId}`);
   return { success: "Đã thêm phụ thuộc." };
 }
 
@@ -69,6 +72,11 @@ export async function removeTaskDependencyAction(projectId: string, dependencyId
   if (!session?.user) return;
   if (!(await requireEdit(session.user.id, session.user.systemRole, projectId))) return;
 
-  await prisma.taskDependency.delete({ where: { id: dependencyId } });
+  const dependency = await prisma.taskDependency.delete({
+    where: { id: dependencyId },
+    select: { taskId: true },
+  });
+  await refreshTaskDerivedFields(dependency.taskId);
   revalidatePath(`/projects/${projectId}/gantt`);
+  revalidatePath(`/projects/${projectId}/tasks/${dependency.taskId}`);
 }

@@ -122,6 +122,13 @@ export default async function TaskDetailPage({
               description={task.description ?? ""}
               priority={task.priority}
               dueDate={task.dueDate ? task.dueDate.toISOString().slice(0, 10) : ""}
+              plannedStartAt={task.plannedStartAt ? task.plannedStartAt.toISOString().slice(0, 10) : ""}
+              devDueAt={task.devDueAt ? task.devDueAt.toISOString().slice(0, 10) : ""}
+              testDueAt={task.testDueAt ? task.testDueAt.toISOString().slice(0, 10) : ""}
+              devEstimateHours={String(task.devEstimateHours)}
+              testEstimateHours={String(task.testEstimateHours)}
+              testEstimateSource={task.testEstimateSource}
+              standardEstimateMandays={String(task.standardEstimateMandays)}
               canEdit={canEdit}
               showPriorityDueDate={false}
             />

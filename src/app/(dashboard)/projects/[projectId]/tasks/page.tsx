@@ -16,16 +16,21 @@ import { DeleteTaskButton } from "@/components/delete-task-button";
 import { taskHref } from "@/lib/task-href";
 import {
   TASK_STATUS_LABEL,
+  TASK_STATUS_ORDER,
   TASK_TYPE_LABEL,
+  TASK_TYPE_ORDER,
   TASK_PRIORITY_LABEL,
+  TASK_WARNING_LABEL,
   BUG_SEVERITY_LABEL,
   BUG_STATUS_LABEL,
 } from "@/lib/validation/task";
 
 export default async function ProjectTasksPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ projectId: string }>;
+  searchParams: Promise<{ status?: string; type?: string; warning?: string }>;
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
@@ -40,6 +45,10 @@ export default async function ProjectTasksPage({
   const projectRole = await getProjectRole(session.user.id, projectId);
   const isAdmin = session.user.systemRole === "ADMIN";
   if (!isAdmin && !projectRole) redirect("/projects");
+  const { status, type, warning } = await searchParams;
+  const statusFilter = TASK_STATUS_ORDER.includes(status as never) ? status : "";
+  const typeFilter = TASK_TYPE_ORDER.includes(type as never) ? type : "";
+  const warningFilter = warning === "warning" ? warning : "";
 
   const roleCtx = { systemRole: session.user.systemRole };
   const canCreate = await canAccess(roleCtx, "task.create", projectRole);
@@ -54,7 +63,22 @@ export default async function ProjectTasksPage({
 
   const [tasks, bugs, autoTaskDocs] = await Promise.all([
     prisma.task.findMany({
-      where: { projectId, deletedAt: null },
+      where: {
+        projectId,
+        deletedAt: null,
+        ...(statusFilter ? { status: statusFilter as never } : {}),
+        ...(typeFilter ? { type: typeFilter as never } : {}),
+        ...(warningFilter
+          ? {
+              OR: [
+                { estimateWarningFlag: { not: null } },
+                { isDevOverdue: true },
+                { isTestOverdue: true },
+                { isBlocked: true },
+              ],
+            }
+          : {}),
+      },
       select: {
         id: true,
         title: true,
@@ -63,6 +87,17 @@ export default async function ProjectTasksPage({
         status: true,
         priority: true,
         dueDate: true,
+        devDueAt: true,
+        testDueAt: true,
+        devEstimateHours: true,
+        testEstimateHours: true,
+        standardEstimateMandays: true,
+        actualDevHours: true,
+        actualTestHours: true,
+        estimateWarningFlag: true,
+        isDevOverdue: true,
+        isTestOverdue: true,
+        isBlocked: true,
         moduleId: true,
         parentTaskId: true,
         assignee: { select: { fullName: true } },
@@ -163,6 +198,24 @@ export default async function ProjectTasksPage({
       <p className="text-xs text-muted-foreground">
         Sơ đồ cây: task cha › task con / bug phụ thuộc.
       </p>
+      <div className="flex flex-wrap gap-2">
+        <Badge variant={!statusFilter && !typeFilter && !warningFilter ? "default" : "outline"} asChild>
+          <Link href={`/projects/${projectId}/tasks`}>Tất cả</Link>
+        </Badge>
+        {["BACKLOG", "TODO", "IN_PROGRESS", "TESTING", "DONE"].map((s) => (
+          <Badge key={s} variant={statusFilter === s ? "default" : "outline"} asChild>
+            <Link href={`/projects/${projectId}/tasks?status=${s}`}>{TASK_STATUS_LABEL[s]}</Link>
+          </Badge>
+        ))}
+        {["STORY", "TASK", "BUG", "TEST", "SUBTASK"].map((t) => (
+          <Badge key={t} variant={typeFilter === t ? "default" : "outline"} asChild>
+            <Link href={`/projects/${projectId}/tasks?type=${t}`}>{TASK_TYPE_LABEL[t]}</Link>
+          </Badge>
+        ))}
+        <Badge variant={warningFilter ? "default" : "outline"} asChild>
+          <Link href={`/projects/${projectId}/tasks?warning=warning`}>Có cảnh báo</Link>
+        </Badge>
+      </div>
 
       {rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">Chưa có task nào.</p>
@@ -197,8 +250,40 @@ export default async function ProjectTasksPage({
                 {row.task.assignee ? (
                   <span className="text-xs text-muted-foreground">· {row.task.assignee.fullName}</span>
                 ) : null}
-                {row.task.dueDate || canDeleteTask ? (
+                <span className="text-xs text-muted-foreground">
+                  · Dev/Test {String(row.task.devEstimateHours)}h/{String(row.task.testEstimateHours)}h
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  · Actual {String(row.task.actualDevHours)}h/{String(row.task.actualTestHours)}h
+                </span>
+                {Number(row.task.standardEstimateMandays) > 0 ? (
+                  <span className="text-xs text-muted-foreground">
+                    · Chuẩn {String(row.task.standardEstimateMandays)} ngày
+                  </span>
+                ) : null}
+                {row.task.estimateWarningFlag || row.task.isDevOverdue || row.task.isTestOverdue || row.task.isBlocked ? (
+                  <Badge variant="outline" className="text-[10px]">
+                    {row.task.estimateWarningFlag
+                      ? TASK_WARNING_LABEL[row.task.estimateWarningFlag] ?? row.task.estimateWarningFlag
+                      : row.task.isBlocked
+                        ? "Blocked"
+                        : row.task.isDevOverdue
+                          ? "Dev quá hạn"
+                          : "Test quá hạn"}
+                  </Badge>
+                ) : null}
+                {row.task.dueDate || row.task.devDueAt || row.task.testDueAt || canDeleteTask ? (
                   <div className="ml-auto flex items-center gap-1">
+                    {row.task.devDueAt ? (
+                      <span className="text-xs text-muted-foreground">
+                        Dev {row.task.devDueAt.toLocaleDateString("vi-VN")}
+                      </span>
+                    ) : null}
+                    {row.task.testDueAt ? (
+                      <span className="text-xs text-muted-foreground">
+                        Test {row.task.testDueAt.toLocaleDateString("vi-VN")}
+                      </span>
+                    ) : null}
                     {row.task.dueDate ? (
                       <span
                         className={`text-xs ${

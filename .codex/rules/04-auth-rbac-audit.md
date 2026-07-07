@@ -40,6 +40,12 @@ Audit:
   caller's document/module visibility, preview proposals before persistence,
   avoid duplicate active tasks for the same source document/section, and write
   audit metadata with created/skipped counts.
+- Task effort/deadline/time-log changes must reuse shared calculation helpers,
+  keep Dev/Test/Standard/Actual fields consistent, revalidate task/dashboard/My
+  Tasks paths, and write audit metadata for meaningful mutations.
+- Task comments that create mentions must only mention project members, create
+  `CommentMention` rows, and create user notifications without exposing data to
+  non-members.
 
 Security notes:
 

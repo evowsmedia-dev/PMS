@@ -11,9 +11,16 @@ import {
   TaskStatusSelect,
   TaskAssigneeSelect,
   TaskComments,
+  TaskTimeLogForm,
 } from "@/components/task-detail-panel";
 import { TaskPlanningEditor } from "@/components/task-planning-editor";
-import { TASK_TYPE_LABEL, TASK_PRIORITY_LABEL, BUG_STATUS_LABEL } from "@/lib/validation/task";
+import {
+  TASK_TYPE_LABEL,
+  TASK_PRIORITY_LABEL,
+  BUG_STATUS_LABEL,
+  TASK_WARNING_LABEL,
+  TASK_WORK_TYPE_LABEL,
+} from "@/lib/validation/task";
 
 export default async function ProjectTaskDetailPage({
   params,
@@ -56,6 +63,10 @@ export default async function ProjectTaskDetailPage({
         include: { author: { select: { fullName: true } } },
         orderBy: { createdAt: "asc" },
       },
+      timeLogs: {
+        include: { user: { select: { fullName: true } } },
+        orderBy: { workDate: "desc" },
+      },
     },
   });
   if (!task) notFound();
@@ -91,7 +102,14 @@ export default async function ProjectTaskDetailPage({
     { label: "Milestone", value: task.milestone?.name ?? "—" },
     { label: "Reviewer", value: task.reviewer?.fullName ?? "—" },
     { label: "Tester", value: task.tester?.fullName ?? "—" },
-    { label: "Ước tính", value: `${task.estimateHours}h` },
+    { label: "Dev estimate", value: `${task.devEstimateHours}h` },
+    { label: "Test estimate", value: `${task.testEstimateHours}h (${task.testEstimateSource})` },
+    { label: "Chuẩn", value: `${task.standardEstimateMandays} ngày công` },
+    { label: "Actual Dev/Test", value: `${task.actualDevHours}h / ${task.actualTestHours}h` },
+    { label: "Planned start", value: task.plannedStartAt?.toLocaleDateString("vi-VN") ?? "—" },
+    { label: "HTC Dev", value: task.devDueAt?.toLocaleDateString("vi-VN") ?? "—" },
+    { label: "HTC Test", value: task.testDueAt?.toLocaleDateString("vi-VN") ?? "—" },
+    { label: "Blocked", value: task.isBlocked ? "Có" : "Không" },
     { label: "Story point", value: String(task.storyPoint) },
     { label: "Tiến độ", value: `${task.progressPercent}%` },
   ];
@@ -136,6 +154,25 @@ export default async function ProjectTaskDetailPage({
               ))}
             </div>
 
+            {task.estimateWarningFlag || task.isDevOverdue || task.isTestOverdue || task.isBlocked ? (
+              <div className="rounded-md border bg-muted/40 p-3 text-sm">
+                <p className="text-xs font-semibold uppercase text-muted-foreground">
+                  Cảnh báo tiến độ / ngày công
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {task.estimateWarningFlag ? (
+                    <Badge variant="outline">
+                      {TASK_WARNING_LABEL[task.estimateWarningFlag] ?? task.estimateWarningFlag}
+                    </Badge>
+                  ) : null}
+                  {task.isDevOverdue ? <Badge variant="outline">Dev quá hạn</Badge> : null}
+                  {task.isTestOverdue ? <Badge variant="outline">Test quá hạn</Badge> : null}
+                  {task.isBlocked ? <Badge variant="outline">Blocked</Badge> : null}
+                </div>
+                {task.blockedReason ? <p className="mt-2 text-muted-foreground">{task.blockedReason}</p> : null}
+              </div>
+            ) : null}
+
             {task.acceptanceCriteria ? (
               <div className="rounded-md bg-muted p-3 text-sm">
                 <p className="text-xs font-semibold uppercase text-muted-foreground">
@@ -169,6 +206,13 @@ export default async function ProjectTaskDetailPage({
               description={task.description ?? ""}
               priority={task.priority}
               dueDate={task.dueDate ? task.dueDate.toISOString().slice(0, 10) : ""}
+              plannedStartAt={task.plannedStartAt ? task.plannedStartAt.toISOString().slice(0, 10) : ""}
+              devDueAt={task.devDueAt ? task.devDueAt.toISOString().slice(0, 10) : ""}
+              testDueAt={task.testDueAt ? task.testDueAt.toISOString().slice(0, 10) : ""}
+              devEstimateHours={String(task.devEstimateHours)}
+              testEstimateHours={String(task.testEstimateHours)}
+              testEstimateSource={task.testEstimateSource}
+              standardEstimateMandays={String(task.standardEstimateMandays)}
               canEdit={canEdit}
             />
 
@@ -226,6 +270,41 @@ export default async function ProjectTaskDetailPage({
                 </div>
               </div>
             ) : null}
+
+            <div className="border-t pt-3">
+              <p className="text-xs font-semibold uppercase text-muted-foreground">Time log</p>
+              <div className="mt-2 space-y-2">
+                <TaskTimeLogForm projectId={projectId} moduleId={null} taskId={taskId} canEdit={canEdit} />
+                {task.timeLogs.length > 0 ? (
+                  <div className="overflow-x-auto rounded-md border">
+                    <table className="w-full min-w-[620px] text-sm">
+                      <thead>
+                        <tr className="border-b bg-muted/40 text-left">
+                          <th className="px-2 py-1 font-medium">Ngày</th>
+                          <th className="px-2 py-1 font-medium">Loại</th>
+                          <th className="px-2 py-1 font-medium">Giờ</th>
+                          <th className="px-2 py-1 font-medium">Người log</th>
+                          <th className="px-2 py-1 font-medium">Ghi chú</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {task.timeLogs.map((log) => (
+                          <tr key={log.id} className="border-b last:border-none">
+                            <td className="px-2 py-1">{log.workDate.toLocaleDateString("vi-VN")}</td>
+                            <td className="px-2 py-1">{TASK_WORK_TYPE_LABEL[log.workType]}</td>
+                            <td className="px-2 py-1">{String(log.hours)}h</td>
+                            <td className="px-2 py-1">{log.user.fullName}</td>
+                            <td className="px-2 py-1">{log.description ?? "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Chưa có log giờ.</p>
+                )}
+              </div>
+            </div>
 
             <div className="border-t pt-3">
               <p className="text-xs font-semibold uppercase text-muted-foreground">Lịch sử</p>

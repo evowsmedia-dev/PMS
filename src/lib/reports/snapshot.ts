@@ -43,11 +43,18 @@ export async function computeProjectMetrics(projectId: string): Promise<ProjectM
       where: {
         projectId,
         deletedAt: null,
-        dueDate: { lt: now },
         status: { notIn: [...DONE_STATUSES] },
+        OR: [{ dueDate: { lt: now } }, { isDevOverdue: true }, { isTestOverdue: true }],
       },
     }),
-    prisma.task.count({ where: { projectId, deletedAt: null, status: "BLOCKED" } }),
+    prisma.task.count({
+      where: {
+        projectId,
+        deletedAt: null,
+        status: { notIn: [...DONE_STATUSES] },
+        OR: [{ status: "BLOCKED" }, { isBlocked: true }],
+      },
+    }),
     prisma.bug.count({ where: { projectId, deletedAt: null } }),
     prisma.bug.count({ where: { projectId, deletedAt: null, status: { in: [...CLOSED_BUG_STATUSES] } } }),
     prisma.bug.count({
@@ -55,7 +62,12 @@ export async function computeProjectMetrics(projectId: string): Promise<ProjectM
     }),
     prisma.task.aggregate({
       where: { projectId, deletedAt: null },
-      _sum: { estimateHours: true, actualHours: true },
+      _sum: {
+        devEstimateHours: true,
+        testEstimateHours: true,
+        actualDevHours: true,
+        actualTestHours: true,
+      },
     }),
     prisma.task.aggregate({
       where: { projectId, deletedAt: null },
@@ -64,8 +76,10 @@ export async function computeProjectMetrics(projectId: string): Promise<ProjectM
   ]);
 
   const openBugs = totalBugs - closedBugs;
-  const totalEstimateHours = Number(hours._sum.estimateHours ?? 0);
-  const totalActualHours = Number(hours._sum.actualHours ?? 0);
+  const totalEstimateHours =
+    Number(hours._sum.devEstimateHours ?? 0) + Number(hours._sum.testEstimateHours ?? 0);
+  const totalActualHours =
+    Number(hours._sum.actualDevHours ?? 0) + Number(hours._sum.actualTestHours ?? 0);
   const actualProgressPercent = Number(progressAgg._avg.progressPercent ?? 0);
   const plannedProgressPercent = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 

@@ -5,6 +5,7 @@ import { canAccess } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { logAudit } from "@/lib/audit";
 import { TASK_STATUS_ORDER } from "@/lib/validation/task";
+import { deriveTaskEffortFields, refreshTaskDerivedFields } from "@/lib/task-rules";
 
 const VALID_STATUSES: readonly string[] = TASK_STATUS_ORDER;
 
@@ -41,7 +42,23 @@ export async function PATCH(
 
   await prisma.task.update({
     where: { id: taskId },
-    data: { status: status as never, sortOrder: (maxOrder._max.sortOrder ?? -1) + 1 },
+    data: {
+      status: status as never,
+      sortOrder: (maxOrder._max.sortOrder ?? -1) + 1,
+      completedAt: status === "DONE" ? new Date() : null,
+      ...deriveTaskEffortFields({
+        status,
+        devEstimateHours: Number(task.devEstimateHours),
+        testEstimateHours: Number(task.testEstimateHours),
+        testEstimateSource: task.testEstimateSource,
+        standardEstimateMandays: Number(task.standardEstimateMandays),
+        actualDevHours: Number(task.actualDevHours),
+        actualTestHours: Number(task.actualTestHours),
+        devDueAt: task.devDueAt,
+        testDueAt: task.testDueAt,
+        isBlocked: task.isBlocked,
+      }),
+    },
   });
 
   if (task.status !== status) {
@@ -64,6 +81,12 @@ export async function PATCH(
       metadata: { from: task.status, to: status },
     });
   }
+
+  const dependents = await prisma.taskDependency.findMany({
+    where: { dependsOnTaskId: taskId },
+    select: { taskId: true },
+  });
+  await Promise.all(dependents.map((dependent) => refreshTaskDerivedFields(dependent.taskId)));
 
   return NextResponse.json({ ok: true });
 }

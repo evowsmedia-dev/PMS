@@ -207,16 +207,55 @@ export function TaskProjectCreateForm({
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <div className="space-y-2">
-          <Label htmlFor="startDate">Bắt đầu</Label>
+          <Label htmlFor="plannedStartAt">Bắt đầu kế hoạch</Label>
+          <Input id="plannedStartAt" name="plannedStartAt" type="date" />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="startDate">Bắt đầu thực tế</Label>
           <Input id="startDate" name="startDate" type="date" />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="dueDate">Hạn hoàn thành</Label>
+          <Label htmlFor="devDueAt">Dự kiến HTC Dev</Label>
+          <Input id="devDueAt" name="devDueAt" type="date" />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="testDueAt">Dự kiến HTC Test</Label>
+          <Input id="testDueAt" name="testDueAt" type="date" />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
+        <div className="space-y-2">
+          <Label htmlFor="dueDate">Deadline tổng</Label>
           <Input id="dueDate" name="dueDate" type="date" />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="estimateHours">Ước tính (giờ)</Label>
-          <Input id="estimateHours" name="estimateHours" type="number" min={0} step="0.5" defaultValue={0} />
+          <Label htmlFor="devEstimateHours">Dev estimate (h)</Label>
+          <Input id="devEstimateHours" name="devEstimateHours" type="number" min={0} step="0.5" defaultValue={0} />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="testEstimateHours">Test estimate (h)</Label>
+          <Input id="testEstimateHours" name="testEstimateHours" type="number" min={0} step="0.5" defaultValue={0} />
+          <Select name="testEstimateSource" defaultValue="AUTO">
+            <SelectTrigger className="h-8 w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="AUTO">Tự động 30%</SelectItem>
+              <SelectItem value="MANUAL">Thủ công</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="standardEstimateMandays">Chuẩn (ngày công)</Label>
+          <Input
+            id="standardEstimateMandays"
+            name="standardEstimateMandays"
+            type="number"
+            min={0}
+            step="0.25"
+            defaultValue={0}
+          />
         </div>
         <div className="space-y-2">
           <Label htmlFor="storyPoint">Story point</Label>

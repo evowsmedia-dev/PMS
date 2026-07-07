@@ -79,6 +79,27 @@ export const TASK_PRIORITY_LABEL: Record<string, string> = {
   CRITICAL: "Khẩn cấp",
 };
 
+export const TEST_ESTIMATE_SOURCE_LABEL: Record<string, string> = {
+  AUTO: "Tự động",
+  MANUAL: "Thủ công",
+};
+
+export const TASK_WORK_TYPE_ORDER = ["DEV", "TEST", "BA", "PM", "REVIEW", "OTHER"] as const;
+
+export const TASK_WORK_TYPE_LABEL: Record<string, string> = {
+  DEV: "Dev",
+  TEST: "Test",
+  BA: "BA",
+  PM: "PM",
+  REVIEW: "Review",
+  OTHER: "Khác",
+};
+
+export const TASK_WARNING_LABEL: Record<string, string> = {
+  DEV_OVER_STANDARD: "Dev estimate vượt chuẩn",
+  TEST_GREATER_THAN_DEV: "Test estimate lớn hơn Dev",
+};
+
 export const BUG_SEVERITY_ORDER = ["MINOR", "MEDIUM", "MAJOR", "CRITICAL", "BLOCKER"] as const;
 
 export const BUG_SEVERITY_LABEL: Record<string, string> = {
@@ -164,8 +185,15 @@ export const taskFormSchema = z.object({
   milestoneId: z.string().optional().or(z.literal("")),
   parentTaskId: z.string().optional().or(z.literal("")),
   startDate: z.string().optional().or(z.literal("")),
+  plannedStartAt: z.string().optional().or(z.literal("")),
   dueDate: z.string().optional().or(z.literal("")),
+  devDueAt: z.string().optional().or(z.literal("")),
+  testDueAt: z.string().optional().or(z.literal("")),
   estimateHours: z.coerce.number().min(0).max(100000).optional(),
+  devEstimateHours: z.coerce.number().min(0).max(100000).optional(),
+  testEstimateHours: z.coerce.number().min(0).max(100000).optional(),
+  testEstimateSource: z.enum(["AUTO", "MANUAL"]).default("AUTO"),
+  standardEstimateMandays: z.coerce.number().min(0).max(100000).optional(),
   storyPoint: z.coerce.number().min(0).max(1000).optional(),
   acceptanceCriteria: z.string().trim().max(5000).optional().or(z.literal("")),
   relatedDocumentId: z.string().optional().or(z.literal("")),
@@ -173,6 +201,15 @@ export const taskFormSchema = z.object({
 });
 
 export type TaskFormValues = z.infer<typeof taskFormSchema>;
+
+export const taskTimeLogSchema = z.object({
+  workType: z.enum(TASK_WORK_TYPE_ORDER).default("DEV"),
+  workDate: z.string().min(1, "Ngày làm việc không được để trống"),
+  hours: z.coerce.number().positive("Số giờ phải lớn hơn 0").max(24),
+  description: z.string().trim().max(1000).optional().or(z.literal("")),
+});
+
+export type TaskTimeLogValues = z.infer<typeof taskTimeLogSchema>;
 
 export const bugFormSchema = z.object({
   title: z.string().trim().min(1, "Tiêu đề không được để trống").max(200),

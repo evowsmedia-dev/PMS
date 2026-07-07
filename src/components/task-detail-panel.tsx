@@ -19,12 +19,15 @@ import {
   addTaskCommentAction,
   updateTaskPriorityAction,
   updateTaskDueDateAction,
+  addTaskTimeLogAction,
 } from "@/lib/actions/tasks";
 import {
   TASK_STATUS_LABEL,
   TASK_STATUS_ORDER,
   TASK_PRIORITY_LABEL,
   TASK_PRIORITY_ORDER,
+  TASK_WORK_TYPE_LABEL,
+  TASK_WORK_TYPE_ORDER,
 } from "@/lib/validation/task";
 import type { ActionState } from "@/lib/actions/profile";
 
@@ -258,5 +261,54 @@ export function TaskComments({
         </form>
       ) : null}
     </div>
+  );
+}
+
+export function TaskTimeLogForm({
+  projectId,
+  moduleId,
+  taskId,
+  canEdit,
+}: {
+  projectId: string;
+  moduleId: string | null;
+  taskId: string;
+  canEdit: boolean;
+}) {
+  const action = addTaskTimeLogAction.bind(null, projectId, moduleId, taskId);
+  const [state, formAction, pending] = useActionState(action, initialState);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (state.error) toast.error(state.error);
+    if (state.success) {
+      toast.success(state.success);
+      router.refresh();
+    }
+  }, [state, router]);
+
+  if (!canEdit) return null;
+
+  return (
+    <form action={formAction} className="grid gap-2 rounded-md border p-3 sm:grid-cols-[120px_140px_100px_minmax(0,1fr)_auto]">
+      <Select name="workType" defaultValue="DEV">
+        <SelectTrigger className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {TASK_WORK_TYPE_ORDER.map((type) => (
+            <SelectItem key={type} value={type}>
+              {TASK_WORK_TYPE_LABEL[type]}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Input name="workDate" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required />
+      <Input name="hours" type="number" min={0.25} step="0.25" placeholder="Giờ" required />
+      <Input name="description" placeholder="Ghi chú công việc" />
+      <Button type="submit" size="sm" disabled={pending}>
+        {pending ? "Đang lưu..." : "Log giờ"}
+      </Button>
+    </form>
   );
 }

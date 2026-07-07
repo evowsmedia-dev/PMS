@@ -17,7 +17,13 @@ Ghi chú:
 │   └── Dữ liệu phân hệ lấy từ tổng số module còn hiển thị của các dự án.
 │
 ├── /dashboard/my-tasks
-│   └── Danh sách task được giao cho user hiện tại.
+│   ├── Danh sách task theo section cho user hiện tại.
+│   ├── Việc tôi phụ trách.
+│   ├── Việc tôi cần test.
+│   ├── Việc tôi cần review.
+│   ├── Tôi được nhắc đến qua comment task.
+│   ├── Việc quá hạn của tôi.
+│   └── Việc bị blocked.
 │
 ├── /dashboard/activity
 │   └── Hoạt động gần đây / audit feed.
@@ -42,6 +48,7 @@ Ghi chú:
     ├── Dashboard của dự án.
     ├── 3 card trạng thái: task, test/bug, tài liệu.
     ├── Task/test/tài liệu dùng donut chart + danh sách chỉ số ngắn.
+    ├── Card task hiển thị tổng task, hoàn thành, quá hạn, blocked, giờ estimate/actual và variance ngày công.
     ├── Nếu user có quyền `report.view`: hiển thị báo cáo dự án gồm trạng thái nhân sự và burndown.
     ├── Không còn card bar riêng cho task-status hoặc bug-severity trong report section.
     ├── Thông tin chung: mã dự án, trạng thái, ưu tiên, phân hệ, ngày bắt đầu/kết thúc, mô tả.
@@ -62,22 +69,29 @@ Ghi chú:
 │
 ├── /projects/:projectId/tasks
 │   ├── Task list project-level.
+│   ├── Hiển thị cây task cha, subtask và bug liên quan.
+│   ├── Filter nhanh theo status, type và nhóm có cảnh báo.
+│   ├── Mỗi dòng task hiển thị Dev/Test estimate, Actual Dev/Test, Standard mandays, HTC Dev/Test, warning/blocked nếu có.
 │   ├── Button "Tự động tạo task từ tài liệu" theo quyền `task.create`.
 │   ├── Auto task dùng AI đọc logic tài liệu active user có quyền xem.
 │   ├── Flow auto task: tạo preview proposal -> user chọn task -> tạo task Backlog chưa assign.
 │   ├── Task AI phải có 4 khối mô tả: hệ thống cần làm gì, người dùng muốn làm gì, điều kiện đúng, dev/test cần làm gì.
 │   ├── Bỏ qua task trùng theo `relatedDocumentId` + `sourceHighlight`.
-│   ├── Icon xóa trên từng dòng task theo quyền chỉnh sửa task.
-│   ├── Hiển thị task, subtask và bug liên quan.
-│   └── Filter theo status/priority/assignee nếu màn hình hỗ trợ.
+│   └── Icon xóa trên từng dòng task theo quyền chỉnh sửa task.
 │
 ├── /projects/:projectId/tasks/new
 │   ├── Tạo task hoặc bug ở project-level.
-│   └── Form task hỗ trợ planning metadata, assignee, priority, due date.
+│   ├── Form task hỗ trợ planning metadata, assignee, reviewer, tester, priority, due date.
+│   ├── Nhập Dev estimate, Test estimate auto/manual, Standard estimate theo ngày công.
+│   ├── Nhập planned start, HTC Dev, HTC Test.
+│   └── Chọn dependency khi tạo task nếu cần.
 │
 ├── /projects/:projectId/tasks/:taskId
 │   ├── Chi tiết task project-level.
 │   ├── Đổi trạng thái, gán lại, planning metadata, dependency, QA links.
+│   ├── Hiển thị Dev/Test/Standard estimate, Actual Dev/Test, progress, overdue/blocked/warning.
+│   ├── Time log theo loại việc: Dev, Test, BA, PM, Review, Other.
+│   ├── Comment task hỗ trợ @mention thành viên dự án và sinh notification.
 │   └── History và comment task.
 │
 ├── /projects/:projectId/kanban
@@ -147,12 +161,14 @@ Ghi chú:
 │   ├── Tạo task mới.
 │   ├── Chọn assignee từ thành viên dự án.
 │   ├── Priority, due date, mô tả.
+│   ├── Dev/Test/Standard estimate.
 │   └── Có thể liên kết document nếu có.
 │
 ├── /projects/:projectId/modules/:moduleId/tasks/:taskId
 │   ├── Chi tiết task.
 │   ├── Đổi trạng thái.
 │   ├── Gán lại người thực hiện.
+│   ├── Sửa nhanh title/description và giữ nguyên metadata planning không gửi trong form.
 │   ├── Link document liên quan nếu có.
 │   └── Comment task.
 │

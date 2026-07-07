@@ -102,6 +102,37 @@ export function TaskCreateForm({
         <Input id="dueDate" name="dueDate" type="date" />
       </div>
 
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="space-y-2">
+          <Label htmlFor="devEstimateHours">Dev estimate (h)</Label>
+          <Input id="devEstimateHours" name="devEstimateHours" type="number" min={0} step="0.5" defaultValue={0} />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="testEstimateSource">Test estimate</Label>
+          <Select name="testEstimateSource" defaultValue="AUTO">
+            <SelectTrigger id="testEstimateSource" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="AUTO">Tự động 30%</SelectItem>
+              <SelectItem value="MANUAL">Thủ công</SelectItem>
+            </SelectContent>
+          </Select>
+          <Input name="testEstimateHours" type="number" min={0} step="0.5" defaultValue={0} />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="standardEstimateMandays">Chuẩn (ngày công)</Label>
+          <Input
+            id="standardEstimateMandays"
+            name="standardEstimateMandays"
+            type="number"
+            min={0}
+            step="0.25"
+            defaultValue={0}
+          />
+        </div>
+      </div>
+
       <Button type="submit" disabled={pending}>
         {pending ? "Đang tạo..." : "Tạo task"}
       </Button>
