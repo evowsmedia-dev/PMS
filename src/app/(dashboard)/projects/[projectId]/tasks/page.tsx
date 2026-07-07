@@ -12,6 +12,7 @@ import { PageSection } from "@/components/page-shell";
 import { TaskViewTabs } from "@/components/task-view-tabs";
 import { BugStatusSelect } from "@/components/qa-forms";
 import { AutoTaskFromDocumentsDialog } from "@/components/auto-task-from-documents-dialog";
+import { DeleteTaskButton } from "@/components/delete-task-button";
 import { generateTaskCandidatesFromDocuments } from "@/lib/auto-task-generator";
 import { taskHref } from "@/lib/task-href";
 import {
@@ -43,6 +44,7 @@ export default async function ProjectTasksPage({
 
   const roleCtx = { systemRole: session.user.systemRole };
   const canCreate = await canAccess(roleCtx, "task.create", projectRole);
+  const canDeleteTask = await canAccess(roleCtx, "task.edit", projectRole);
   const canEditBug = await canAccess(roleCtx, "bug.edit", projectRole);
   const assignedModuleIds = await getAssignedModuleIdsForUser({
     projectId,
@@ -200,16 +202,28 @@ export default async function ProjectTasksPage({
                 {row.task.assignee ? (
                   <span className="text-xs text-muted-foreground">· {row.task.assignee.fullName}</span>
                 ) : null}
-                {row.task.dueDate ? (
-                  <span
-                    className={`ml-auto text-xs ${
-                      row.task.dueDate < now && row.task.status !== "DONE"
-                        ? "font-medium text-destructive"
-                        : "text-muted-foreground"
-                    }`}
-                  >
-                    {row.task.dueDate.toLocaleDateString("vi-VN")}
-                  </span>
+                {row.task.dueDate || canDeleteTask ? (
+                  <div className="ml-auto flex items-center gap-1">
+                    {row.task.dueDate ? (
+                      <span
+                        className={`text-xs ${
+                          row.task.dueDate < now && row.task.status !== "DONE"
+                            ? "font-medium text-destructive"
+                            : "text-muted-foreground"
+                        }`}
+                      >
+                        {row.task.dueDate.toLocaleDateString("vi-VN")}
+                      </span>
+                    ) : null}
+                    {canDeleteTask ? (
+                      <DeleteTaskButton
+                        projectId={projectId}
+                        moduleId={row.task.moduleId}
+                        taskId={row.task.id}
+                        taskTitle={row.task.title}
+                      />
+                    ) : null}
+                  </div>
                 ) : null}
               </div>
             ) : (
