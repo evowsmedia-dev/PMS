@@ -36,9 +36,10 @@ Audit:
   entity id, project id when relevant, and useful metadata.
 - Audit logs are not Prisma middleware, so new mutations must add audit logging
   deliberately.
-- Batch task generation from documents must reuse `task.create`, respect the
-  caller's document/module visibility, avoid duplicate active tasks for the same
-  source document/section, and write audit metadata with created/skipped counts.
+- AI/batch task generation from documents must reuse `task.create`, respect the
+  caller's document/module visibility, preview proposals before persistence,
+  avoid duplicate active tasks for the same source document/section, and write
+  audit metadata with created/skipped counts.
 
 Security notes:
 

@@ -1,4 +1,7 @@
-import type { ContentFormat, TaskType } from "@/generated/prisma/enums";
+import { generateObject } from "ai";
+import { openai } from "@ai-sdk/openai";
+import { z } from "zod";
+import type { ContentFormat, TaskPriority, TaskType } from "@/generated/prisma/enums";
 
 export interface AutoTaskSourceDocument {
   id: string;
@@ -19,6 +22,10 @@ export interface AutoTaskCandidate {
   description: string;
   acceptanceCriteria: string;
   type: TaskType;
+  priority: TaskPriority;
+  sourceEvidence: string;
+  confidence: number;
+  needsClarification: boolean;
 }
 
 interface FunctionalRow {
@@ -32,6 +39,92 @@ interface FunctionalRow {
 
 const MAX_CANDIDATES = 100;
 const MIN_SECTION_TEXT_LENGTH = 120;
+const AI_CONFIDENCE_THRESHOLD = 0.65;
+const MAX_AI_DOCUMENTS = 60;
+const MAX_CONTEXT_CHARS_PER_DOCUMENT = 12000;
+const MAX_TOTAL_CONTEXT_CHARS = 90000;
+
+const aiTaskProposalSchema = z.object({
+  tasks: z.array(
+    z.object({
+      title: z.string().min(8).max(180),
+      type: z.enum(["STORY", "TASK", "TEST"]),
+      priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]),
+      sourceDocumentId: z.string().min(1),
+      sourceKey: z.string().min(1).max(180),
+      sourceEvidence: z.string().min(12).max(500),
+      systemNeed: z.string().min(12).max(1500),
+      userGoal: z.string().min(12).max(1500),
+      correctnessConditions: z.array(z.string().min(3).max(400)).max(12),
+      devChecklist: z.array(z.string().min(3).max(400)).max(12),
+      testChecklist: z.array(z.string().min(3).max(400)).max(12),
+      acceptanceCriteria: z.array(z.string().min(3).max(400)).max(12),
+      confidence: z.number().min(0).max(1),
+      needsClarification: z.boolean(),
+    }),
+  ).max(MAX_CANDIDATES),
+});
+
+type AiTaskProposalResult = z.infer<typeof aiTaskProposalSchema>;
+type AiTaskProposal = AiTaskProposalResult["tasks"][number];
+
+export function isAiTaskGenerationConfigured() {
+  return Boolean(process.env.OPENAI_API_KEY);
+}
+
+export async function generateAiTaskCandidatesFromDocuments(
+  documents: AutoTaskSourceDocument[],
+): Promise<AutoTaskCandidate[]> {
+  if (!isAiTaskGenerationConfigured()) {
+    throw new Error("AI_TASK_NOT_CONFIGURED");
+  }
+
+  const contextDocuments = buildAiDocumentContext(documents);
+  if (contextDocuments.length === 0) return [];
+
+  const { object } = await generateObject({
+    model: openai(process.env.AI_TASK_MODEL || "gpt-5.5"),
+    schema: aiTaskProposalSchema,
+    schemaName: "ProjectTaskProposalList",
+    schemaDescription: "Danh sách task dev/test được suy luận từ logic tài liệu dự án.",
+    system: [
+      "Bạn là BA/PO kỹ thuật của một hệ thống PMS.",
+      "Nhiệm vụ: đọc logic trong tài liệu dự án và đề xuất task thực thi cho dev/test.",
+      "Chỉ tạo task khi tài liệu có logic nghiệp vụ, luồng người dùng, rule, validation, exception hoặc acceptance criteria đủ rõ.",
+      "Không tạo task chỉ vì nhìn thấy tên loại tài liệu, tên module, heading rỗng hoặc danh sách mục lục.",
+      "Không bịa API, field, rule hoặc permission nếu tài liệu không nêu. Nếu thiếu thông tin, ghi rõ cần xác nhận trong checklist và đặt needsClarification=true.",
+      "Gom nội dung trùng lặp thành một task nếu cùng feature/luồng nghiệp vụ.",
+      "Mỗi task phải đủ 4 ý: hệ thống cần làm gì, người dùng muốn làm gì, điều kiện đúng, dev/test cần làm gì.",
+      "Ưu tiên task ở mức Feature/User Story. Không tạo task quá nhỏ như 'đọc tài liệu' hoặc 'tạo màn hình' nếu thiếu logic hoàn thành.",
+      "Trả về tiếng Việt, ngắn gọn, có thể giao việc trực tiếp.",
+    ].join("\n"),
+    prompt: [
+      "Hãy phân tích các tài liệu active sau và tạo task proposal theo schema.",
+      "Quy tắc title: `[Feature ID hoặc module] - [hành động nghiệp vụ cụ thể]`; không dùng tên tài liệu chung làm title.",
+      "Quy tắc sourceKey: dùng Feature ID nếu có; nếu không có dùng slug ngắn của luồng/heading chính. Không đưa documentId vào sourceKey.",
+      "Quy tắc confidence: >=0.65 khi task đủ rõ để tạo; thấp hơn nếu còn mơ hồ.",
+      "",
+      contextDocuments.join("\n\n---DOCUMENT---\n\n"),
+    ].join("\n"),
+  });
+
+  const docsById = new Map(documents.map((doc) => [doc.id, doc]));
+  const seen = new Set<string>();
+  const candidates: AutoTaskCandidate[] = [];
+
+  for (const proposal of object.tasks) {
+    if (proposal.confidence < AI_CONFIDENCE_THRESHOLD) continue;
+    const doc = docsById.get(proposal.sourceDocumentId);
+    if (!doc) continue;
+    const candidate = candidateFromAiProposal(doc, proposal);
+    const key = `${candidate.documentId}:${candidate.sourceKey}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    candidates.push(candidate);
+  }
+
+  return candidates.slice(0, MAX_CANDIDATES);
+}
 
 export function generateTaskCandidatesFromDocuments(
   documents: AutoTaskSourceDocument[],
@@ -59,9 +152,80 @@ export function generateTaskCandidatesFromDocuments(
 export async function generateTaskCandidatesWithAiFallback(
   documents: AutoTaskSourceDocument[],
 ): Promise<AutoTaskCandidate[]> {
-  // Hybrid hook: keep the shape stable so an AI provider can be added later
-  // without changing the batch-create action or overview UI.
-  return generateTaskCandidatesFromDocuments(documents);
+  try {
+    return await generateAiTaskCandidatesFromDocuments(documents);
+  } catch {
+    return generateTaskCandidatesFromDocuments(documents);
+  }
+}
+
+function buildAiDocumentContext(documents: AutoTaskSourceDocument[]) {
+  const chunks: string[] = [];
+  let totalLength = 0;
+
+  for (const doc of documents.slice(0, MAX_AI_DOCUMENTS)) {
+    const text = normalizeDocumentForAi(doc);
+    if (text.length < 160) continue;
+    const chunk = [
+      `Document ID: ${doc.id}`,
+      `Module ID: ${doc.moduleId}`,
+      `Module: ${doc.module?.name ?? "Không rõ"}`,
+      `Title: ${doc.title}`,
+      doc.description ? `Description: ${doc.description}` : "",
+      "Content:",
+      truncate(text, MAX_CONTEXT_CHARS_PER_DOCUMENT),
+    ]
+      .filter(Boolean)
+      .join("\n");
+    if (totalLength + chunk.length > MAX_TOTAL_CONTEXT_CHARS) break;
+    chunks.push(chunk);
+    totalLength += chunk.length;
+  }
+
+  return chunks;
+}
+
+function normalizeDocumentForAi(doc: AutoTaskSourceDocument) {
+  const content =
+    doc.contentFormat === "HTML"
+      ? htmlToStructuredPlainText(doc.currentContent)
+      : markdownToStructuredPlainText(doc.currentContent);
+  return content.replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function candidateFromAiProposal(
+  doc: AutoTaskSourceDocument,
+  proposal: AiTaskProposal,
+): AutoTaskCandidate {
+  const sourceSlug = slugify(proposal.sourceKey || proposal.title || proposal.sourceEvidence);
+  const sourceKey = `AI_TASK:${doc.id}:${sourceSlug}`;
+  const correctness = proposal.correctnessConditions.map((item) => `- ${item}`).join("\n");
+  const devTestWork = [
+    "Dev:",
+    ...proposal.devChecklist.map((item) => `- ${item}`),
+    "Test:",
+    ...proposal.testChecklist.map((item) => `- ${item}`),
+  ].join("\n");
+
+  return normalizeCandidate({
+    documentId: doc.id,
+    moduleId: doc.moduleId,
+    sourceKey,
+    sourceLabel: `AI task từ ${doc.title}`,
+    title: proposal.title,
+    description: formatTaskDescription({
+      systemNeed: proposal.systemNeed,
+      userGoal: proposal.userGoal,
+      doneCondition: correctness,
+      devTestWork,
+    }),
+    acceptanceCriteria: proposal.acceptanceCriteria.map((item) => `- ${item}`).join("\n"),
+    type: proposal.type,
+    priority: proposal.priority,
+    sourceEvidence: proposal.sourceEvidence,
+    confidence: proposal.confidence,
+    needsClarification: proposal.needsClarification,
+  });
 }
 
 function parseFunctionalRows(doc: AutoTaskSourceDocument): FunctionalRow[] {
@@ -169,6 +333,10 @@ function candidateFromFunctionalRow(
     }),
     acceptanceCriteria: formatAcceptanceCriteria(doneCondition, row.exceptions),
     type: isUserFacing(row.mainFlow, row.acceptanceCriteria) ? "STORY" : "TASK",
+    priority: "MEDIUM",
+    sourceEvidence: row.featureId,
+    confidence: 0.75,
+    needsClarification: false,
   });
 }
 
@@ -197,6 +365,10 @@ function parseSections(doc: AutoTaskSourceDocument): AutoTaskCandidate[] {
         }),
         acceptanceCriteria: formatAcceptanceCriteria(findAcceptanceLikeText(section.body) || section.body),
         type: isUserFacing(section.heading, section.body) ? "STORY" : "TASK",
+        priority: "MEDIUM",
+        sourceEvidence: section.heading || doc.title,
+        confidence: 0.65,
+        needsClarification: true,
       }),
     );
 }
@@ -275,6 +447,8 @@ function normalizeCandidate(candidate: AutoTaskCandidate): AutoTaskCandidate {
     title: truncate(candidate.title.replace(/\s+/g, " ").trim(), 200),
     description: truncate(candidate.description.trim(), 5000),
     acceptanceCriteria: truncate(candidate.acceptanceCriteria.trim(), 5000),
+    sourceEvidence: truncate(candidate.sourceEvidence.replace(/\s+/g, " ").trim(), 500),
+    confidence: Math.max(0, Math.min(1, candidate.confidence)),
   };
 }
 
@@ -313,6 +487,22 @@ function markdownToPlainText(value: string) {
   );
 }
 
+function markdownToStructuredPlainText(value: string) {
+  return decodeHtmlEntities(
+    value
+      .replace(/```[\s\S]*?```/g, " ")
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/!\[([^\]]*)]\([^)]*\)/g, "$1")
+      .replace(/\[([^\]]+)]\([^)]*\)/g, "$1")
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<[^>]+>/g, " ")
+      .split(/\r?\n/)
+      .map((line) => line.replace(/\s+/g, " ").trim())
+      .filter(Boolean)
+      .join("\n"),
+  );
+}
+
 function htmlToPlainText(value: string) {
   return decodeHtmlEntities(
     value
@@ -321,6 +511,24 @@ function htmlToPlainText(value: string) {
       .replace(/<[^>]+>/g, " ")
       .replace(/\s+/g, " ")
       .trim(),
+  );
+}
+
+function htmlToStructuredPlainText(value: string) {
+  return decodeHtmlEntities(
+    value
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/(h[1-6])>/gi, "\n")
+      .replace(/<h([1-6])[^>]*>/gi, "\n# ")
+      .replace(/<\/(p|div|li)>/gi, "\n")
+      .replace(/<li[^>]*>/gi, "- ")
+      .replace(/<\/t[dh]>/gi, " | ")
+      .replace(/<\/tr>/gi, "\n")
+      .replace(/<[^>]+>/g, " ")
+      .split(/\r?\n/)
+      .map((line) => line.replace(/\s+/g, " ").trim())
+      .filter(Boolean)
+      .join("\n"),
   );
 }
 
@@ -355,7 +563,7 @@ function summarizeText(value: string, maxLength: number) {
 
 function truncate(value: string, maxLength: number) {
   if (value.length <= maxLength) return value;
-  return `${value.slice(0, Math.max(0, maxLength - 1)).trim()}…`;
+  return `${value.slice(0, Math.max(0, maxLength - 1)).trim()}...`;
 }
 
 function slugify(value: string) {

@@ -2,13 +2,18 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canAccess } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { getAssignedModuleIdsForUser } from "@/lib/document-type-access";
 import { logAudit } from "@/lib/audit";
-import { generateTaskCandidatesWithAiFallback } from "@/lib/auto-task-generator";
+import {
+  generateAiTaskCandidatesFromDocuments,
+  isAiTaskGenerationConfigured,
+  type AutoTaskCandidate,
+} from "@/lib/auto-task-generator";
 import { taskFormSchema } from "@/lib/validation/task";
 import type { ActionState } from "@/lib/actions/profile";
 
@@ -65,6 +70,33 @@ export interface AutoGenerateTasksState extends ActionState {
   scannedDocuments?: number;
   candidates?: number;
 }
+
+export interface AutoTaskPreviewCandidate extends AutoTaskCandidate {
+  duplicate?: boolean;
+}
+
+export interface AutoTaskPreviewState extends ActionState {
+  scannedDocuments?: number;
+  candidates?: number;
+  proposals?: AutoTaskPreviewCandidate[];
+}
+
+const autoTaskCandidateInputSchema = z.array(
+  z.object({
+    documentId: z.string().min(1),
+    moduleId: z.string().min(1),
+    sourceKey: z.string().min(1).max(240),
+    sourceLabel: z.string().min(1).max(240),
+    title: z.string().min(1).max(200),
+    description: z.string().min(1).max(5000),
+    acceptanceCriteria: z.string().min(1).max(5000),
+    type: z.enum(["STORY", "TASK", "TEST"]),
+    priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]),
+    sourceEvidence: z.string().max(500),
+    confidence: z.number().min(0).max(1),
+    needsClarification: z.boolean(),
+  }),
+).max(100);
 
 /** Module-scoped create (legacy route). Keeps the original lightweight fields. */
 export async function createTaskAction(
@@ -213,13 +245,41 @@ export async function autoGenerateTasksFromDocumentsAction(
   _prevState: AutoGenerateTasksState,
 ): Promise<AutoGenerateTasksState> {
   void _prevState;
+  const preview = await previewAutoTasksFromDocumentsAction(projectId);
+  if (preview.error || !preview.proposals) {
+    return {
+      error: preview.error,
+      success: preview.success,
+      created: 0,
+      skipped: 0,
+      scannedDocuments: preview.scannedDocuments,
+      candidates: preview.candidates,
+    };
+  }
+  if (preview.proposals.length === 0) {
+    return {
+      success: preview.success,
+      created: 0,
+      skipped: 0,
+      scannedDocuments: preview.scannedDocuments,
+      candidates: preview.candidates,
+    };
+  }
+  return createAutoTasksFromDocumentsAction(
+    projectId,
+    preview.proposals.filter((proposal) => !proposal.duplicate),
+  );
+}
 
+export async function previewAutoTasksFromDocumentsAction(
+  projectId: string,
+): Promise<AutoTaskPreviewState> {
   const session = await auth();
   if (!session?.user) return { error: "Bạn cần đăng nhập." };
 
   const project = await prisma.project.findFirst({
     where: { id: projectId, deletedAt: null },
-    select: { id: true, code: true },
+    select: { id: true },
   });
   if (!project) return { error: "Không tìm thấy dự án." };
 
@@ -257,39 +317,111 @@ export async function autoGenerateTasksFromDocumentsAction(
 
   if (documents.length === 0) {
     return {
-      success: "Không có tài liệu active để tạo task.",
-      created: 0,
-      skipped: 0,
+      success: "Không có tài liệu active để AI phân tích.",
       scannedDocuments: 0,
       candidates: 0,
+      proposals: [],
     };
   }
 
-  const candidates = await generateTaskCandidatesWithAiFallback(documents);
-  if (candidates.length === 0) {
+  if (!isAiTaskGenerationConfigured()) {
     return {
-      success: `Đã quét ${documents.length} tài liệu nhưng chưa tìm thấy nội dung đủ rõ để tạo task.`,
-      created: 0,
-      skipped: 0,
+      error: "AI chưa được cấu hình. Cần thiết lập OPENAI_API_KEY trên môi trường chạy app.",
       scannedDocuments: documents.length,
       candidates: 0,
+      proposals: [],
     };
   }
 
-  const sourceKeys = candidates.map((candidate) => candidate.sourceKey);
-  const existingTasks = await prisma.task.findMany({
+  let candidates: AutoTaskCandidate[];
+  try {
+    candidates = await generateAiTaskCandidatesFromDocuments(documents);
+  } catch {
+    return {
+      error: "AI chưa tạo được task từ tài liệu. Vui lòng kiểm tra cấu hình model/API key hoặc thử lại.",
+      scannedDocuments: documents.length,
+      candidates: 0,
+      proposals: [],
+    };
+  }
+
+  if (candidates.length === 0) {
+    return {
+      success: `AI đã quét ${documents.length} tài liệu nhưng chưa tìm thấy logic đủ rõ để tạo task.`,
+      scannedDocuments: documents.length,
+      candidates: 0,
+      proposals: [],
+    };
+  }
+
+  const existingKeys = await findExistingAutoTaskKeys(projectId, documents.map((doc) => doc.id), candidates);
+  const proposals = candidates.map((candidate) => ({
+    ...candidate,
+    duplicate: existingKeys.has(`${candidate.documentId}:${candidate.sourceKey}`),
+  }));
+
+  return {
+    success: `AI đề xuất ${candidates.length} task từ ${documents.length} tài liệu.`,
+    scannedDocuments: documents.length,
+    candidates: candidates.length,
+    proposals,
+  };
+}
+
+export async function createAutoTasksFromDocumentsAction(
+  projectId: string,
+  rawCandidates: unknown,
+): Promise<AutoGenerateTasksState> {
+  const session = await auth();
+  if (!session?.user) return { error: "Bạn cần đăng nhập." };
+
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, deletedAt: null },
+    select: { id: true, code: true },
+  });
+  if (!project) return { error: "Không tìm thấy dự án." };
+
+  const projectRole = await getProjectRole(session.user.id, projectId);
+  if (!(await canAccess({ systemRole: session.user.systemRole }, "task.create", projectRole))) {
+    return { error: "Bạn không có quyền tạo task." };
+  }
+
+  const parsed = autoTaskCandidateInputSchema.safeParse(rawCandidates);
+  if (!parsed.success) {
+    return { error: "Danh sách task AI không hợp lệ. Vui lòng tạo preview lại." };
+  }
+
+  const candidates = parsed.data;
+  if (candidates.length === 0) {
+    return { error: "Bạn chưa chọn task nào để tạo.", created: 0, skipped: 0, candidates: 0 };
+  }
+
+  const assignedModuleIds = await getAssignedModuleIdsForUser({
+    projectId,
+    userId: session.user.id,
+    systemRole: session.user.systemRole,
+    projectRole,
+  });
+
+  const sourceDocuments = await prisma.document.findMany({
     where: {
       projectId,
       deletedAt: null,
-      relatedDocumentId: { in: documents.map((doc) => doc.id) },
-      sourceHighlight: { in: sourceKeys },
+      id: { in: candidates.map((candidate) => candidate.documentId) },
+      ...(assignedModuleIds ? { moduleId: { in: [...assignedModuleIds] } } : {}),
+      module: { deletedAt: null },
     },
-    select: { relatedDocumentId: true, sourceHighlight: true },
+    select: { id: true, moduleId: true },
   });
-  const existingKeys = new Set(
-    existingTasks.map((task) => `${task.relatedDocumentId ?? ""}:${task.sourceHighlight ?? ""}`),
-  );
-  const creatableCandidates = candidates.filter(
+  const sourceDocumentIds = new Set(sourceDocuments.map((doc) => doc.id));
+  const sourceModuleByDocumentId = new Map(sourceDocuments.map((doc) => [doc.id, doc.moduleId]));
+  const accessibleCandidates = candidates.filter((candidate) => sourceDocumentIds.has(candidate.documentId));
+  if (accessibleCandidates.length === 0) {
+    return { error: "Không có task nào thuộc tài liệu bạn có quyền truy cập.", created: 0, skipped: candidates.length };
+  }
+
+  const existingKeys = await findExistingAutoTaskKeys(projectId, [...sourceDocumentIds], accessibleCandidates);
+  const creatableCandidates = accessibleCandidates.filter(
     (candidate) => !existingKeys.has(`${candidate.documentId}:${candidate.sourceKey}`),
   );
 
@@ -298,7 +430,7 @@ export async function autoGenerateTasksFromDocumentsAction(
       success: `Không tạo task mới. ${candidates.length} task dự kiến đã tồn tại.`,
       created: 0,
       skipped: candidates.length,
-      scannedDocuments: documents.length,
+      scannedDocuments: sourceDocuments.length,
       candidates: candidates.length,
     };
   }
@@ -318,13 +450,13 @@ export async function autoGenerateTasksFromDocumentsAction(
       prisma.task.create({
         data: {
           projectId,
-          moduleId: candidate.moduleId,
+          moduleId: sourceModuleByDocumentId.get(candidate.documentId) ?? candidate.moduleId,
           taskCode: `${taskCodePrefix}-${taskCount + index + 1}`,
           title: candidate.title,
           description: candidate.description,
           acceptanceCriteria: candidate.acceptanceCriteria,
           type: candidate.type,
-          priority: "MEDIUM",
+          priority: candidate.priority,
           status: "BACKLOG",
           assigneeId: null,
           relatedDocumentId: candidate.documentId,
@@ -345,9 +477,10 @@ export async function autoGenerateTasksFromDocumentsAction(
     projectId,
     metadata: {
       mode: "auto_from_documents",
+      generator: "ai_preview",
       created: createdTasks.length,
       skipped: candidates.length - creatableCandidates.length,
-      scannedDocuments: documents.length,
+      scannedDocuments: sourceDocuments.length,
     },
   });
 
@@ -359,9 +492,26 @@ export async function autoGenerateTasksFromDocumentsAction(
     success: `Đã tạo ${createdTasks.length} task, bỏ qua ${candidates.length - creatableCandidates.length} task trùng.`,
     created: createdTasks.length,
     skipped: candidates.length - creatableCandidates.length,
-    scannedDocuments: documents.length,
+    scannedDocuments: sourceDocuments.length,
     candidates: candidates.length,
   };
+}
+
+async function findExistingAutoTaskKeys(
+  projectId: string,
+  documentIds: string[],
+  candidates: Pick<AutoTaskCandidate, "sourceKey">[],
+) {
+  const existingTasks = await prisma.task.findMany({
+    where: {
+      projectId,
+      deletedAt: null,
+      relatedDocumentId: { in: documentIds },
+      sourceHighlight: { in: candidates.map((candidate) => candidate.sourceKey) },
+    },
+    select: { relatedDocumentId: true, sourceHighlight: true },
+  });
+  return new Set(existingTasks.map((task) => `${task.relatedDocumentId ?? ""}:${task.sourceHighlight ?? ""}`));
 }
 
 /** Sets (or clears) a task's parent for the tree hierarchy. */

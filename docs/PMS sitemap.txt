@@ -63,7 +63,10 @@ Ghi chú:
 ├── /projects/:projectId/tasks
 │   ├── Task list project-level.
 │   ├── Button "Tự động tạo task từ tài liệu" theo quyền `task.create`.
-│   ├── Auto task quét tài liệu active user có quyền xem, tạo task Backlog chưa assign và bỏ qua task trùng.
+│   ├── Auto task dùng AI đọc logic tài liệu active user có quyền xem.
+│   ├── Flow auto task: tạo preview proposal -> user chọn task -> tạo task Backlog chưa assign.
+│   ├── Task AI phải có 4 khối mô tả: hệ thống cần làm gì, người dùng muốn làm gì, điều kiện đúng, dev/test cần làm gì.
+│   ├── Bỏ qua task trùng theo `relatedDocumentId` + `sourceHighlight`.
 │   ├── Icon xóa trên từng dòng task theo quyền chỉnh sửa task.
 │   ├── Hiển thị task, subtask và bug liên quan.
 │   └── Filter theo status/priority/assignee nếu màn hình hỗ trợ.

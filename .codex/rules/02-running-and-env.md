@@ -29,6 +29,10 @@ Environment variables:
 - `NEXTAUTH_SECRET`: JWT signing secret.
 - `BLOB_READ_WRITE_TOKEN`: required for Vercel Blob uploads and private Blob
   proxy reads.
+- `OPENAI_API_KEY`: required for AI auto task generation from project
+  documents.
+- `AI_TASK_MODEL`: optional OpenAI model override for AI auto task generation;
+  defaults to `gpt-5.5` in code when unset.
 - `ADMIN_EMAIL` / `ADMIN_PASSWORD`: optional seed inputs.
 
 Safety rules:

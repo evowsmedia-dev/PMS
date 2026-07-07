@@ -103,7 +103,7 @@ Nav lives in the project sidebar under **"Quản lý công việc"**
 
 | File | Actions |
 |---|---|
-| `src/lib/actions/tasks.ts` | `createTaskAction` (module), `createProjectTaskAction`, `autoGenerateTasksFromDocumentsAction`, `updateTaskAction`, `reassignTaskAction`, `changeTaskStatusAction`, `addTaskCommentAction`, `deleteTaskAction` |
+| `src/lib/actions/tasks.ts` | `createTaskAction` (module), `createProjectTaskAction`, `previewAutoTasksFromDocumentsAction`, `createAutoTasksFromDocumentsAction`, `autoGenerateTasksFromDocumentsAction` (compat), `updateTaskAction`, `reassignTaskAction`, `changeTaskStatusAction`, `addTaskCommentAction`, `deleteTaskAction` |
 | `src/lib/actions/planning.ts` | create / soft-delete for Epic, Sprint, Milestone |
 | `src/lib/actions/qa.ts` | `createBugAction`, `changeBugStatusAction`, `createTestCaseAction`, `submitTestResultAction` |
 | `src/lib/actions/gantt.ts` | `updateTaskScheduleAction`, `addTaskDependencyAction`, `removeTaskDependencyAction` |
@@ -125,13 +125,15 @@ with the "create bug" toggle: creates a `TestRun` + `TestResult`, auto-creates a
 `Bug` (linked to the case's task), and moves the linked task to **BUG_FIXING** with
 a `TaskHistory` reason. Implements plan §6.3 / §23 data-quality rules.
 
-**Auto task from documents** (`autoGenerateTasksFromDocumentsAction`) — the
-project overview can generate Backlog tasks from active documents the caller can
-access. The rule-based generator prioritizes Functional Spec tables, falls back
-to document sections, links each task to `relatedDocumentId`, stores a stable
-`sourceHighlight` key to avoid duplicate generation, leaves `assigneeId` empty,
-and writes an audit log. The generator exposes a stable internal candidate shape
-so an AI provider can be added later without changing the task-create flow.
+**AI auto task from documents** (`previewAutoTasksFromDocumentsAction` +
+`createAutoTasksFromDocumentsAction`) — the project task list can ask AI to read
+active documents the caller can access, generate task proposals, show a preview,
+and only persist the selected proposals as Backlog tasks. Proposals must describe
+the work in four blocks: system behavior, user goal, correctness conditions, and
+dev/test checklist. Created tasks link to `relatedDocumentId`, store a stable
+`sourceHighlight` key to avoid duplicate generation, leave `assigneeId` empty,
+and write an audit log. `autoGenerateTasksFromDocumentsAction` remains as a
+compatibility wrapper around the new preview/create flow.
 
 **Gantt** — bars positioned across the project's min→max date window, inner fill =
 `progressPercent`, red = overdue, vertical line = today, grouped by epic. Schedule
@@ -168,6 +170,11 @@ admin role-permission matrix (system setting `rolePermissionMatrix`).
 - **`CRON_SECRET`** — required env var on Vercel for the daily-snapshot cron. The
   endpoint accepts it as `Authorization: Bearer <secret>` (Vercel Cron) or
   `?secret=<secret>` (manual trigger).
+- **`OPENAI_API_KEY`** — required for AI auto task generation from documents.
+  When missing, the UI reports that AI is not configured and does not create
+  tasks.
+- **`AI_TASK_MODEL`** — optional OpenAI model override for AI task generation.
+  Defaults to `gpt-5.5`.
 - **`vercel.json`** — `crons` entry runs `/api/cron/daily-project-snapshots` at
   `0 1 * * *`.
 - **Migration** — applied on deploy by `prisma migrate deploy` (in the build

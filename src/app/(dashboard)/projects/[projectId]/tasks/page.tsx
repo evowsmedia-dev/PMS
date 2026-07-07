@@ -13,7 +13,6 @@ import { TaskViewTabs } from "@/components/task-view-tabs";
 import { BugStatusSelect } from "@/components/qa-forms";
 import { AutoTaskFromDocumentsDialog } from "@/components/auto-task-from-documents-dialog";
 import { DeleteTaskButton } from "@/components/delete-task-button";
-import { generateTaskCandidatesFromDocuments } from "@/lib/auto-task-generator";
 import { taskHref } from "@/lib/task-href";
 import {
   TASK_STATUS_LABEL,
@@ -97,9 +96,6 @@ export default async function ProjectTasksPage({
         })
       : Promise.resolve([]),
   ]);
-  const autoTaskCandidateCount = canCreate
-    ? generateTaskCandidatesFromDocuments(autoTaskDocs).length
-    : 0;
 
   type TaskRow = (typeof tasks)[number];
   type BugRow = (typeof bugs)[number];
@@ -153,7 +149,6 @@ export default async function ProjectTasksPage({
               <AutoTaskFromDocumentsDialog
                 projectId={projectId}
                 documentCount={autoTaskDocs.length}
-                candidateCount={autoTaskCandidateCount}
               />
               <Button asChild size="sm" variant="outline">
                 <Link href={`/projects/${projectId}/tasks/new`}>
