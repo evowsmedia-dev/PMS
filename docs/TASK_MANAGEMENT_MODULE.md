@@ -87,8 +87,8 @@ as-is.
 | Route | Page |
 |---|---|
 | `tasks` | Task list with hierarchy, status/type/warning filters, effort/deadline/warning fields, AI auto-task action |
-| `tasks/new` | Create task/bug with full planning, Dev/Test/Standard estimates, and dependency fields |
-| `tasks/[taskId]` | Task detail: status/assignee, planning meta, effort/deadline warnings, dependencies, QA links, time log, history, comments |
+| `tasks/new` | Create task/bug with full planning, parent task, Dev/Test/Standard estimates, related documents, external links, and dependency fields |
+| `tasks/[taskId]` | Task detail: unified parent/sub-task layout with planning meta, related documents/external links, effort/deadline warnings, QA links, editable own time logs, history + comments |
 | `kanban` | 12-column drag-and-drop board (filter assignee / priority / sprint) |
 | `gantt` | CSS timeline grouped by epic, progress bars, overdue markers, today line |
 | `epics` / `sprints` / `milestones` | List + inline create + task counts |
@@ -173,8 +173,9 @@ Costs are stored per call using the token rates configured in code at the time
 of the AI request.
 
 **Gantt** — bars positioned across the project's min→max date window, inner fill =
-`progressPercent`, red = overdue, vertical line = today, grouped by epic. Schedule
-and dependencies are edited on the task detail page (`TaskPlanningEditor`).
+`progressPercent`, red = overdue, vertical line = today, grouped by epic. Schedule,
+parent task, related documents, external links, and effort fields are edited from
+the unified task detail edit form.
 
 **Daily snapshot** — `GET /api/cron/daily-project-snapshots` (guarded by
 `CRON_SECRET`) iterates active projects and upserts one `DailyProjectSnapshot` per

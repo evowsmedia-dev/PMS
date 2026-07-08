@@ -84,15 +84,22 @@ Ghi chú:
 │   ├── Form task hỗ trợ planning metadata, assignee, reviewer, tester, priority, due date.
 │   ├── Nhập Dev estimate, Test estimate auto/manual, Standard estimate theo ngày công.
 │   ├── Nhập planned start, HTC Dev, HTC Test.
+│   ├── Chọn task cha khi tạo sub-task hoặc task bug từ detail task.
+│   ├── Chọn nhiều tài liệu liên quan cần đọc kỹ.
+│   ├── Nhập external link, mỗi link một dòng.
 │   └── Chọn dependency khi tạo task nếu cần.
 │
 ├── /projects/:projectId/tasks/:taskId
-│   ├── Chi tiết task project-level.
-│   ├── Đổi trạng thái, gán lại, planning metadata, dependency, QA links.
+│   ├── Chi tiết task project-level và sub-task dùng cùng format với detail task trong module.
+│   ├── Hiển thị trạng thái trong grid thông tin, không hiển thị field Mã trong grid.
+│   ├── Button Chỉnh sửa task và Tạo sub-task.
+│   ├── Planning metadata, task cha, QA links.
+│   ├── Tài liệu liên quan hỗ trợ chọn nhiều tài liệu trong dự án.
+│   ├── External link mở new tab.
 │   ├── Hiển thị Dev/Test/Standard estimate, Actual Dev/Test, progress, overdue/blocked/warning.
-│   ├── Time log theo loại việc: Dev, Test, BA, PM, Review, Other.
+│   ├── Time log theo loại việc: Dev, Test, BA, PM, Review, Other; user sửa được log của chính mình.
 │   ├── Comment task hỗ trợ @mention thành viên dự án và sinh notification.
-│   └── History và comment task.
+│   └── History hiển thị cả thay đổi task và comment task.
 │
 ├── /projects/:projectId/kanban
 │   └── Kanban project-level theo 12 trạng thái task.

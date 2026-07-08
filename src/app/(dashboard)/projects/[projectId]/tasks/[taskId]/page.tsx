@@ -8,20 +8,26 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TaskEditForm } from "@/components/task-edit-form";
 import {
-  TaskStatusSelect,
-  TaskAssigneeSelect,
   TaskComments,
   TaskTimeLogForm,
   TaskTimeLogList,
 } from "@/components/task-detail-panel";
-import { TaskPlanningEditor } from "@/components/task-planning-editor";
+import { TaskViewTabs } from "@/components/task-view-tabs";
 import { formatTaskHistoryField, formatTaskHistoryValue } from "@/lib/task-history-display";
 import {
   TASK_TYPE_LABEL,
   TASK_PRIORITY_LABEL,
   BUG_STATUS_LABEL,
   TASK_WARNING_LABEL,
+  TASK_STATUS_LABEL,
 } from "@/lib/validation/task";
+
+function normalizeExternalLinks(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => (typeof item === "string" ? item : typeof item?.url === "string" ? item.url : ""))
+    .filter(Boolean);
+}
 
 export default async function ProjectTaskDetailPage({
   params,
@@ -42,9 +48,13 @@ export default async function ProjectTaskDetailPage({
       sprint: { select: { name: true } },
       milestone: { select: { name: true } },
       relatedDocument: { select: { id: true, title: true, moduleId: true } },
-      dependencies: {
-        include: { dependsOnTask: { select: { id: true, title: true, taskCode: true } } },
+      relatedDocuments: {
+        include: {
+          document: { select: { id: true, title: true, moduleId: true, module: { select: { name: true } } } },
+        },
+        orderBy: { createdAt: "asc" },
       },
+      parentTask: { select: { id: true, title: true, taskCode: true, moduleId: true } },
       bugs: {
         where: { deletedAt: null },
         select: { id: true, bugCode: true, title: true, status: true },
@@ -76,27 +86,46 @@ export default async function ProjectTaskDetailPage({
   const isAdmin = session.user.systemRole === "ADMIN";
   if (!isAdmin && !projectRole) redirect("/projects");
 
-  const members = await prisma.projectMember.findMany({
-    where: { projectId },
-    include: { user: { select: { fullName: true } } },
-  });
-
-  const dependencyIds = new Set(task.dependencies.map((d) => d.dependsOnTaskId));
-  const candidateTasks = await prisma.task.findMany({
-    where: { projectId, deletedAt: null, id: { not: taskId } },
-    select: { id: true, title: true, taskCode: true },
-    orderBy: { updatedAt: "desc" },
-    take: 200,
-  });
-
   const roleCtx = { systemRole: session.user.systemRole };
   const canEdit = await canAccess(roleCtx, "task.edit", projectRole);
-  const canReassign = await canAccess(roleCtx, "task.reassign", projectRole);
   const canComment = await canAccess(roleCtx, "comment.create", projectRole);
+
+  const [members, epics, sprints, milestones, documents, candidateTasks] = await Promise.all([
+    prisma.projectMember.findMany({
+      where: { projectId },
+      include: { user: { select: { fullName: true } } },
+    }),
+    prisma.epic.findMany({
+      where: { projectId, deletedAt: null },
+      select: { id: true, name: true },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.sprint.findMany({
+      where: { projectId, deletedAt: null },
+      select: { id: true, name: true },
+      orderBy: { startDate: "desc" },
+    }),
+    prisma.milestone.findMany({
+      where: { projectId, deletedAt: null },
+      select: { id: true, name: true },
+      orderBy: { dueDate: "asc" },
+    }),
+    prisma.document.findMany({
+      where: { projectId, deletedAt: null, module: { deletedAt: null } },
+      select: { id: true, title: true, module: { select: { name: true } } },
+      orderBy: { updatedAt: "desc" },
+    }),
+    prisma.task.findMany({
+      where: { projectId, deletedAt: null, id: { not: taskId } },
+      select: { id: true, title: true, taskCode: true },
+      orderBy: { updatedAt: "desc" },
+      take: 200,
+    }),
+  ]);
   const memberNameById = new Map(members.map((member) => [member.userId, member.user.fullName]));
 
   const meta: { label: string; value: string }[] = [
-    { label: "Mã", value: task.taskCode ?? "—" },
+    { label: "Trạng thái", value: TASK_STATUS_LABEL[task.status] },
     { label: "Loại", value: TASK_TYPE_LABEL[task.type] },
     { label: "Ưu tiên", value: TASK_PRIORITY_LABEL[task.priority] },
     { label: "Epic", value: task.epic?.name ?? "—" },
@@ -115,10 +144,14 @@ export default async function ProjectTaskDetailPage({
     { label: "Story point", value: String(task.storyPoint) },
     { label: "Tiến độ", value: `${task.progressPercent}%` },
   ];
+  const externalLinks = normalizeExternalLinks(task.externalLinks);
+  const relatedDocuments = task.relatedDocuments.map((item) => item.document);
 
   return (
-    <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,75%)_minmax(0,25%)] lg:items-start">
-      <div className="min-w-0 space-y-4">
+    <div className="space-y-4">
+      <TaskViewTabs projectId={projectId} active="list" />
+      <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,75%)_minmax(0,25%)] lg:items-start">
+        <div className="min-w-0 space-y-4">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -129,33 +162,6 @@ export default async function ProjectTaskDetailPage({
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <TaskStatusSelect
-                projectId={projectId}
-                moduleId={null}
-                taskId={taskId}
-                status={task.status}
-                canEdit={canEdit}
-              />
-              <TaskAssigneeSelect
-                projectId={projectId}
-                moduleId={null}
-                taskId={taskId}
-                assigneeId={task.assigneeId}
-                members={members.map((m) => ({ userId: m.userId, fullName: m.user.fullName }))}
-                canReassign={canReassign}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-3">
-              {meta.map((m) => (
-                <div key={m.label} className="flex justify-between gap-2 border-b py-1">
-                  <span className="text-muted-foreground">{m.label}</span>
-                  <span className="text-right font-medium">{m.value}</span>
-                </div>
-              ))}
-            </div>
-
             {task.estimateWarningFlag || task.isDevOverdue || task.isTestOverdue || task.isBlocked ? (
               <div className="rounded-md border bg-muted/40 p-3 text-sm">
                 <p className="text-xs font-semibold uppercase text-muted-foreground">
@@ -175,29 +181,57 @@ export default async function ProjectTaskDetailPage({
               </div>
             ) : null}
 
-            {task.acceptanceCriteria ? (
-              <div className="rounded-md bg-muted p-3 text-sm">
-                <p className="text-xs font-semibold uppercase text-muted-foreground">
-                  Tiêu chí nghiệm thu
-                </p>
-                <p className="mt-1 whitespace-pre-wrap">{task.acceptanceCriteria}</p>
-              </div>
-            ) : null}
-
-            {task.relatedDocument ? (
+            {task.parentTask ? (
               <p className="text-sm text-muted-foreground">
-                Tài liệu liên quan:{" "}
-                {task.relatedDocument.moduleId ? (
+                Task cha:{" "}
+                {task.parentTask.moduleId ? (
                   <Link
-                    href={`/projects/${projectId}/modules/${task.relatedDocument.moduleId}/documents/${task.relatedDocument.id}`}
+                    href={`/projects/${projectId}/modules/${task.parentTask.moduleId}/tasks/${task.parentTask.id}`}
                     className="text-foreground underline-offset-4 hover:underline"
                   >
-                    {task.relatedDocument.title}
+                    {task.parentTask.taskCode ? `${task.parentTask.taskCode} · ` : ""}
+                    {task.parentTask.title}
                   </Link>
                 ) : (
-                  <span className="text-foreground">{task.relatedDocument.title}</span>
+                  <Link
+                    href={`/projects/${projectId}/tasks/${task.parentTask.id}`}
+                    className="text-foreground underline-offset-4 hover:underline"
+                  >
+                    {task.parentTask.taskCode ? `${task.parentTask.taskCode} · ` : ""}
+                    {task.parentTask.title}
+                  </Link>
                 )}
               </p>
+            ) : null}
+
+            {relatedDocuments.length > 0 || externalLinks.length > 0 ? (
+              <div className="rounded-md border p-3 text-sm">
+                <p className="text-xs font-semibold uppercase text-muted-foreground">
+                  Tài liệu / link liên quan
+                </p>
+                <div className="mt-2 space-y-1">
+                  {relatedDocuments.map((document) => (
+                    <Link
+                      key={document.id}
+                      href={`/projects/${projectId}/modules/${document.moduleId}/documents/${document.id}`}
+                      className="block text-foreground underline-offset-4 hover:underline"
+                    >
+                      {document.module.name} · {document.title}
+                    </Link>
+                  ))}
+                  {externalLinks.map((link) => (
+                    <a
+                      key={link}
+                      href={link}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block break-all text-foreground underline-offset-4 hover:underline"
+                    >
+                      {link}
+                    </a>
+                  ))}
+                </div>
+              </div>
             ) : null}
 
             <TaskEditForm
@@ -206,7 +240,16 @@ export default async function ProjectTaskDetailPage({
               taskId={taskId}
               title={task.title}
               description={task.description ?? ""}
+              type={task.type}
               priority={task.priority}
+              assigneeId={task.assigneeId}
+              reviewerId={task.reviewerId}
+              testerId={task.testerId}
+              epicId={task.epicId}
+              sprintId={task.sprintId}
+              milestoneId={task.milestoneId}
+              parentTaskId={task.parentTaskId}
+              startDate={task.startDate ? task.startDate.toISOString().slice(0, 10) : ""}
               dueDate={task.dueDate ? task.dueDate.toISOString().slice(0, 10) : ""}
               plannedStartAt={task.plannedStartAt ? task.plannedStartAt.toISOString().slice(0, 10) : ""}
               devDueAt={task.devDueAt ? task.devDueAt.toISOString().slice(0, 10) : ""}
@@ -215,27 +258,31 @@ export default async function ProjectTaskDetailPage({
               testEstimateHours={String(task.testEstimateHours)}
               testEstimateSource={task.testEstimateSource}
               standardEstimateMandays={String(task.standardEstimateMandays)}
-              canEdit={canEdit}
-            />
-
-            <TaskPlanningEditor
-              projectId={projectId}
-              taskId={taskId}
-              startDate={task.startDate ? task.startDate.toISOString().slice(0, 10) : ""}
-              dueDate={task.dueDate ? task.dueDate.toISOString().slice(0, 10) : ""}
-              parentTaskId={task.parentTaskId}
-              dependencies={task.dependencies.map((d) => ({
-                id: d.id,
-                title: d.dependsOnTask.title,
-                taskCode: d.dependsOnTask.taskCode,
+              storyPoint={String(task.storyPoint)}
+              acceptanceCriteria={task.acceptanceCriteria ?? ""}
+              relatedDocumentId={task.relatedDocumentId}
+              relatedDocumentIds={relatedDocuments.map((document) => document.id)}
+              externalLinks={externalLinks}
+              documents={documents.map((document) => ({
+                id: document.id,
+                label: `${document.module.name} · ${document.title}`,
               }))}
-              candidates={candidateTasks
-                .filter((c) => !dependencyIds.has(c.id))
-                .map((c) => ({
-                  id: c.id,
-                  label: `${c.taskCode ? c.taskCode + " · " : ""}${c.title}`,
-                }))}
+              createChildTaskHref={`/projects/${projectId}/tasks/new?parentTaskId=${taskId}`}
               canEdit={canEdit}
+              fullPlanningFields
+              readOnlyDetails={{
+                description: task.description ?? "",
+                meta,
+                acceptanceCriteria: task.acceptanceCriteria ?? "",
+              }}
+              members={members.map((m) => ({ userId: m.userId, fullName: m.user.fullName }))}
+              epics={epics.map((epic) => ({ id: epic.id, label: epic.name }))}
+              sprints={sprints.map((sprint) => ({ id: sprint.id, label: sprint.name }))}
+              milestones={milestones.map((milestone) => ({ id: milestone.id, label: milestone.name }))}
+              tasks={candidateTasks.map((candidate) => ({
+                id: candidate.id,
+                label: `${candidate.taskCode ? candidate.taskCode + " · " : ""}${candidate.title}`,
+              }))}
             />
 
             {task.bugs.length > 0 || task.testCases.length > 0 ? (
@@ -312,24 +359,33 @@ export default async function ProjectTaskDetailPage({
                     <span className="ml-1 text-[11px]">({h.createdAt.toLocaleString("vi-VN")})</span>
                   </li>
                 ))}
-                {task.history.length === 0 ? <li>Chưa có lịch sử thay đổi.</li> : null}
+                {task.comments.map((comment) => (
+                  <li key={`comment-${comment.id}`}>
+                    {comment.author.fullName} bình luận: {comment.content} (
+                    {comment.createdAt.toLocaleString("vi-VN")})
+                  </li>
+                ))}
+                {task.history.length === 0 && task.comments.length === 0 ? (
+                  <li>Chưa có lịch sử thay đổi.</li>
+                ) : null}
               </ul>
             </div>
           </CardContent>
         </Card>
-      </div>
+        </div>
 
-      <Card className="h-fit min-w-0">
-        <CardContent className="pt-6">
-          <TaskComments
-            projectId={projectId}
-            moduleId={null}
-            taskId={taskId}
-            comments={task.comments.map((c) => ({ ...c, createdAt: c.createdAt.toISOString() }))}
-            canComment={canComment}
-          />
-        </CardContent>
-      </Card>
+        <Card className="h-fit min-w-0">
+          <CardContent className="pt-6">
+            <TaskComments
+              projectId={projectId}
+              moduleId={null}
+              taskId={taskId}
+              comments={task.comments.map((c) => ({ ...c, createdAt: c.createdAt.toISOString() }))}
+              canComment={canComment}
+            />
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
