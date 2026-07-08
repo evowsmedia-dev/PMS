@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -108,6 +108,7 @@ export function TaskEditForm({
 }) {
   const action = updateTaskAction.bind(null, projectId, moduleId, taskId);
   const [state, formAction, pending] = useActionState(action, initialState);
+  const [editing, setEditing] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -117,6 +118,14 @@ export function TaskEditForm({
     }
     if (state.error) toast.error(state.error);
   }, [state, router]);
+
+  if (!editing) {
+    return canEdit ? (
+      <Button type="button" size="sm" variant="outline" onClick={() => setEditing(true)}>
+        Chỉnh sửa task
+      </Button>
+    ) : null;
+  }
 
   return (
     <form action={formAction} className="space-y-4">
@@ -194,9 +203,20 @@ export function TaskEditForm({
       )}
 
       {canEdit ? (
-        <Button type="submit" size="sm" disabled={pending}>
-          {pending ? "Đang lưu..." : "Lưu thay đổi"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button type="submit" size="sm" disabled={pending}>
+            {pending ? "Đang lưu..." : "Lưu thay đổi"}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={pending}
+            onClick={() => setEditing(false)}
+          >
+            Hủy
+          </Button>
+        </div>
       ) : null}
     </form>
   );
@@ -625,14 +645,18 @@ function MemberSelect({
   members: MemberOption[];
   canEdit: boolean;
 }) {
+  const [selected, setSelected] = useState(value);
+
   return (
     <div className="space-y-2">
       <Label htmlFor={name}>{label}</Label>
-      <Select name={name} defaultValue={value || undefined} disabled={!canEdit}>
+      <input type="hidden" name={name} value={selected} />
+      <Select value={selected || "__none"} onValueChange={(next) => setSelected(next === "__none" ? "" : next)} disabled={!canEdit}>
         <SelectTrigger id={name} className="w-full">
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>
+          <SelectItem value="__none">{placeholder}</SelectItem>
           {members.map((member) => (
             <SelectItem key={member.userId} value={member.userId}>
               {member.fullName}
@@ -659,25 +683,23 @@ function OptionalSelect({
   options: Option[];
   disabled: boolean;
 }) {
+  const [selected, setSelected] = useState(value);
+
   return (
     <div className="space-y-2">
       <Label htmlFor={name}>{label}</Label>
-      <Select name={name} defaultValue={value || undefined} disabled={disabled}>
+      <input type="hidden" name={name} value={selected} />
+      <Select value={selected || "__none"} onValueChange={(next) => setSelected(next === "__none" ? "" : next)} disabled={disabled}>
         <SelectTrigger id={name} className="w-full">
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>
-          {options.length === 0 ? (
-            <SelectItem value="__none" disabled>
-              Chưa có
+          <SelectItem value="__none">{placeholder}</SelectItem>
+          {options.map((option) => (
+            <SelectItem key={option.id} value={option.id}>
+              {option.label}
             </SelectItem>
-          ) : (
-            options.map((option) => (
-              <SelectItem key={option.id} value={option.id}>
-                {option.label}
-              </SelectItem>
-            ))
-          )}
+          ))}
         </SelectContent>
       </Select>
     </div>

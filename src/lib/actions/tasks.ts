@@ -46,18 +46,22 @@ async function nextTaskCode(projectId: string): Promise<string> {
 }
 
 function parseTaskForm(formData: FormData) {
+  const optionalValue = (key: string) => {
+    const value = String(formData.get(key) ?? "");
+    return value === "__none" ? "" : value;
+  };
   return taskFormSchema.safeParse({
     title: formData.get("title"),
     description: formData.get("description") ?? "",
     type: formData.get("type") || "TASK",
-    assigneeId: formData.get("assigneeId") ?? "",
-    reviewerId: formData.get("reviewerId") ?? "",
-    testerId: formData.get("testerId") ?? "",
+    assigneeId: optionalValue("assigneeId"),
+    reviewerId: optionalValue("reviewerId"),
+    testerId: optionalValue("testerId"),
     priority: formData.get("priority") || "MEDIUM",
-    epicId: formData.get("epicId") ?? "",
-    sprintId: formData.get("sprintId") ?? "",
-    milestoneId: formData.get("milestoneId") ?? "",
-    parentTaskId: formData.get("parentTaskId") ?? "",
+    epicId: optionalValue("epicId"),
+    sprintId: optionalValue("sprintId"),
+    milestoneId: optionalValue("milestoneId"),
+    parentTaskId: optionalValue("parentTaskId"),
     startDate: formData.get("startDate") ?? "",
     plannedStartAt: formData.get("plannedStartAt") ?? formData.get("startDate") ?? "",
     dueDate: formData.get("dueDate") ?? "",
