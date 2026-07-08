@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canAccess } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
+import { canAccessModule, getAssignedModuleIdsForUser } from "@/lib/document-type-access";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TaskEditForm } from "@/components/task-edit-form";
@@ -85,6 +86,16 @@ export default async function ProjectTaskDetailPage({
   const projectRole = await getProjectRole(session.user.id, projectId);
   const isAdmin = session.user.systemRole === "ADMIN";
   if (!isAdmin && !projectRole) redirect("/projects");
+  const taskModuleId = task.moduleId ?? null;
+  if (taskModuleId) {
+    const assignedModuleIds = await getAssignedModuleIdsForUser({
+      projectId,
+      userId: session.user.id,
+      systemRole: session.user.systemRole,
+      projectRole,
+    });
+    if (!canAccessModule(assignedModuleIds, taskModuleId)) redirect(`/projects/${projectId}/overview`);
+  }
 
   const roleCtx = { systemRole: session.user.systemRole };
   const canEdit = await canAccess(roleCtx, "task.edit", projectRole);
@@ -206,7 +217,7 @@ export default async function ProjectTaskDetailPage({
 
             <TaskEditForm
               projectId={projectId}
-              moduleId={null}
+              moduleId={taskModuleId}
               taskId={taskId}
               title={task.title}
               description={task.description ?? ""}
@@ -302,10 +313,10 @@ export default async function ProjectTaskDetailPage({
             <div className="border-t pt-3">
               <p className="text-xs font-semibold uppercase text-muted-foreground">Time log</p>
               <div className="mt-2 space-y-2">
-                <TaskTimeLogForm projectId={projectId} moduleId={null} taskId={taskId} canEdit={canEdit} />
+                <TaskTimeLogForm projectId={projectId} moduleId={taskModuleId} taskId={taskId} canEdit={canEdit} />
                 <TaskTimeLogList
                   projectId={projectId}
-                  moduleId={null}
+                  moduleId={taskModuleId}
                   taskId={taskId}
                   currentUserId={session.user.id}
                   canEdit={canEdit}
@@ -357,7 +368,7 @@ export default async function ProjectTaskDetailPage({
           <CardContent className="pt-6">
             <TaskComments
               projectId={projectId}
-              moduleId={null}
+              moduleId={taskModuleId}
               taskId={taskId}
               comments={task.comments.map((c) => ({ ...c, createdAt: c.createdAt.toISOString() }))}
               canComment={canComment}
