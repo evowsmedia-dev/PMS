@@ -11,6 +11,7 @@ import { KanbanBoard } from "@/components/kanban-board";
 import { PageSection } from "@/components/page-shell";
 import { TaskViewTabs } from "@/components/task-view-tabs";
 import { TASK_PRIORITY_ORDER, TASK_PRIORITY_LABEL } from "@/lib/validation/task";
+import { normalizeKanbanStatusOrder } from "@/lib/kanban-status-config";
 import type { Prisma, TaskPriority } from "@/generated/prisma/client";
 
 export default async function ProjectKanbanPage({
@@ -27,7 +28,7 @@ export default async function ProjectKanbanPage({
 
   const project = await prisma.project.findFirst({
     where: { id: projectId, deletedAt: null },
-    select: { id: true },
+    select: { id: true, kanbanStatusOrder: true },
   });
   if (!project) notFound();
 
@@ -36,6 +37,8 @@ export default async function ProjectKanbanPage({
   if (!isAdmin && !projectRole) redirect("/projects");
 
   const canCreate = await canAccess({ systemRole: session.user.systemRole }, "task.create", projectRole);
+  const canMove = await canAccess({ systemRole: session.user.systemRole }, "task.move", projectRole);
+  const kanbanStatuses = normalizeKanbanStatusOrder(project.kanbanStatusOrder);
 
   const where: Prisma.TaskWhereInput = {
     projectId,
@@ -133,6 +136,8 @@ export default async function ProjectKanbanPage({
       <KanbanBoard
         projectId={projectId}
         moduleId={null}
+        initialStatuses={kanbanStatuses}
+        canConfigureStatuses={canMove}
         initialTasks={tasks.map((t) => ({
           id: t.id,
           title: t.title,

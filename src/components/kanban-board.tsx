@@ -14,12 +14,18 @@ import {
 } from "@dnd-kit/core";
 import {
   SortableContext,
+  arrayMove,
+  horizontalListSortingStrategy,
   verticalListSortingStrategy,
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { toast } from "sonner";
+import { EyeOff, GripVertical, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { updateProjectKanbanStatusOrderAction } from "@/lib/actions/tasks";
+import { hiddenKanbanStatuses } from "@/lib/kanban-status-config";
 import { TASK_STATUS_LABEL, TASK_STATUS_ORDER, TASK_PRIORITY_LABEL } from "@/lib/validation/task";
 import { taskHref } from "@/lib/task-href";
 
@@ -98,19 +104,73 @@ function Column({
   tasks,
   projectId,
   moduleId,
+  canConfigureStatuses,
+  canHide,
+  onHide,
 }: {
   status: string;
   tasks: KanbanTask[];
   projectId: string;
   moduleId: string | null;
+  canConfigureStatuses: boolean;
+  canHide: boolean;
+  onHide: (status: string) => void;
 }) {
   const { setNodeRef } = useDroppable({ id: status });
+  const {
+    attributes,
+    listeners,
+    setNodeRef: setSortableRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: columnDragId(status),
+    disabled: !canConfigureStatuses,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+  };
 
   return (
-    <div className="flex min-h-[360px] w-[280px] shrink-0 flex-col rounded-xl border border-border bg-muted p-2 sm:w-[304px]">
+    <div
+      ref={setSortableRef}
+      style={style}
+      className="flex min-h-[360px] w-[280px] shrink-0 flex-col rounded-xl border border-border bg-muted p-2 sm:w-[304px]"
+    >
       <div className="mb-2 flex items-center justify-between px-1">
-        <p className="text-sm font-semibold">{TASK_STATUS_LABEL[status]}</p>
-        <Badge variant="secondary">{tasks.length}</Badge>
+        <div className="flex min-w-0 items-center gap-1">
+          {canConfigureStatuses ? (
+            <button
+              type="button"
+              className="rounded-md p-1 text-muted-foreground hover:bg-background hover:text-foreground"
+              aria-label={`Kéo để đổi thứ tự ${TASK_STATUS_LABEL[status]}`}
+              {...attributes}
+              {...listeners}
+            >
+              <GripVertical className="size-3.5" />
+            </button>
+          ) : null}
+          <p className="truncate text-sm font-semibold">{TASK_STATUS_LABEL[status]}</p>
+        </div>
+        <div className="flex items-center gap-1">
+          <Badge variant="secondary">{tasks.length}</Badge>
+          {canConfigureStatuses ? (
+            <Button
+              type="button"
+              size="icon-xs"
+              variant="ghost"
+              disabled={!canHide}
+              title={canHide ? "Ẩn trạng thái khỏi Kanban" : "Kanban cần ít nhất một trạng thái"}
+              onClick={() => onHide(status)}
+            >
+              <EyeOff className="size-3.5" />
+            </Button>
+          ) : null}
+        </div>
       </div>
       <div ref={setNodeRef} className="flex-1 space-y-2">
         <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
@@ -123,40 +183,92 @@ function Column({
   );
 }
 
+function columnDragId(status: string) {
+  return `column:${status}`;
+}
+
+function statusFromColumnDragId(id: string) {
+  return id.startsWith("column:") ? id.slice("column:".length) : null;
+}
+
 export function KanbanBoard({
   projectId,
   moduleId,
+  initialStatuses,
+  canConfigureStatuses,
   initialTasks,
 }: {
   projectId: string;
   moduleId: string | null;
+  initialStatuses: string[];
+  canConfigureStatuses: boolean;
   initialTasks: KanbanTask[];
 }) {
   const [tasks, setTasks] = useState(initialTasks);
+  const [statuses, setStatuses] = useState(initialStatuses);
+  const [savingStatuses, setSavingStatuses] = useState(false);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
   const router = useRouter();
 
-  const columns = TASK_STATUS_ORDER.map((status) => ({
+  const columns = statuses.map((status) => ({
     status,
     tasks: tasks.filter((t) => t.status === status),
   }));
+  const hiddenStatuses = hiddenKanbanStatuses(statuses);
 
   function findTask(id: string) {
     return tasks.find((t) => t.id === id);
   }
 
   function findColumnOf(id: string) {
+    const columnStatus = statusFromColumnDragId(id);
+    if (columnStatus && TASK_STATUS_ORDER.includes(columnStatus as never)) return columnStatus;
     if (TASK_STATUS_ORDER.includes(id as never)) return id;
     return findTask(id)?.status;
+  }
+
+  async function persistStatuses(nextStatuses: string[], previousStatuses = statuses) {
+    setStatuses(nextStatuses);
+    setSavingStatuses(true);
+    const result = await updateProjectKanbanStatusOrderAction(projectId, nextStatuses);
+    setSavingStatuses(false);
+    if (result.error) {
+      setStatuses(previousStatuses);
+      toast.error(result.error);
+      return;
+    }
+    toast.success(result.success ?? "Đã cập nhật Kanban.");
+    router.refresh();
+  }
+
+  function hideStatus(status: string) {
+    if (statuses.length <= 1) return;
+    void persistStatuses(statuses.filter((item) => item !== status));
+  }
+
+  function showStatus(status: string) {
+    if (statuses.includes(status)) return;
+    void persistStatuses([...statuses, status]);
   }
 
   async function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over) return;
 
+    const activeColumn = statusFromColumnDragId(String(active.id));
+    if (activeColumn) {
+      const overColumn = findColumnOf(String(over.id));
+      if (!overColumn || activeColumn === overColumn) return;
+      const oldIndex = statuses.indexOf(activeColumn);
+      const newIndex = statuses.indexOf(overColumn);
+      if (oldIndex < 0 || newIndex < 0) return;
+      void persistStatuses(arrayMove(statuses, oldIndex, newIndex));
+      return;
+    }
+
     const activeTask = findTask(String(active.id));
     const targetColumn = findColumnOf(String(over.id));
-    if (!activeTask || !targetColumn || activeTask.status === targetColumn) return;
+    if (!activeTask || !targetColumn || !statuses.includes(targetColumn) || activeTask.status === targetColumn) return;
 
     const previousStatus = activeTask.status;
     setTasks((prev) =>
@@ -181,16 +293,46 @@ export function KanbanBoard({
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
-      <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-2">
-        {columns.map((col) => (
-          <Column
-            key={col.status}
-            status={col.status}
-            tasks={col.tasks}
-            projectId={projectId}
-            moduleId={moduleId}
-          />
-        ))}
+      <div className="space-y-3">
+        {canConfigureStatuses ? (
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-background p-2 text-sm">
+            <span className="text-xs font-semibold uppercase text-muted-foreground">Trạng thái đã ẩn</span>
+            {hiddenStatuses.length > 0 ? (
+              hiddenStatuses.map((status) => (
+                <Button
+                  key={status}
+                  type="button"
+                  size="xs"
+                  variant="outline"
+                  disabled={savingStatuses}
+                  onClick={() => showStatus(status)}
+                >
+                  <Plus className="size-3" />
+                  {TASK_STATUS_LABEL[status]}
+                </Button>
+              ))
+            ) : (
+              <span className="text-xs text-muted-foreground">Tất cả trạng thái đang hiển thị.</span>
+            )}
+          </div>
+        ) : null}
+
+        <SortableContext items={statuses.map(columnDragId)} strategy={horizontalListSortingStrategy}>
+          <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-2">
+            {columns.map((col) => (
+              <Column
+                key={col.status}
+                status={col.status}
+                tasks={col.tasks}
+                projectId={projectId}
+                moduleId={moduleId}
+                canConfigureStatuses={canConfigureStatuses && !savingStatuses}
+                canHide={statuses.length > 1 && !savingStatuses}
+                onHide={hideStatus}
+              />
+            ))}
+          </div>
+        </SortableContext>
       </div>
     </DndContext>
   );

@@ -272,6 +272,7 @@ model Project {
   priority      ProjectPriority @default(MEDIUM)
   status        ProjectStatus   @default(ACTIVE)
   highlightNote String?
+  kanbanStatusOrder Json @default("[]")
 
   templateId String?
   template   Template? @relation(fields: [templateId], references: [id])

@@ -15,7 +15,8 @@ import {
   type AutoTaskCandidate,
 } from "@/lib/auto-task-generator";
 import { logAiUsage } from "@/lib/ai-usage";
-import { taskFormSchema, taskTimeLogSchema, TASK_PRIORITY_ORDER } from "@/lib/validation/task";
+import { taskFormSchema, taskTimeLogSchema, TASK_PRIORITY_ORDER, TASK_STATUS_ORDER } from "@/lib/validation/task";
+import { normalizeKanbanStatusOrder } from "@/lib/kanban-status-config";
 import { deriveTaskEffortFields, refreshTaskDerivedFields } from "@/lib/task-rules";
 import type { ActionState } from "@/lib/actions/profile";
 
@@ -1093,6 +1094,47 @@ export async function reassignTaskAction(
 }
 
 const REOPEN_STATUSES = new Set(["REOPENED", "BUG_FIXING"]);
+
+export async function updateProjectKanbanStatusOrderAction(
+  projectId: string,
+  statuses: string[],
+): Promise<ActionState> {
+  const session = await auth();
+  if (!session?.user) return { error: "Bạn cần đăng nhập." };
+
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, deletedAt: null },
+    select: { id: true },
+  });
+  if (!project) return { error: "Không tìm thấy dự án." };
+
+  const projectRole = await getProjectRole(session.user.id, projectId);
+  if (!(await canAccess({ systemRole: session.user.systemRole }, "task.move", projectRole))) {
+    return { error: "Bạn không có quyền cấu hình Kanban." };
+  }
+
+  const nextStatuses = normalizeKanbanStatusOrder(statuses);
+  if (nextStatuses.length === 0 || nextStatuses.length > TASK_STATUS_ORDER.length) {
+    return { error: "Danh sách trạng thái Kanban không hợp lệ." };
+  }
+
+  await prisma.project.update({
+    where: { id: projectId },
+    data: { kanbanStatusOrder: nextStatuses },
+  });
+
+  await logAudit({
+    actorId: session.user.id,
+    action: "UPDATE",
+    entityType: "ProjectKanban",
+    entityId: projectId,
+    projectId,
+    metadata: { statuses: nextStatuses },
+  });
+
+  revalidatePath(`/projects/${projectId}/kanban`);
+  return { success: "Đã cập nhật cấu hình Kanban." };
+}
 
 export async function changeTaskStatusAction(
   projectId: string,
