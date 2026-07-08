@@ -28,6 +28,9 @@ Implementation:
   statuses are visible in one board viewport on any device; additional statuses
   may continue horizontally. Other work boards may use fixed column widths with
   horizontal scroll when six-column fit is not required.
+- Project Kanban columns may group multiple underlying task statuses in one
+  visual column; preserve grouped status chips and hidden-status drag/drop
+  behavior when changing board layout.
 
 Responsive behavior:
 

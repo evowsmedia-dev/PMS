@@ -15,8 +15,14 @@ import {
   type AutoTaskCandidate,
 } from "@/lib/auto-task-generator";
 import { logAiUsage } from "@/lib/ai-usage";
-import { taskFormSchema, taskTimeLogSchema, TASK_PRIORITY_ORDER, TASK_STATUS_ORDER } from "@/lib/validation/task";
-import { normalizeKanbanStatusOrder } from "@/lib/kanban-status-config";
+import { taskFormSchema, taskTimeLogSchema, TASK_PRIORITY_ORDER } from "@/lib/validation/task";
+import {
+  isValidKanbanStatusColumnConfig,
+  normalizeKanbanStatusColumns,
+  serializeKanbanStatusColumns,
+  visibleKanbanStatuses,
+  type KanbanStatusColumn,
+} from "@/lib/kanban-status-config";
 import { deriveTaskEffortFields, refreshTaskDerivedFields } from "@/lib/task-rules";
 import type { ActionState } from "@/lib/actions/profile";
 
@@ -1097,7 +1103,7 @@ const REOPEN_STATUSES = new Set(["REOPENED", "BUG_FIXING"]);
 
 export async function updateProjectKanbanStatusOrderAction(
   projectId: string,
-  statuses: string[],
+  columns: KanbanStatusColumn[],
 ): Promise<ActionState> {
   const session = await auth();
   if (!session?.user) return { error: "Bạn cần đăng nhập." };
@@ -1113,14 +1119,16 @@ export async function updateProjectKanbanStatusOrderAction(
     return { error: "Bạn không có quyền cấu hình Kanban." };
   }
 
-  const nextStatuses = normalizeKanbanStatusOrder(statuses);
-  if (nextStatuses.length === 0 || nextStatuses.length > TASK_STATUS_ORDER.length) {
-    return { error: "Danh sách trạng thái Kanban không hợp lệ." };
+  const nextColumns = normalizeKanbanStatusColumns(columns);
+  if (!isValidKanbanStatusColumnConfig(nextColumns)) {
+    return { error: "Cấu hình trạng thái Kanban không hợp lệ." };
   }
+  const nextConfig = serializeKanbanStatusColumns(nextColumns);
+  const nextStatuses = visibleKanbanStatuses(nextColumns);
 
   await prisma.project.update({
     where: { id: projectId },
-    data: { kanbanStatusOrder: nextStatuses },
+    data: { kanbanStatusOrder: nextConfig },
   });
 
   await logAudit({
@@ -1129,7 +1137,7 @@ export async function updateProjectKanbanStatusOrderAction(
     entityType: "ProjectKanban",
     entityId: projectId,
     projectId,
-    metadata: { statuses: nextStatuses },
+    metadata: { statuses: nextStatuses, columns: nextConfig },
   });
 
   revalidatePath(`/projects/${projectId}/kanban`);

@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { KanbanBoard } from "@/components/kanban-board";
 import { PageSection } from "@/components/page-shell";
 import { TASK_STATUS_ORDER } from "@/lib/validation/task";
+import { makeKanbanStatusColumn } from "@/lib/kanban-status-config";
 import { Plus } from "lucide-react";
 import type { Prisma, TaskPriority } from "@/generated/prisma/client";
 
@@ -114,7 +115,7 @@ export default async function ModuleTasksPage({
       <KanbanBoard
         projectId={projectId}
         moduleId={moduleId}
-        initialStatuses={[...TASK_STATUS_ORDER]}
+        initialColumns={TASK_STATUS_ORDER.map((status) => makeKanbanStatusColumn([status]))}
         canConfigureStatuses={false}
         initialTasks={tasks.map((t) => ({
           id: t.id,
