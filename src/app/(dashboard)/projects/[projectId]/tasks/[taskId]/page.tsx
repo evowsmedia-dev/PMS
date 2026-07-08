@@ -14,6 +14,7 @@ import {
   TaskTimeLogForm,
 } from "@/components/task-detail-panel";
 import { TaskPlanningEditor } from "@/components/task-planning-editor";
+import { formatTaskHistoryField, formatTaskHistoryValue } from "@/lib/task-history-display";
 import {
   TASK_TYPE_LABEL,
   TASK_PRIORITY_LABEL,
@@ -92,6 +93,7 @@ export default async function ProjectTaskDetailPage({
   const canEdit = await canAccess(roleCtx, "task.edit", projectRole);
   const canReassign = await canAccess(roleCtx, "task.reassign", projectRole);
   const canComment = await canAccess(roleCtx, "comment.create", projectRole);
+  const memberNameById = new Map(members.map((member) => [member.userId, member.user.fullName]));
 
   const meta: { label: string; value: string }[] = [
     { label: "Mã", value: task.taskCode ?? "—" },
@@ -311,7 +313,9 @@ export default async function ProjectTaskDetailPage({
               <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
                 {task.history.map((h) => (
                   <li key={h.id}>
-                    {h.changedBy.fullName} đổi {h.field}: {h.oldValue ?? "—"} → {h.newValue ?? "—"}{" "}
+                    {h.changedBy.fullName} đổi {formatTaskHistoryField(h.field)}:{" "}
+                    {formatTaskHistoryValue(h.field, h.oldValue, memberNameById)} →{" "}
+                    {formatTaskHistoryValue(h.field, h.newValue, memberNameById)}{" "}
                     {h.reason ? (
                       <Badge variant="outline" className="ml-1">
                         lý do: {h.reason}

@@ -17,6 +17,7 @@ import {
   TaskTimeLogForm,
 } from "@/components/task-detail-panel";
 import { TaskViewTabs } from "@/components/task-view-tabs";
+import { formatTaskHistoryField, formatTaskHistoryValue } from "@/lib/task-history-display";
 import {
   BUG_STATUS_LABEL,
   TASK_PRIORITY_LABEL,
@@ -102,6 +103,7 @@ export default async function TaskDetailPage({
       orderBy: { dueDate: "asc" },
     }),
   ]);
+  const memberNameById = new Map(members.map((member) => [member.userId, member.user.fullName]));
 
   const candidateTasks = await prisma.task.findMany({
     where: { projectId, deletedAt: null, id: { not: taskId } },
@@ -351,7 +353,9 @@ export default async function TaskDetailPage({
               <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
                 {task.history.map((h) => (
                   <li key={h.id}>
-                    {h.changedBy.fullName} đổi {h.field}: {h.oldValue ?? "—"} → {h.newValue ?? "—"} (
+                    {h.changedBy.fullName} đổi {formatTaskHistoryField(h.field)}:{" "}
+                    {formatTaskHistoryValue(h.field, h.oldValue, memberNameById)} →{" "}
+                    {formatTaskHistoryValue(h.field, h.newValue, memberNameById)} (
                     {h.createdAt.toLocaleString("vi-VN")})
                   </li>
                 ))}
