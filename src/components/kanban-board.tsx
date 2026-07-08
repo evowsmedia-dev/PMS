@@ -68,21 +68,21 @@ function TaskCard({
       style={style}
       {...attributes}
       {...listeners}
-      className={`cursor-grab space-y-1 rounded-lg border bg-card p-3 text-sm active:cursor-grabbing ${
+      className={`min-w-0 cursor-grab space-y-1 rounded-lg border bg-card p-1.5 text-xs active:cursor-grabbing sm:p-2 sm:text-sm ${
         blocked ? "border-destructive/60" : ""
       } ${overdue ? "ring-1 ring-destructive/40" : ""}`}
     >
       {task.taskCode ? (
-        <span className="font-mono text-[10px] text-muted-foreground">{task.taskCode}</span>
+        <span className="block truncate font-mono text-[10px] text-muted-foreground">{task.taskCode}</span>
       ) : null}
       <Link
         href={taskHref(projectId, task.moduleId ?? moduleId, task.id)}
-        className="block font-medium hover:underline"
+        className="line-clamp-2 font-medium leading-tight hover:underline"
         onClick={(e) => e.stopPropagation()}
       >
         {task.title}
       </Link>
-      <div className="flex flex-wrap items-center gap-1">
+      <div className="flex min-w-0 flex-wrap items-center gap-1">
         <Badge variant="outline" className="text-[10px]">
           {TASK_PRIORITY_LABEL[task.priority]}
         </Badge>
@@ -93,7 +93,7 @@ function TaskCard({
         ) : null}
       </div>
       {task.assignee ? (
-        <p className="text-xs text-muted-foreground">{task.assignee.fullName}</p>
+        <p className="truncate text-[10px] text-muted-foreground sm:text-xs">{task.assignee.fullName}</p>
       ) : null}
     </div>
   );
@@ -139,14 +139,14 @@ function Column({
     <div
       ref={setSortableRef}
       style={style}
-      className="flex min-h-[360px] w-[280px] shrink-0 flex-col rounded-xl border border-border bg-muted p-2 sm:w-[304px]"
+      className="flex min-h-[360px] min-w-0 flex-col rounded-xl border border-border bg-muted p-1 sm:p-2"
     >
-      <div className="mb-2 flex items-center justify-between px-1">
-        <div className="flex min-w-0 items-center gap-1">
+      <div className="mb-2 flex min-w-0 items-center justify-between gap-1 px-0.5 sm:px-1">
+        <div className="flex min-w-0 items-center gap-0.5 sm:gap-1">
           {canConfigureStatuses ? (
             <button
               type="button"
-              className="rounded-md p-1 text-muted-foreground hover:bg-background hover:text-foreground"
+              className="shrink-0 rounded-md p-0.5 text-muted-foreground hover:bg-background hover:text-foreground sm:p-1"
               aria-label={`Kéo để đổi thứ tự ${TASK_STATUS_LABEL[status]}`}
               {...attributes}
               {...listeners}
@@ -154,10 +154,14 @@ function Column({
               <GripVertical className="size-3.5" />
             </button>
           ) : null}
-          <p className="truncate text-sm font-semibold">{TASK_STATUS_LABEL[status]}</p>
+          <p className="truncate text-[11px] font-semibold leading-tight sm:text-sm">
+            {TASK_STATUS_LABEL[status]}
+          </p>
         </div>
-        <div className="flex items-center gap-1">
-          <Badge variant="secondary">{tasks.length}</Badge>
+        <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
+          <Badge variant="secondary" className="px-1 text-[10px] sm:px-2">
+            {tasks.length}
+          </Badge>
           {canConfigureStatuses ? (
             <Button
               type="button"
@@ -172,7 +176,7 @@ function Column({
           ) : null}
         </div>
       </div>
-      <div ref={setNodeRef} className="flex-1 space-y-2">
+      <div ref={setNodeRef} className="flex-1 space-y-1.5 sm:space-y-2">
         <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
           {tasks.map((task) => (
             <TaskCard key={task.id} task={task} projectId={projectId} moduleId={moduleId} />
@@ -318,7 +322,7 @@ export function KanbanBoard({
         ) : null}
 
         <SortableContext items={statuses.map(columnDragId)} strategy={horizontalListSortingStrategy}>
-          <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-2">
+          <div className="-mx-1 grid auto-cols-[calc((100%-1.25rem)/6)] grid-flow-col gap-1 overflow-x-auto px-1 pb-2">
             {columns.map((col) => (
               <Column
                 key={col.status}

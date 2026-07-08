@@ -24,8 +24,10 @@ Implementation:
   the aside below the main content.
 - Keep project navigation in the desktop sidebar and a mobile sheet/drawer.
 - Tables must live in a bordered overflow frame with a stable `min-width`.
-- Kanban columns must use fixed column widths and horizontal scroll; do not
-  use `flex-1` columns that expand across wide screens.
+- Project Kanban columns must use a viewport-fit six-column grid so six
+  statuses are visible in one board viewport on any device; additional statuses
+  may continue horizontally. Other work boards may use fixed column widths with
+  horizontal scroll when six-column fit is not required.
 
 Responsive behavior:
 
