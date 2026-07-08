@@ -72,11 +72,6 @@ export default async function TaskDetailPage({
   });
   if (!task) notFound();
 
-  const members = await prisma.projectMember.findMany({
-    where: { projectId },
-    include: { user: { select: { fullName: true } } },
-  });
-
   const projectRole = await getProjectRole(session.user.id, projectId);
   const assignedModuleIds = await getAssignedModuleIdsForUser({
     projectId,
@@ -89,6 +84,28 @@ export default async function TaskDetailPage({
   const canEdit = await canAccess(roleCtx, "task.edit", projectRole);
   const canReassign = await canAccess(roleCtx, "task.reassign", projectRole);
   const canComment = await canAccess(roleCtx, "comment.create", projectRole);
+
+  const [members, epics, sprints, milestones] = await Promise.all([
+    prisma.projectMember.findMany({
+      where: { projectId },
+      include: { user: { select: { fullName: true } } },
+    }),
+    prisma.epic.findMany({
+      where: { projectId, deletedAt: null },
+      select: { id: true, name: true },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.sprint.findMany({
+      where: { projectId, deletedAt: null },
+      select: { id: true, name: true },
+      orderBy: { startDate: "desc" },
+    }),
+    prisma.milestone.findMany({
+      where: { projectId, deletedAt: null },
+      select: { id: true, name: true },
+      orderBy: { dueDate: "asc" },
+    }),
+  ]);
 
   const dependencyIds = new Set(task.dependencies.map((d) => d.dependsOnTaskId));
   const candidateTasks = await prisma.task.findMany({
@@ -226,7 +243,16 @@ export default async function TaskDetailPage({
               taskId={taskId}
               title={task.title}
               description={task.description ?? ""}
+              type={task.type}
               priority={task.priority}
+              assigneeId={task.assigneeId}
+              reviewerId={task.reviewerId}
+              testerId={task.testerId}
+              epicId={task.epicId}
+              sprintId={task.sprintId}
+              milestoneId={task.milestoneId}
+              parentTaskId={task.parentTaskId}
+              startDate={task.startDate ? task.startDate.toISOString().slice(0, 10) : ""}
               dueDate={task.dueDate ? task.dueDate.toISOString().slice(0, 10) : ""}
               plannedStartAt={task.plannedStartAt ? task.plannedStartAt.toISOString().slice(0, 10) : ""}
               devDueAt={task.devDueAt ? task.devDueAt.toISOString().slice(0, 10) : ""}
@@ -235,8 +261,19 @@ export default async function TaskDetailPage({
               testEstimateHours={String(task.testEstimateHours)}
               testEstimateSource={task.testEstimateSource}
               standardEstimateMandays={String(task.standardEstimateMandays)}
+              storyPoint={String(task.storyPoint)}
+              acceptanceCriteria={task.acceptanceCriteria ?? ""}
+              relatedDocumentId={task.relatedDocumentId}
               canEdit={canEdit}
-              showPriorityDueDate={false}
+              fullPlanningFields
+              members={members.map((m) => ({ userId: m.userId, fullName: m.user.fullName }))}
+              epics={epics.map((epic) => ({ id: epic.id, label: epic.name }))}
+              sprints={sprints.map((sprint) => ({ id: sprint.id, label: sprint.name }))}
+              milestones={milestones.map((milestone) => ({ id: milestone.id, label: milestone.name }))}
+              tasks={candidateTasks.map((candidate) => ({
+                id: candidate.id,
+                label: `${candidate.taskCode ? candidate.taskCode + " · " : ""}${candidate.title}`,
+              }))}
             />
 
             <TaskPlanningEditor
