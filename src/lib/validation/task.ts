@@ -175,6 +175,7 @@ export const MILESTONE_STATUS_LABEL: Record<string, string> = {
 export const taskFormSchema = z.object({
   title: z.string().trim().min(1, "Tiêu đề không được để trống").max(200),
   description: z.string().trim().max(5000).optional().or(z.literal("")),
+  status: z.enum(TASK_STATUS_ORDER).default("BACKLOG"),
   type: z.enum(TASK_TYPE_ORDER).default("TASK"),
   assigneeId: z.string().optional().or(z.literal("")),
   reviewerId: z.string().optional().or(z.literal("")),

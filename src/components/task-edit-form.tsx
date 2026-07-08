@@ -19,6 +19,8 @@ import { updateTaskAction } from "@/lib/actions/tasks";
 import {
   TASK_PRIORITY_LABEL,
   TASK_PRIORITY_ORDER,
+  TASK_STATUS_LABEL,
+  TASK_STATUS_ORDER,
   TASK_TYPE_LABEL,
   TASK_TYPE_ORDER,
 } from "@/lib/validation/task";
@@ -46,6 +48,7 @@ export function TaskEditForm({
   taskId,
   title,
   description,
+  status = "BACKLOG",
   type = "TASK",
   priority,
   assigneeId = "",
@@ -86,6 +89,7 @@ export function TaskEditForm({
   taskId: string;
   title: string;
   description: string;
+  status?: string;
   type?: string;
   priority: string;
   assigneeId?: string | null;
@@ -118,6 +122,10 @@ export function TaskEditForm({
     description: string;
     meta: { label: string; value: string }[];
     acceptanceCriteria?: string;
+    relatedReferences?: {
+      documents: { id: string; href: string; label: string }[];
+      externalLinks: string[];
+    };
   };
   members?: MemberOption[];
   epics?: Option[];
@@ -156,15 +164,6 @@ export function TaskEditForm({
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-3">
-              {readOnlyDetails.meta.map((m) => (
-                <div key={m.label} className="flex justify-between gap-2 border-b py-1">
-                  <span className="text-muted-foreground">{m.label}</span>
-                  <span className="text-right font-medium">{m.value}</span>
-                </div>
-              ))}
-            </div>
-
             {readOnlyDetails.acceptanceCriteria ? (
               <div className="rounded-md bg-muted p-3 text-sm">
                 <p className="text-xs font-semibold uppercase text-muted-foreground">
@@ -173,6 +172,47 @@ export function TaskEditForm({
                 <p className="mt-1 whitespace-pre-wrap">{readOnlyDetails.acceptanceCriteria}</p>
               </div>
             ) : null}
+
+            {readOnlyDetails.relatedReferences &&
+            (readOnlyDetails.relatedReferences.documents.length > 0 ||
+              readOnlyDetails.relatedReferences.externalLinks.length > 0) ? (
+              <div className="rounded-md border p-3 text-sm">
+                <p className="text-xs font-semibold uppercase text-muted-foreground">
+                  Tài liệu / link liên quan
+                </p>
+                <div className="mt-2 space-y-1">
+                  {readOnlyDetails.relatedReferences.documents.map((document) => (
+                    <Link
+                      key={document.id}
+                      href={document.href}
+                      className="block text-foreground underline-offset-4 hover:underline"
+                    >
+                      {document.label}
+                    </Link>
+                  ))}
+                  {readOnlyDetails.relatedReferences.externalLinks.map((link) => (
+                    <a
+                      key={link}
+                      href={link}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block break-all text-foreground underline-offset-4 hover:underline"
+                    >
+                      {link}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-3">
+              {readOnlyDetails.meta.map((m) => (
+                <div key={m.label} className="flex justify-between gap-2 border-b py-1">
+                  <span className="text-muted-foreground">{m.label}</span>
+                  <span className="text-right font-medium">{m.value}</span>
+                </div>
+              ))}
+            </div>
           </>
         ) : null}
 
@@ -213,6 +253,7 @@ export function TaskEditForm({
       {fullPlanningFields ? (
         <FullPlanningFields
           canEdit={canEdit}
+          status={status}
           type={type}
           priority={priority}
           assigneeId={assigneeId ?? ""}
@@ -292,6 +333,7 @@ export function TaskEditForm({
 
 function FullPlanningFields({
   canEdit,
+  status,
   type,
   priority,
   assigneeId,
@@ -323,6 +365,7 @@ function FullPlanningFields({
   tasks,
 }: {
   canEdit: boolean;
+  status: string;
   type: string;
   priority: string;
   assigneeId: string;
@@ -355,7 +398,9 @@ function FullPlanningFields({
 }) {
   return (
     <>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <StatusField canEdit={canEdit} status={status} />
+
         <div className="space-y-2">
           <Label htmlFor="type">Loại</Label>
           <Select name="type" defaultValue={type} disabled={!canEdit}>
@@ -758,6 +803,26 @@ function PriorityField({ canEdit, priority }: { canEdit: boolean; priority: stri
           {TASK_PRIORITY_ORDER.map((item) => (
             <SelectItem key={item} value={item}>
               {TASK_PRIORITY_LABEL[item]}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+function StatusField({ canEdit, status }: { canEdit: boolean; status: string }) {
+  return (
+    <div className="space-y-2">
+      <Label htmlFor="status">Trạng thái</Label>
+      <Select name="status" defaultValue={status} disabled={!canEdit}>
+        <SelectTrigger id="status" className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {TASK_STATUS_ORDER.map((item) => (
+            <SelectItem key={item} value={item}>
+              {TASK_STATUS_LABEL[item]}
             </SelectItem>
           ))}
         </SelectContent>

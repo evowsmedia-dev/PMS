@@ -134,7 +134,7 @@ export default async function ProjectTaskDetailPage({
     { label: "Reviewer", value: task.reviewer?.fullName ?? "—" },
     { label: "Tester", value: task.tester?.fullName ?? "—" },
     { label: "Dev estimate", value: `${task.devEstimateHours}h` },
-    { label: "Test estimate", value: `${task.testEstimateHours}h (${task.testEstimateSource})` },
+    { label: "Test estimate", value: `${task.testEstimateHours}h` },
     { label: "Chuẩn", value: `${task.standardEstimateMandays} ngày công` },
     { label: "Actual Dev/Test", value: `${task.actualDevHours}h / ${task.actualTestHours}h` },
     { label: "Planned start", value: task.plannedStartAt?.toLocaleDateString("vi-VN") ?? "—" },
@@ -204,42 +204,13 @@ export default async function ProjectTaskDetailPage({
               </p>
             ) : null}
 
-            {relatedDocuments.length > 0 || externalLinks.length > 0 ? (
-              <div className="rounded-md border p-3 text-sm">
-                <p className="text-xs font-semibold uppercase text-muted-foreground">
-                  Tài liệu / link liên quan
-                </p>
-                <div className="mt-2 space-y-1">
-                  {relatedDocuments.map((document) => (
-                    <Link
-                      key={document.id}
-                      href={`/projects/${projectId}/modules/${document.moduleId}/documents/${document.id}`}
-                      className="block text-foreground underline-offset-4 hover:underline"
-                    >
-                      {document.module.name} · {document.title}
-                    </Link>
-                  ))}
-                  {externalLinks.map((link) => (
-                    <a
-                      key={link}
-                      href={link}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="block break-all text-foreground underline-offset-4 hover:underline"
-                    >
-                      {link}
-                    </a>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
             <TaskEditForm
               projectId={projectId}
               moduleId={null}
               taskId={taskId}
               title={task.title}
               description={task.description ?? ""}
+              status={task.status}
               type={task.type}
               priority={task.priority}
               assigneeId={task.assigneeId}
@@ -274,6 +245,14 @@ export default async function ProjectTaskDetailPage({
                 description: task.description ?? "",
                 meta,
                 acceptanceCriteria: task.acceptanceCriteria ?? "",
+                relatedReferences: {
+                  documents: relatedDocuments.map((document) => ({
+                    id: document.id,
+                    href: `/projects/${projectId}/modules/${document.moduleId}/documents/${document.id}`,
+                    label: `${document.module.name} · ${document.title}`,
+                  })),
+                  externalLinks,
+                },
               }}
               members={members.map((m) => ({ userId: m.userId, fullName: m.user.fullName }))}
               epics={epics.map((epic) => ({ id: epic.id, label: epic.name }))}

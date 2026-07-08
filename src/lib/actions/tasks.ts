@@ -867,6 +867,7 @@ export async function updateTaskAction(
 
   const before = await prisma.task.findUniqueOrThrow({ where: { id: taskId } });
   const has = (key: string) => formData.has(key);
+  const nextStatus = has("status") ? values.status : before.status;
   const nextType = has("type") ? values.type : before.type;
   const nextAssigneeId = has("assigneeId") ? values.assigneeId || null : before.assigneeId;
   const nextReviewerId = has("reviewerId") ? values.reviewerId || null : before.reviewerId;
@@ -902,7 +903,7 @@ export async function updateTaskAction(
   const testDueAt = has("testDueAt") ? (values.testDueAt ? new Date(values.testDueAt) : null) : before.testDueAt;
   const nextTestEstimateSource = has("testEstimateSource") ? values.testEstimateSource : before.testEstimateSource;
   const derived = deriveTaskEffortFields({
-    status: before.status,
+    status: nextStatus,
     devEstimateHours: has("devEstimateHours")
       ? values.devEstimateHours ?? 0
       : has("estimateHours")
@@ -925,6 +926,7 @@ export async function updateTaskAction(
     data: {
       title: values.title,
       description: values.description || null,
+      status: nextStatus,
       type: nextType,
       assigneeId: nextAssigneeId,
       reviewerId: nextReviewerId,
@@ -940,6 +942,7 @@ export async function updateTaskAction(
       devDueAt,
       testDueAt,
       ...derived,
+      completedAt: nextStatus === "DONE" ? new Date() : nextStatus !== before.status ? null : before.completedAt,
       storyPoint: values.storyPoint ?? before.storyPoint,
       acceptanceCriteria: values.acceptanceCriteria || null,
       relatedDocumentId: shouldUpdateRelatedDocuments
@@ -985,6 +988,15 @@ export async function updateTaskAction(
       field: "priority",
       oldValue: before.priority,
       newValue: values.priority,
+    });
+  }
+  if (before.status !== nextStatus) {
+    historyEntries.push({
+      taskId,
+      changedById: session.user.id,
+      field: "status",
+      oldValue: before.status,
+      newValue: nextStatus,
     });
   }
   if (before.title !== values.title) {
