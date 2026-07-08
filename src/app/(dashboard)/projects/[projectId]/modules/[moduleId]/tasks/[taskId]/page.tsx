@@ -16,7 +16,6 @@ import {
   TaskComments,
   TaskTimeLogForm,
 } from "@/components/task-detail-panel";
-import { TaskPlanningEditor } from "@/components/task-planning-editor";
 import { TaskViewTabs } from "@/components/task-view-tabs";
 import {
   BUG_STATUS_LABEL,
@@ -45,9 +44,6 @@ export default async function TaskDetailPage({
       sprint: { select: { name: true } },
       milestone: { select: { name: true } },
       relatedDocument: { select: { id: true, title: true } },
-      dependencies: {
-        include: { dependsOnTask: { select: { id: true, title: true, taskCode: true } } },
-      },
       bugs: {
         where: { deletedAt: null },
         select: { id: true, bugCode: true, title: true, status: true },
@@ -107,7 +103,6 @@ export default async function TaskDetailPage({
     }),
   ]);
 
-  const dependencyIds = new Set(task.dependencies.map((d) => d.dependsOnTaskId));
   const candidateTasks = await prisma.task.findMany({
     where: { projectId, deletedAt: null, id: { not: taskId } },
     select: { id: true, title: true, taskCode: true },
@@ -181,6 +176,17 @@ export default async function TaskDetailPage({
                 dueDate={task.dueDate ? task.dueDate.toISOString().slice(0, 10) : ""}
                 canEdit={canEdit}
               />
+            </div>
+
+            <div className="rounded-md border bg-muted/30 p-3 text-sm">
+              <p className="text-xs font-semibold uppercase text-muted-foreground">Tiêu đề</p>
+              <p className="mt-1 font-medium">{task.title}</p>
+              <p className="mt-3 text-xs font-semibold uppercase text-muted-foreground">Mô tả</p>
+              {task.description ? (
+                <p className="mt-1 whitespace-pre-wrap">{task.description}</p>
+              ) : (
+                <p className="mt-1 text-muted-foreground">Chưa có mô tả.</p>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-3">
@@ -274,26 +280,6 @@ export default async function TaskDetailPage({
                 id: candidate.id,
                 label: `${candidate.taskCode ? candidate.taskCode + " · " : ""}${candidate.title}`,
               }))}
-            />
-
-            <TaskPlanningEditor
-              projectId={projectId}
-              taskId={taskId}
-              startDate={task.startDate ? task.startDate.toISOString().slice(0, 10) : ""}
-              dueDate={task.dueDate ? task.dueDate.toISOString().slice(0, 10) : ""}
-              parentTaskId={task.parentTaskId}
-              dependencies={task.dependencies.map((d) => ({
-                id: d.id,
-                title: d.dependsOnTask.title,
-                taskCode: d.dependsOnTask.taskCode,
-              }))}
-              candidates={candidateTasks
-                .filter((c) => !dependencyIds.has(c.id))
-                .map((c) => ({
-                  id: c.id,
-                  label: `${c.taskCode ? c.taskCode + " · " : ""}${c.title}`,
-                }))}
-              canEdit={canEdit}
             />
 
             {task.bugs.length > 0 || task.testCases.length > 0 ? (
