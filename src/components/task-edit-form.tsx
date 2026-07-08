@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -115,15 +115,19 @@ export function TaskEditForm({
   const action = updateTaskAction.bind(null, projectId, moduleId, taskId);
   const [state, formAction, pending] = useActionState(action, initialState);
   const [editing, setEditing] = useState(false);
+  const [, startTransition] = useTransition();
   const router = useRouter();
 
   useEffect(() => {
     if (state.success) {
       toast.success(state.success);
-      router.refresh();
+      startTransition(() => {
+        setEditing(false);
+        router.refresh();
+      });
     }
     if (state.error) toast.error(state.error);
-  }, [state, router]);
+  }, [state, router, startTransition]);
 
   if (!editing) {
     return (
