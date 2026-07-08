@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useTransition } from "react";
+import { useActionState, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ import {
   updateTaskPriorityAction,
   updateTaskDueDateAction,
   addTaskTimeLogAction,
+  updateTaskTimeLogAction,
 } from "@/lib/actions/tasks";
 import {
   TASK_STATUS_LABEL,
@@ -43,6 +44,16 @@ interface CommentItem {
   content: string;
   createdAt: string;
   author: { fullName: string };
+}
+
+interface TimeLogItem {
+  id: string;
+  userId: string;
+  workType: string;
+  workDate: string;
+  hours: string;
+  description: string | null;
+  user: { fullName: string };
 }
 
 export function TaskStatusSelect({
@@ -310,5 +321,161 @@ export function TaskTimeLogForm({
         {pending ? "Đang lưu..." : "Log giờ"}
       </Button>
     </form>
+  );
+}
+
+export function TaskTimeLogList({
+  projectId,
+  moduleId,
+  taskId,
+  currentUserId,
+  timeLogs,
+  canEdit,
+}: {
+  projectId: string;
+  moduleId: string | null;
+  taskId: string;
+  currentUserId: string;
+  timeLogs: TimeLogItem[];
+  canEdit: boolean;
+}) {
+  if (timeLogs.length === 0) {
+    return <p className="text-sm text-muted-foreground">Chưa có log giờ.</p>;
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-md border">
+      <table className="w-full min-w-[720px] text-sm">
+        <thead>
+          <tr className="border-b bg-muted/40 text-left">
+            <th className="px-2 py-1 font-medium">Ngày</th>
+            <th className="px-2 py-1 font-medium">Loại</th>
+            <th className="px-2 py-1 font-medium">Giờ</th>
+            <th className="px-2 py-1 font-medium">Người log</th>
+            <th className="px-2 py-1 font-medium">Ghi chú</th>
+            <th className="px-2 py-1 text-right font-medium">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          {timeLogs.map((log) => (
+            <TaskTimeLogRow
+              key={log.id}
+              projectId={projectId}
+              moduleId={moduleId}
+              taskId={taskId}
+              log={log}
+              canEdit={canEdit && log.userId === currentUserId}
+            />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function TaskTimeLogRow({
+  projectId,
+  moduleId,
+  taskId,
+  log,
+  canEdit,
+}: {
+  projectId: string;
+  moduleId: string | null;
+  taskId: string;
+  log: TimeLogItem;
+  canEdit: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [workType, setWorkType] = useState(log.workType);
+  const action = updateTaskTimeLogAction.bind(null, projectId, moduleId, taskId, log.id);
+  const [state, formAction, pending] = useActionState(action, initialState);
+  const [, startTransition] = useTransition();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (state.error) toast.error(state.error);
+    if (state.success) {
+      toast.success(state.success);
+      startTransition(() => {
+        setEditing(false);
+        router.refresh();
+      });
+    }
+  }, [state, router, startTransition]);
+
+  if (editing) {
+    return (
+      <tr className="border-b last:border-none">
+        <td className="px-2 py-1">
+          <form id={`time-log-${log.id}`} action={formAction} />
+          <Input form={`time-log-${log.id}`} name="workDate" type="date" defaultValue={log.workDate} required />
+        </td>
+        <td className="px-2 py-1">
+          <input form={`time-log-${log.id}`} type="hidden" name="workType" value={workType} />
+          <Select value={workType} onValueChange={setWorkType}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {TASK_WORK_TYPE_ORDER.map((type) => (
+                <SelectItem key={type} value={type}>
+                  {TASK_WORK_TYPE_LABEL[type]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </td>
+        <td className="px-2 py-1">
+          <Input
+            form={`time-log-${log.id}`}
+            name="hours"
+            type="number"
+            min={0.25}
+            step="0.25"
+            defaultValue={log.hours}
+            required
+          />
+        </td>
+        <td className="px-2 py-1">{log.user.fullName}</td>
+        <td className="px-2 py-1">
+          <Input
+            form={`time-log-${log.id}`}
+            name="description"
+            defaultValue={log.description ?? ""}
+            placeholder="Ghi chú công việc"
+          />
+        </td>
+        <td className="px-2 py-1">
+          <div className="flex justify-end gap-2">
+            <Button form={`time-log-${log.id}`} type="submit" size="sm" disabled={pending}>
+              {pending ? "Đang lưu..." : "Lưu"}
+            </Button>
+            <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => setEditing(false)}>
+              Hủy
+            </Button>
+          </div>
+        </td>
+      </tr>
+    );
+  }
+
+  return (
+    <tr className="border-b last:border-none">
+      <td className="px-2 py-1">{new Date(log.workDate).toLocaleDateString("vi-VN")}</td>
+      <td className="px-2 py-1">{TASK_WORK_TYPE_LABEL[log.workType]}</td>
+      <td className="px-2 py-1">{log.hours}h</td>
+      <td className="px-2 py-1">{log.user.fullName}</td>
+      <td className="px-2 py-1">{log.description ?? "—"}</td>
+      <td className="px-2 py-1 text-right">
+        {canEdit ? (
+          <Button type="button" size="sm" variant="outline" onClick={() => setEditing(true)}>
+            Sửa
+          </Button>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )}
+      </td>
+    </tr>
   );
 }

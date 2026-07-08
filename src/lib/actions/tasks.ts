@@ -1112,6 +1112,75 @@ export async function addTaskTimeLogAction(
   return { success: "Đã ghi nhận giờ làm." };
 }
 
+export async function updateTaskTimeLogAction(
+  projectId: string,
+  moduleId: string | null,
+  taskId: string,
+  timeLogId: string,
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await auth();
+  if (!session?.user) return { error: "Bạn cần đăng nhập." };
+
+  const projectRole = await getProjectRole(session.user.id, projectId);
+  if (!(await canAccess({ systemRole: session.user.systemRole }, "task.edit", projectRole))) {
+    return { error: "Bạn không có quyền chỉnh sửa log giờ cho task này." };
+  }
+
+  const timeLog = await prisma.timeLog.findFirst({
+    where: {
+      id: timeLogId,
+      taskId,
+      userId: session.user.id,
+      task: { projectId, deletedAt: null, ...(moduleId ? { moduleId } : {}) },
+    },
+    select: { id: true },
+  });
+  if (!timeLog) return { error: "Không tìm thấy log giờ của bạn." };
+
+  const parsed = taskTimeLogSchema.safeParse({
+    workType: formData.get("workType") || "DEV",
+    workDate: formData.get("workDate") ?? "",
+    hours: formData.get("hours") ?? "",
+    description: formData.get("description") ?? "",
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dữ liệu log giờ không hợp lệ." };
+  }
+  const values = parsed.data;
+
+  await prisma.timeLog.update({
+    where: { id: timeLogId },
+    data: {
+      workType: values.workType,
+      workDate: new Date(values.workDate),
+      hours: values.hours,
+      description: values.description || null,
+    },
+  });
+
+  await refreshTaskDerivedFields(taskId);
+
+  await logAudit({
+    actorId: session.user.id,
+    action: "UPDATE",
+    entityType: "Task",
+    entityId: taskId,
+    projectId,
+    metadata: {
+      field: "timeLog",
+      timeLogId,
+      workType: values.workType,
+      hours: values.hours,
+    },
+  });
+
+  revalidateTaskPaths(projectId, moduleId, taskId);
+  revalidatePath(`/projects/${projectId}/overview`);
+  return { success: "Đã cập nhật log giờ." };
+}
+
 /** Soft-delete a task. */
 export async function deleteTaskAction(
   projectId: string,

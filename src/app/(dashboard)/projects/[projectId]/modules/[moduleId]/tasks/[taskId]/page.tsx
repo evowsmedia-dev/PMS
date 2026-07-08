@@ -12,6 +12,7 @@ import {
   TaskStatusSelect,
   TaskComments,
   TaskTimeLogForm,
+  TaskTimeLogList,
 } from "@/components/task-detail-panel";
 import { TaskViewTabs } from "@/components/task-view-tabs";
 import { formatTaskHistoryField, formatTaskHistoryValue } from "@/lib/task-history-display";
@@ -20,7 +21,6 @@ import {
   TASK_PRIORITY_LABEL,
   TASK_TYPE_LABEL,
   TASK_WARNING_LABEL,
-  TASK_WORK_TYPE_LABEL,
 } from "@/lib/validation/task";
 
 export default async function TaskDetailPage({
@@ -267,34 +267,22 @@ export default async function TaskDetailPage({
               <p className="text-xs font-semibold uppercase text-muted-foreground">Time log</p>
               <div className="mt-2 space-y-2">
                 <TaskTimeLogForm projectId={projectId} moduleId={moduleId} taskId={taskId} canEdit={canEdit} />
-                {task.timeLogs.length > 0 ? (
-                  <div className="overflow-x-auto rounded-md border">
-                    <table className="w-full min-w-[620px] text-sm">
-                      <thead>
-                        <tr className="border-b bg-muted/40 text-left">
-                          <th className="px-2 py-1 font-medium">Ngày</th>
-                          <th className="px-2 py-1 font-medium">Loại</th>
-                          <th className="px-2 py-1 font-medium">Giờ</th>
-                          <th className="px-2 py-1 font-medium">Người log</th>
-                          <th className="px-2 py-1 font-medium">Ghi chú</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {task.timeLogs.map((log) => (
-                          <tr key={log.id} className="border-b last:border-none">
-                            <td className="px-2 py-1">{log.workDate.toLocaleDateString("vi-VN")}</td>
-                            <td className="px-2 py-1">{TASK_WORK_TYPE_LABEL[log.workType]}</td>
-                            <td className="px-2 py-1">{String(log.hours)}h</td>
-                            <td className="px-2 py-1">{log.user.fullName}</td>
-                            <td className="px-2 py-1">{log.description ?? "—"}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">Chưa có log giờ.</p>
-                )}
+                <TaskTimeLogList
+                  projectId={projectId}
+                  moduleId={moduleId}
+                  taskId={taskId}
+                  currentUserId={session.user.id}
+                  canEdit={canEdit}
+                  timeLogs={task.timeLogs.map((log) => ({
+                    id: log.id,
+                    userId: log.userId,
+                    workType: log.workType,
+                    workDate: log.workDate.toISOString().slice(0, 10),
+                    hours: String(log.hours),
+                    description: log.description,
+                    user: log.user,
+                  }))}
+                />
               </div>
             </div>
 

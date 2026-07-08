@@ -25,6 +25,10 @@ import type { ActionState } from "@/lib/actions/profile";
 
 const initialState: ActionState = {};
 
+function calculateDefaultTestEstimate(devEstimate: number) {
+  return Math.round(Math.max(0, devEstimate || 0) * 0.3 * 2) / 2;
+}
+
 interface Option {
   id: string;
   label: string;
@@ -519,6 +523,22 @@ function DateAndEffortFields({
   storyPoint: string;
   compact?: boolean;
 }) {
+  const [devEstimate, setDevEstimate] = useState(devEstimateHours);
+  const [testEstimate, setTestEstimate] = useState(testEstimateHours);
+  const [testEstimateSourceValue, setTestEstimateSourceValue] = useState(testEstimateSource);
+
+  function updateDevEstimate(value: string) {
+    setDevEstimate(value);
+    if (testEstimateSourceValue === "AUTO") {
+      setTestEstimate(String(calculateDefaultTestEstimate(Number(value))));
+    }
+  }
+
+  function updateTestEstimate(value: string) {
+    setTestEstimate(value);
+    setTestEstimateSourceValue("MANUAL");
+  }
+
   return (
     <>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
@@ -563,7 +583,8 @@ function DateAndEffortFields({
             type="number"
             min={0}
             step="0.5"
-            defaultValue={devEstimateHours}
+            value={devEstimate}
+            onChange={(event) => updateDevEstimate(event.target.value)}
             disabled={!canEdit}
           />
         </div>
@@ -575,18 +596,11 @@ function DateAndEffortFields({
             type="number"
             min={0}
             step="0.5"
-            defaultValue={testEstimateHours}
+            value={testEstimate}
+            onChange={(event) => updateTestEstimate(event.target.value)}
             disabled={!canEdit}
           />
-          <Select name="testEstimateSource" defaultValue={testEstimateSource} disabled={!canEdit}>
-            <SelectTrigger className="h-8 w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="AUTO">Tự động 30%</SelectItem>
-              <SelectItem value="MANUAL">Thủ công</SelectItem>
-            </SelectContent>
-          </Select>
+          <input type="hidden" name="testEstimateSource" value={testEstimateSourceValue} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="standardEstimateMandays">Chuẩn (ngày công)</Label>
