@@ -65,6 +65,7 @@ export function TaskEditForm({
   canEdit,
   showPriorityDueDate = true,
   fullPlanningFields = false,
+  readOnlyDetails,
   members = [],
   epics = [],
   sprints = [],
@@ -100,6 +101,11 @@ export function TaskEditForm({
   canEdit: boolean;
   showPriorityDueDate?: boolean;
   fullPlanningFields?: boolean;
+  readOnlyDetails?: {
+    description: string;
+    meta: { label: string; value: string }[];
+    acceptanceCriteria?: string;
+  };
   members?: MemberOption[];
   epics?: Option[];
   sprints?: Option[];
@@ -120,11 +126,46 @@ export function TaskEditForm({
   }, [state, router]);
 
   if (!editing) {
-    return canEdit ? (
-      <Button type="button" size="sm" variant="outline" onClick={() => setEditing(true)}>
-        Chỉnh sửa task
-      </Button>
-    ) : null;
+    return (
+      <div className="space-y-4">
+        {readOnlyDetails ? (
+          <>
+            <div className="rounded-md border bg-muted/30 p-3 text-sm">
+              <p className="text-xs font-semibold uppercase text-muted-foreground">Mô tả</p>
+              {readOnlyDetails.description ? (
+                <p className="mt-1 whitespace-pre-wrap">{readOnlyDetails.description}</p>
+              ) : (
+                <p className="mt-1 text-muted-foreground">Chưa có mô tả.</p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-3">
+              {readOnlyDetails.meta.map((m) => (
+                <div key={m.label} className="flex justify-between gap-2 border-b py-1">
+                  <span className="text-muted-foreground">{m.label}</span>
+                  <span className="text-right font-medium">{m.value}</span>
+                </div>
+              ))}
+            </div>
+
+            {readOnlyDetails.acceptanceCriteria ? (
+              <div className="rounded-md bg-muted p-3 text-sm">
+                <p className="text-xs font-semibold uppercase text-muted-foreground">
+                  Tiêu chí nghiệm thu
+                </p>
+                <p className="mt-1 whitespace-pre-wrap">{readOnlyDetails.acceptanceCriteria}</p>
+              </div>
+            ) : null}
+          </>
+        ) : null}
+
+        {canEdit ? (
+          <Button type="button" size="sm" variant="outline" onClick={() => setEditing(true)}>
+            Chỉnh sửa task
+          </Button>
+        ) : null}
+      </div>
+    );
   }
 
   return (

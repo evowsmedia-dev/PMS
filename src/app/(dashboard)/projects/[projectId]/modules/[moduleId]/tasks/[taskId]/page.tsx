@@ -10,9 +10,6 @@ import { Badge } from "@/components/ui/badge";
 import { TaskEditForm } from "@/components/task-edit-form";
 import {
   TaskStatusSelect,
-  TaskAssigneeSelect,
-  TaskPrioritySelect,
-  TaskDueDateInput,
   TaskComments,
   TaskTimeLogForm,
 } from "@/components/task-detail-panel";
@@ -79,7 +76,6 @@ export default async function TaskDetailPage({
   if (!canAccessModule(assignedModuleIds, moduleId)) redirect(`/projects/${projectId}/overview`);
   const roleCtx = { systemRole: session.user.systemRole };
   const canEdit = await canAccess(roleCtx, "task.edit", projectRole);
-  const canReassign = await canAccess(roleCtx, "task.reassign", projectRole);
   const canComment = await canAccess(roleCtx, "comment.create", projectRole);
 
   const [members, epics, sprints, milestones] = await Promise.all([
@@ -156,48 +152,6 @@ export default async function TaskDetailPage({
                 status={task.status}
                 canEdit={canEdit}
               />
-              <TaskAssigneeSelect
-                projectId={projectId}
-                moduleId={moduleId}
-                taskId={taskId}
-                assigneeId={task.assigneeId}
-                members={members.map((m) => ({ userId: m.userId, fullName: m.user.fullName }))}
-                canReassign={canReassign}
-              />
-              <TaskPrioritySelect
-                projectId={projectId}
-                moduleId={moduleId}
-                taskId={taskId}
-                priority={task.priority}
-                canEdit={canEdit}
-              />
-              <TaskDueDateInput
-                projectId={projectId}
-                moduleId={moduleId}
-                taskId={taskId}
-                dueDate={task.dueDate ? task.dueDate.toISOString().slice(0, 10) : ""}
-                canEdit={canEdit}
-              />
-            </div>
-
-            <div className="rounded-md border bg-muted/30 p-3 text-sm">
-              <p className="text-xs font-semibold uppercase text-muted-foreground">Tiêu đề</p>
-              <p className="mt-1 font-medium">{task.title}</p>
-              <p className="mt-3 text-xs font-semibold uppercase text-muted-foreground">Mô tả</p>
-              {task.description ? (
-                <p className="mt-1 whitespace-pre-wrap">{task.description}</p>
-              ) : (
-                <p className="mt-1 text-muted-foreground">Chưa có mô tả.</p>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-3">
-              {meta.map((m) => (
-                <div key={m.label} className="flex justify-between gap-2 border-b py-1">
-                  <span className="text-muted-foreground">{m.label}</span>
-                  <span className="text-right font-medium">{m.value}</span>
-                </div>
-              ))}
             </div>
 
             {task.estimateWarningFlag || task.isDevOverdue || task.isTestOverdue || task.isBlocked ? (
@@ -216,15 +170,6 @@ export default async function TaskDetailPage({
                   {task.isBlocked ? <Badge variant="outline">Blocked</Badge> : null}
                 </div>
                 {task.blockedReason ? <p className="mt-2 text-muted-foreground">{task.blockedReason}</p> : null}
-              </div>
-            ) : null}
-
-            {task.acceptanceCriteria ? (
-              <div className="rounded-md bg-muted p-3 text-sm">
-                <p className="text-xs font-semibold uppercase text-muted-foreground">
-                  Tiêu chí nghiệm thu
-                </p>
-                <p className="mt-1 whitespace-pre-wrap">{task.acceptanceCriteria}</p>
               </div>
             ) : null}
 
@@ -274,6 +219,11 @@ export default async function TaskDetailPage({
               relatedDocumentId={task.relatedDocumentId}
               canEdit={canEdit}
               fullPlanningFields
+              readOnlyDetails={{
+                description: task.description ?? "",
+                meta,
+                acceptanceCriteria: task.acceptanceCriteria ?? "",
+              }}
               members={members.map((m) => ({ userId: m.userId, fullName: m.user.fullName }))}
               epics={epics.map((epic) => ({ id: epic.id, label: epic.name }))}
               sprints={sprints.map((sprint) => ({ id: sprint.id, label: sprint.name }))}
