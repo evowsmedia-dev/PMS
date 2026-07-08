@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -66,6 +67,10 @@ export function TaskEditForm({
   storyPoint = "0",
   acceptanceCriteria = "",
   relatedDocumentId = "",
+  relatedDocumentIds = [],
+  externalLinks = [],
+  documents = [],
+  createChildTaskHref,
   canEdit,
   showPriorityDueDate = true,
   fullPlanningFields = false,
@@ -102,6 +107,10 @@ export function TaskEditForm({
   storyPoint?: string;
   acceptanceCriteria?: string;
   relatedDocumentId?: string | null;
+  relatedDocumentIds?: string[];
+  externalLinks?: string[];
+  documents?: Option[];
+  createChildTaskHref?: string;
   canEdit: boolean;
   showPriorityDueDate?: boolean;
   fullPlanningFields?: boolean;
@@ -168,9 +177,16 @@ export function TaskEditForm({
         ) : null}
 
         {canEdit ? (
-          <Button type="button" size="sm" variant="outline" onClick={() => setEditing(true)}>
-            Chỉnh sửa task
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" size="sm" variant="outline" onClick={() => setEditing(true)}>
+              Chỉnh sửa task
+            </Button>
+            {createChildTaskHref ? (
+              <Button asChild type="button" size="sm" variant="outline">
+                <Link href={createChildTaskHref}>Tạo sub-task</Link>
+              </Button>
+            ) : null}
+          </div>
         ) : null}
       </div>
     );
@@ -218,6 +234,9 @@ export function TaskEditForm({
           storyPoint={storyPoint}
           acceptanceCriteria={acceptanceCriteria}
           relatedDocumentId={relatedDocumentId ?? ""}
+          relatedDocumentIds={relatedDocumentIds}
+          externalLinks={externalLinks}
+          documents={documents}
           members={members}
           epics={epics}
           sprints={sprints}
@@ -294,6 +313,9 @@ function FullPlanningFields({
   storyPoint,
   acceptanceCriteria,
   relatedDocumentId,
+  relatedDocumentIds,
+  externalLinks,
+  documents,
   members,
   epics,
   sprints,
@@ -322,6 +344,9 @@ function FullPlanningFields({
   storyPoint: string;
   acceptanceCriteria: string;
   relatedDocumentId: string;
+  relatedDocumentIds: string[];
+  externalLinks: string[];
+  documents: Option[];
   members: MemberOption[];
   epics: Option[];
   sprints: Option[];
@@ -442,6 +467,11 @@ function FullPlanningFields({
       </div>
 
       <input type="hidden" name="relatedDocumentId" value={relatedDocumentId} />
+      <RelatedReferencesFields
+        documents={documents}
+        relatedDocumentIds={relatedDocumentIds}
+        externalLinks={externalLinks}
+      />
     </>
   );
 }
@@ -630,6 +660,53 @@ function DateAndEffortFields({
         ) : null}
       </div>
     </>
+  );
+}
+
+function RelatedReferencesFields({
+  documents,
+  relatedDocumentIds,
+  externalLinks,
+}: {
+  documents: Option[];
+  relatedDocumentIds: string[];
+  externalLinks: string[];
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="space-y-2">
+        <Label>Tài liệu liên quan cần đọc kỹ</Label>
+        <input type="hidden" name="relatedDocumentsTouched" value="1" />
+        <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border p-3 text-sm">
+          {documents.length > 0 ? (
+            documents.map((document) => (
+              <label key={document.id} className="flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  name="relatedDocumentIds"
+                  value={document.id}
+                  defaultChecked={relatedDocumentIds.includes(document.id)}
+                  className="mt-1"
+                />
+                <span>{document.label}</span>
+              </label>
+            ))
+          ) : (
+            <p className="text-muted-foreground">Chưa có tài liệu active trong dự án.</p>
+          )}
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="externalLinks">External link</Label>
+        <Textarea
+          id="externalLinks"
+          name="externalLinks"
+          rows={5}
+          defaultValue={externalLinks.join("\n")}
+          placeholder="Mỗi link một dòng"
+        />
+      </div>
+    </div>
   );
 }
 

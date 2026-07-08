@@ -9,7 +9,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TaskEditForm } from "@/components/task-edit-form";
 import {
-  TaskStatusSelect,
   TaskComments,
   TaskTimeLogForm,
   TaskTimeLogList,
@@ -19,9 +18,17 @@ import { formatTaskHistoryField, formatTaskHistoryValue } from "@/lib/task-histo
 import {
   BUG_STATUS_LABEL,
   TASK_PRIORITY_LABEL,
+  TASK_STATUS_LABEL,
   TASK_TYPE_LABEL,
   TASK_WARNING_LABEL,
 } from "@/lib/validation/task";
+
+function normalizeExternalLinks(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => (typeof item === "string" ? item : typeof item?.url === "string" ? item.url : ""))
+    .filter(Boolean);
+}
 
 export default async function TaskDetailPage({
   params,
@@ -42,6 +49,11 @@ export default async function TaskDetailPage({
       sprint: { select: { name: true } },
       milestone: { select: { name: true } },
       relatedDocument: { select: { id: true, title: true } },
+      relatedDocuments: {
+        include: { document: { select: { id: true, title: true, moduleId: true, module: { select: { name: true } } } } },
+        orderBy: { createdAt: "asc" },
+      },
+      parentTask: { select: { id: true, title: true, taskCode: true } },
       bugs: {
         where: { deletedAt: null },
         select: { id: true, bugCode: true, title: true, status: true },
@@ -78,7 +90,7 @@ export default async function TaskDetailPage({
   const canEdit = await canAccess(roleCtx, "task.edit", projectRole);
   const canComment = await canAccess(roleCtx, "comment.create", projectRole);
 
-  const [members, epics, sprints, milestones] = await Promise.all([
+  const [members, epics, sprints, milestones, documents] = await Promise.all([
     prisma.projectMember.findMany({
       where: { projectId },
       include: { user: { select: { fullName: true } } },
@@ -98,6 +110,11 @@ export default async function TaskDetailPage({
       select: { id: true, name: true },
       orderBy: { dueDate: "asc" },
     }),
+    prisma.document.findMany({
+      where: { projectId, deletedAt: null, module: { deletedAt: null } },
+      select: { id: true, title: true, module: { select: { name: true } } },
+      orderBy: { updatedAt: "desc" },
+    }),
   ]);
   const memberNameById = new Map(members.map((member) => [member.userId, member.user.fullName]));
 
@@ -109,7 +126,7 @@ export default async function TaskDetailPage({
   });
 
   const meta: { label: string; value: string }[] = [
-    { label: "Mã", value: task.taskCode ?? "—" },
+    { label: "Trạng thái", value: TASK_STATUS_LABEL[task.status] },
     { label: "Loại", value: TASK_TYPE_LABEL[task.type] },
     { label: "Ưu tiên", value: TASK_PRIORITY_LABEL[task.priority] },
     { label: "Epic", value: task.epic?.name ?? "—" },
@@ -128,6 +145,8 @@ export default async function TaskDetailPage({
     { label: "Story point", value: String(task.storyPoint) },
     { label: "Tiến độ", value: `${task.progressPercent}%` },
   ];
+  const externalLinks = normalizeExternalLinks(task.externalLinks);
+  const relatedDocuments = task.relatedDocuments.map((item) => item.document);
 
   return (
     <div className="space-y-4">
@@ -144,16 +163,6 @@ export default async function TaskDetailPage({
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <TaskStatusSelect
-                projectId={projectId}
-                moduleId={moduleId}
-                taskId={taskId}
-                status={task.status}
-                canEdit={canEdit}
-              />
-            </div>
-
             {task.estimateWarningFlag || task.isDevOverdue || task.isTestOverdue || task.isBlocked ? (
               <div className="rounded-md border bg-muted/40 p-3 text-sm">
                 <p className="text-xs font-semibold uppercase text-muted-foreground">
@@ -173,21 +182,47 @@ export default async function TaskDetailPage({
               </div>
             ) : null}
 
-            {task.relatedDocument ? (
+            {task.parentTask ? (
               <p className="text-sm text-muted-foreground">
-                Tài liệu liên quan:{" "}
+                Task cha:{" "}
                 <Link
-                  href={`/projects/${projectId}/modules/${moduleId}/documents/${task.relatedDocument.id}`}
+                  href={`/projects/${projectId}/modules/${moduleId}/tasks/${task.parentTask.id}`}
                   className="text-foreground underline-offset-4 hover:underline"
                 >
-                  {task.relatedDocument.title}
+                  {task.parentTask.taskCode ? `${task.parentTask.taskCode} · ` : ""}
+                  {task.parentTask.title}
                 </Link>
               </p>
             ) : null}
-            {task.sourceHighlight ? (
-              <p className="rounded-md bg-muted p-2 text-sm italic text-muted-foreground">
-                &quot;{task.sourceHighlight}&quot;
-              </p>
+
+            {relatedDocuments.length > 0 || externalLinks.length > 0 ? (
+              <div className="rounded-md border p-3 text-sm">
+                <p className="text-xs font-semibold uppercase text-muted-foreground">
+                  Tài liệu / link liên quan
+                </p>
+                <div className="mt-2 space-y-1">
+                  {relatedDocuments.map((document) => (
+                    <Link
+                      key={document.id}
+                      href={`/projects/${projectId}/modules/${document.moduleId}/documents/${document.id}`}
+                      className="block text-foreground underline-offset-4 hover:underline"
+                    >
+                      {document.module.name} · {document.title}
+                    </Link>
+                  ))}
+                  {externalLinks.map((link) => (
+                    <a
+                      key={link}
+                      href={link}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block break-all text-foreground underline-offset-4 hover:underline"
+                    >
+                      {link}
+                    </a>
+                  ))}
+                </div>
+              </div>
             ) : null}
 
             <TaskEditForm
@@ -217,6 +252,13 @@ export default async function TaskDetailPage({
               storyPoint={String(task.storyPoint)}
               acceptanceCriteria={task.acceptanceCriteria ?? ""}
               relatedDocumentId={task.relatedDocumentId}
+              relatedDocumentIds={relatedDocuments.map((document) => document.id)}
+              externalLinks={externalLinks}
+              documents={documents.map((document) => ({
+                id: document.id,
+                label: `${document.module.name} · ${document.title}`,
+              }))}
+              createChildTaskHref={`/projects/${projectId}/tasks/new?parentTaskId=${taskId}`}
               canEdit={canEdit}
               fullPlanningFields
               readOnlyDetails={{
@@ -297,7 +339,15 @@ export default async function TaskDetailPage({
                     {h.createdAt.toLocaleString("vi-VN")})
                   </li>
                 ))}
-                {task.history.length === 0 ? <li>Chưa có lịch sử thay đổi.</li> : null}
+                {task.comments.map((comment) => (
+                  <li key={`comment-${comment.id}`}>
+                    {comment.author.fullName} bình luận: {comment.content} (
+                    {comment.createdAt.toLocaleString("vi-VN")})
+                  </li>
+                ))}
+                {task.history.length === 0 && task.comments.length === 0 ? (
+                  <li>Chưa có lịch sử thay đổi.</li>
+                ) : null}
               </ul>
             </div>
           </CardContent>

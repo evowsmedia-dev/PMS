@@ -37,6 +37,8 @@ export function TaskProjectCreateForm({
   sprints,
   milestones,
   tasks = [],
+  documents = [],
+  defaultParentTaskId,
   defaultRelatedDocumentId,
   defaultSourceHighlight,
   relatedDocumentTitle,
@@ -47,6 +49,8 @@ export function TaskProjectCreateForm({
   sprints: Option[];
   milestones: Option[];
   tasks?: Option[];
+  documents?: Option[];
+  defaultParentTaskId?: string;
   defaultRelatedDocumentId?: string;
   defaultSourceHighlight?: string;
   relatedDocumentTitle?: string;
@@ -153,6 +157,7 @@ export function TaskProjectCreateForm({
             label="Task cha (liên quan)"
             placeholder="Không có task cha"
             options={tasks}
+            defaultValue={defaultParentTaskId}
           />
           <div className="space-y-2">
             <Label>Phụ thuộc vào</Label>
@@ -268,6 +273,8 @@ export function TaskProjectCreateForm({
         <Textarea id="acceptanceCriteria" name="acceptanceCriteria" rows={2} />
       </div>
 
+      <RelatedReferencesFields documents={documents} defaultRelatedDocumentId={defaultRelatedDocumentId} />
+
       <Button type="submit" disabled={pending}>
         {pending ? "Đang tạo..." : "Tạo task"}
       </Button>
@@ -280,16 +287,18 @@ function OptionalSelect({
   label,
   placeholder,
   options,
+  defaultValue,
 }: {
   name: string;
   label: string;
   placeholder: string;
   options: Option[];
+  defaultValue?: string;
 }) {
   return (
     <div className="space-y-2">
       <Label htmlFor={name}>{label}</Label>
-      <Select name={name}>
+      <Select name={name} defaultValue={defaultValue}>
         <SelectTrigger id={name} className="w-full">
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
@@ -307,6 +316,45 @@ function OptionalSelect({
           )}
         </SelectContent>
       </Select>
+    </div>
+  );
+}
+
+function RelatedReferencesFields({
+  documents,
+  defaultRelatedDocumentId,
+}: {
+  documents: Option[];
+  defaultRelatedDocumentId?: string;
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="space-y-2">
+        <Label>Tài liệu liên quan cần đọc kỹ</Label>
+        <input type="hidden" name="relatedDocumentsTouched" value="1" />
+        <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border p-3 text-sm">
+          {documents.length > 0 ? (
+            documents.map((document) => (
+              <label key={document.id} className="flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  name="relatedDocumentIds"
+                  value={document.id}
+                  defaultChecked={document.id === defaultRelatedDocumentId}
+                  className="mt-1"
+                />
+                <span>{document.label}</span>
+              </label>
+            ))
+          ) : (
+            <p className="text-muted-foreground">Chưa có tài liệu active trong dự án.</p>
+          )}
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="externalLinks">External link</Label>
+        <Textarea id="externalLinks" name="externalLinks" rows={5} placeholder="Mỗi link một dòng" />
+      </div>
     </div>
   );
 }

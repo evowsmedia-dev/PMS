@@ -393,6 +393,7 @@ model Document {
   attachments Attachment[]
   comments    Comment[]
   tasks       Task[]
+  relatedTasks TaskRelatedDocument[]
 
   @@index([projectId, moduleId, category, status])
   @@index([projectId, moduleId, role])
@@ -562,6 +563,8 @@ model Task {
 
   relatedDocumentId String?
   relatedDocument   Document? @relation(fields: [relatedDocumentId], references: [id], onDelete: SetNull)
+  relatedDocuments  TaskRelatedDocument[]
+  externalLinks     Json      @default("[]")
   sourceHighlight   String?
   isReviewRequest   Boolean   @default(false)
 
@@ -591,6 +594,19 @@ model Task {
   @@index([milestoneId])
   @@index([dueDate])
   @@index([createdAt])
+}
+
+model TaskRelatedDocument {
+  id         String   @id @default(cuid())
+  taskId     String
+  documentId String
+  createdAt  DateTime @default(now())
+
+  task     Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, documentId])
+  @@index([documentId])
 }
 
 model TaskHistory {

@@ -79,6 +79,92 @@ function parseTaskForm(formData: FormData) {
   });
 }
 
+function normalizeRelatedDocumentIds(formData: FormData) {
+  return Array.from(new Set(formData.getAll("relatedDocumentIds").map((value) => String(value)).filter(Boolean)));
+}
+
+function normalizeExternalLinks(formData: FormData) {
+  const raw = String(formData.get("externalLinks") ?? "");
+  return raw
+    .split(/\r?\n/)
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .map((url) => ({ url }));
+}
+
+async function replaceTaskRelatedDocuments(taskId: string, projectId: string, documentIds: string[]) {
+  const documents = documentIds.length
+    ? await prisma.document.findMany({
+        where: { id: { in: documentIds }, projectId, deletedAt: null },
+        select: { id: true },
+      })
+    : [];
+  const validIds = documents.map((document) => document.id);
+
+  await prisma.taskRelatedDocument.deleteMany({ where: { taskId } });
+  if (validIds.length > 0) {
+    await prisma.taskRelatedDocument.createMany({
+      data: validIds.map((documentId) => ({ taskId, documentId })),
+      skipDuplicates: true,
+    });
+  }
+  return validIds;
+}
+
+function extractMentionNames(content: string) {
+  return Array.from(content.matchAll(/@([\w.]+)/g)).map((match) => match[1]);
+}
+
+async function mentionedProjectUserIds(projectId: string, content: string) {
+  const mentionNames = extractMentionNames(content);
+  if (mentionNames.length === 0) return [];
+
+  const members = await prisma.projectMember.findMany({
+    where: { projectId },
+    include: { user: { select: { id: true, fullName: true, email: true } } },
+  });
+  const mentionedUserIds = new Set<string>();
+  for (const name of mentionNames) {
+    const match = members.find(
+      (member) =>
+        member.user.email.split("@")[0].toLowerCase() === name.toLowerCase() ||
+        member.user.fullName.replaceAll(" ", "").toLowerCase() === name.toLowerCase(),
+    );
+    if (match) mentionedUserIds.add(match.user.id);
+  }
+  return Array.from(mentionedUserIds);
+}
+
+async function notifyTaskMentions({
+  projectId,
+  taskId,
+  taskCode,
+  title,
+  content,
+}: {
+  projectId: string;
+  taskId: string;
+  taskCode?: string | null;
+  title: string;
+  content: string;
+}) {
+  const mentionedUserIds = await mentionedProjectUserIds(projectId, content);
+  if (mentionedUserIds.length === 0) return mentionedUserIds;
+
+  await prisma.notification.createMany({
+    data: mentionedUserIds.map((userId) => ({
+      userId,
+      type: "task_mention",
+      title: `Bạn được nhắc trong task ${taskCode ?? ""}`.trim(),
+      content: title,
+      entityType: "Task",
+      entityId: taskId,
+      projectId,
+    })),
+  });
+  return mentionedUserIds;
+}
+
 export interface AutoGenerateTasksState extends ActionState {
   created?: number;
   skipped?: number;
@@ -133,6 +219,8 @@ export async function createTaskAction(
     return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   }
   const values = parsed.data;
+  const relatedDocumentIds = normalizeRelatedDocumentIds(formData);
+  const externalLinks = normalizeExternalLinks(formData);
 
   const maxOrder = await prisma.task.aggregate({
     where: { projectId, moduleId, status: "TODO", deletedAt: null },
@@ -167,13 +255,28 @@ export async function createTaskAction(
       devDueAt,
       testDueAt,
       ...derived,
-      relatedDocumentId: values.relatedDocumentId || null,
+      relatedDocumentId: relatedDocumentIds[0] ?? (values.relatedDocumentId || null),
+      externalLinks,
       sourceHighlight: values.sourceHighlight || null,
       createdById: session.user.id,
       reporterId: session.user.id,
       sortOrder: (maxOrder._max.sortOrder ?? -1) + 1,
     },
   });
+  await replaceTaskRelatedDocuments(
+    task.id,
+    projectId,
+    relatedDocumentIds.length > 0 ? relatedDocumentIds : values.relatedDocumentId ? [values.relatedDocumentId] : [],
+  );
+  if (values.description) {
+    await notifyTaskMentions({
+      projectId,
+      taskId: task.id,
+      taskCode: task.taskCode,
+      title: task.title,
+      content: values.description,
+    });
+  }
 
   await logAudit({
     actorId: session.user.id,
@@ -207,6 +310,8 @@ export async function createProjectTaskAction(
     return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   }
   const values = parsed.data;
+  const relatedDocumentIds = normalizeRelatedDocumentIds(formData);
+  const externalLinks = normalizeExternalLinks(formData);
 
   const maxOrder = await prisma.task.aggregate({
     where: { projectId, status: "BACKLOG", deletedAt: null },
@@ -254,13 +359,28 @@ export async function createProjectTaskAction(
       ...derived,
       storyPoint: values.storyPoint ?? 0,
       acceptanceCriteria: values.acceptanceCriteria || null,
-      relatedDocumentId: values.relatedDocumentId || null,
+      relatedDocumentId: relatedDocumentIds[0] ?? (values.relatedDocumentId || null),
+      externalLinks,
       sourceHighlight: values.sourceHighlight || null,
       createdById: session.user.id,
       reporterId: session.user.id,
       sortOrder: (maxOrder._max.sortOrder ?? -1) + 1,
     },
   });
+  await replaceTaskRelatedDocuments(
+    task.id,
+    projectId,
+    relatedDocumentIds.length > 0 ? relatedDocumentIds : values.relatedDocumentId ? [values.relatedDocumentId] : [],
+  );
+  if (values.description) {
+    await notifyTaskMentions({
+      projectId,
+      taskId: task.id,
+      taskCode: task.taskCode,
+      title: task.title,
+      content: values.description,
+    });
+  }
 
   // Dependencies chosen at creation time.
   const creatorId = session.user.id;
@@ -740,6 +860,10 @@ export async function updateTaskAction(
     return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   }
   const values = parsed.data;
+  const relatedDocumentIds = normalizeRelatedDocumentIds(formData);
+  const externalLinks = normalizeExternalLinks(formData);
+  const shouldUpdateRelatedDocuments = formData.has("relatedDocumentsTouched") || formData.has("relatedDocumentId");
+  const shouldUpdateExternalLinks = formData.has("externalLinks");
 
   const before = await prisma.task.findUniqueOrThrow({ where: { id: taskId } });
   const has = (key: string) => formData.has(key);
@@ -818,9 +942,25 @@ export async function updateTaskAction(
       ...derived,
       storyPoint: values.storyPoint ?? before.storyPoint,
       acceptanceCriteria: values.acceptanceCriteria || null,
-      relatedDocumentId: has("relatedDocumentId") ? values.relatedDocumentId || null : before.relatedDocumentId,
+      relatedDocumentId: shouldUpdateRelatedDocuments
+        ? relatedDocumentIds[0] ?? null
+        : has("relatedDocumentId")
+          ? values.relatedDocumentId || null
+          : before.relatedDocumentId,
+      ...(shouldUpdateExternalLinks ? { externalLinks } : {}),
     },
   });
+  if (shouldUpdateRelatedDocuments) {
+    await replaceTaskRelatedDocuments(
+      taskId,
+      projectId,
+      relatedDocumentIds.length > 0
+        ? relatedDocumentIds
+        : !formData.has("relatedDocumentsTouched") && has("relatedDocumentId") && values.relatedDocumentId
+          ? [values.relatedDocumentId]
+          : [],
+    );
+  }
 
   const historyEntries: {
     taskId: string;
@@ -845,6 +985,42 @@ export async function updateTaskAction(
       field: "priority",
       oldValue: before.priority,
       newValue: values.priority,
+    });
+  }
+  if (before.title !== values.title) {
+    historyEntries.push({
+      taskId,
+      changedById: session.user.id,
+      field: "title",
+      oldValue: before.title,
+      newValue: values.title,
+    });
+  }
+  if ((before.description ?? "") !== (values.description ?? "")) {
+    historyEntries.push({
+      taskId,
+      changedById: session.user.id,
+      field: "description",
+      oldValue: before.description,
+      newValue: values.description || null,
+    });
+    if (values.description) {
+      await notifyTaskMentions({
+        projectId,
+        taskId,
+        taskCode: before.taskCode,
+        title: values.title,
+        content: values.description,
+      });
+    }
+  }
+  if ((before.acceptanceCriteria ?? "") !== (values.acceptanceCriteria ?? "")) {
+    historyEntries.push({
+      taskId,
+      changedById: session.user.id,
+      field: "acceptanceCriteria",
+      oldValue: before.acceptanceCriteria,
+      newValue: values.acceptanceCriteria || null,
     });
   }
   if (historyEntries.length > 0) {

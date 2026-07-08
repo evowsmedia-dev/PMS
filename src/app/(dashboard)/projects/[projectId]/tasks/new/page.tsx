@@ -8,12 +8,15 @@ import { CreateTaskOrBug } from "@/components/create-task-or-bug";
 
 export default async function NewProjectTaskPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ projectId: string }>;
+  searchParams: Promise<{ parentTaskId?: string }>;
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
   const { projectId } = await params;
+  const sp = await searchParams;
 
   const project = await prisma.project.findFirst({
     where: { id: projectId, deletedAt: null },
@@ -26,7 +29,7 @@ export default async function NewProjectTaskPage({
     redirect(`/projects/${projectId}/tasks`);
   }
 
-  const [members, epics, sprints, milestones] = await Promise.all([
+  const [members, epics, sprints, milestones, documents] = await Promise.all([
     prisma.projectMember.findMany({
       where: { projectId },
       include: { user: { select: { id: true, fullName: true } } },
@@ -45,6 +48,11 @@ export default async function NewProjectTaskPage({
       where: { projectId, deletedAt: null },
       select: { id: true, name: true },
       orderBy: { dueDate: "asc" },
+    }),
+    prisma.document.findMany({
+      where: { projectId, deletedAt: null, module: { deletedAt: null } },
+      select: { id: true, title: true, module: { select: { name: true } } },
+      orderBy: { updatedAt: "desc" },
     }),
   ]);
 
@@ -65,6 +73,11 @@ export default async function NewProjectTaskPage({
         sprints={sprints.map((s) => ({ id: s.id, label: s.name }))}
         milestones={milestones.map((m) => ({ id: m.id, label: m.name }))}
         tasks={tasks.map((t) => ({ id: t.id, label: `${t.taskCode ? t.taskCode + " · " : ""}${t.title}` }))}
+        documents={documents.map((document) => ({
+          id: document.id,
+          label: `${document.module.name} · ${document.title}`,
+        }))}
+        defaultParentTaskId={sp.parentTaskId}
       />
     </PageSection>
   );

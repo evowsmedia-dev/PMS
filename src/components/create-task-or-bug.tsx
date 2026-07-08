@@ -19,6 +19,8 @@ export function CreateTaskOrBug({
   sprints,
   milestones,
   tasks,
+  documents = [],
+  defaultParentTaskId,
 }: {
   projectId: string;
   members: { userId: string; fullName: string }[];
@@ -26,6 +28,8 @@ export function CreateTaskOrBug({
   sprints: Option[];
   milestones: Option[];
   tasks: Option[];
+  documents?: Option[];
+  defaultParentTaskId?: string;
 }) {
   const [mode, setMode] = useState<"task" | "bug">("task");
 
@@ -60,9 +64,11 @@ export function CreateTaskOrBug({
           sprints={sprints}
           milestones={milestones}
           tasks={tasks}
+          documents={documents}
+          defaultParentTaskId={defaultParentTaskId}
         />
       ) : (
-        <BugCreateForm projectId={projectId} members={members} tasks={tasks} />
+        <BugCreateForm projectId={projectId} members={members} tasks={tasks} defaultTaskId={defaultParentTaskId} />
       )}
     </div>
   );

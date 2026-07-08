@@ -45,11 +45,11 @@ function useFormResult(state: ActionState) {
   }, [state, router]);
 }
 
-function TaskSelect({ tasks }: { tasks: Option[] }) {
+function TaskSelect({ tasks, defaultTaskId }: { tasks: Option[]; defaultTaskId?: string }) {
   return (
     <div className="space-y-1">
       <Label htmlFor="taskId">Task liên quan</Label>
-      <Select name="taskId">
+      <Select name="taskId" defaultValue={defaultTaskId}>
         <SelectTrigger id="taskId" className="w-full">
           <SelectValue placeholder="Không gắn task" />
         </SelectTrigger>
@@ -75,10 +75,12 @@ export function BugCreateForm({
   projectId,
   members,
   tasks,
+  defaultTaskId,
 }: {
   projectId: string;
   members: { userId: string; fullName: string }[];
   tasks: Option[];
+  defaultTaskId?: string;
 }) {
   const action = createBugAction.bind(null, projectId);
   const [state, formAction, pending] = useActionState(action, initialState);
@@ -124,7 +126,7 @@ export function BugCreateForm({
           </SelectContent>
         </Select>
       </div>
-      <TaskSelect tasks={tasks} />
+      <TaskSelect tasks={tasks} defaultTaskId={defaultTaskId} />
       <div className="space-y-1">
         <Label htmlFor="assignedToId">Gán cho</Label>
         <Select name="assignedToId">
