@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import type { Prisma } from "@/generated/prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canAccess } from "@/lib/rbac";
@@ -15,8 +16,13 @@ import {
   type AutoTaskCandidate,
 } from "@/lib/auto-task-generator";
 import {
+  AI_SUBTASK_PROMPT_VERSION,
+  buildAiSubtaskContext,
+  calculateAiSubtaskCoverage,
   generateAiSubtaskProposalResult,
+  type AiSubtaskCoverageReport,
   type AiSubtaskProposal,
+  type AiSubtaskSourceReference,
 } from "@/lib/ai-subtask-generator";
 import { logAiUsage } from "@/lib/ai-usage";
 import { taskFormSchema, taskTimeLogSchema, TASK_PRIORITY_ORDER } from "@/lib/validation/task";
@@ -217,6 +223,23 @@ export interface AiSubtaskPreviewProposal extends AiSubtaskProposal {
 export interface AiSubtaskPreviewState extends ActionState {
   proposals?: AiSubtaskPreviewProposal[];
   parentEstimateHours?: number;
+  generation?: AiSubtaskGenerationSummary;
+  generations?: AiSubtaskGenerationSummary[];
+  sourceReferences?: AiSubtaskSourceReference[];
+  coverageReport?: AiSubtaskCoverageReport;
+  contextCurrent?: boolean;
+}
+
+export interface AiSubtaskGenerationSummary {
+  id: string;
+  versionNo: number;
+  model: string;
+  promptVersion: string;
+  status: string;
+  contextHash: string;
+  totalEstimateHours: number;
+  createdAt: string;
+  createdByName: string;
 }
 
 export interface CreateAiSubtasksState extends ActionState {
@@ -235,6 +258,9 @@ const aiSubtaskInputSchema = z
         message: "Dev estimate phải theo bước 0.5 giờ.",
       }),
       confidence: z.number().min(0).max(1),
+      dependencies: z.array(z.string().trim().min(1).max(120)).max(10),
+      coveredSourceRefs: z.array(z.string().trim().min(1).max(160)).min(1).max(30),
+      sourceEvidence: z.string().trim().min(1).max(1000),
     }),
   )
   .min(1)
@@ -748,14 +774,12 @@ export async function createAutoTasksFromDocumentsAction(
 export async function previewAiSubtasksAction(
   projectId: string,
   taskId: string,
+  options: { forceNew?: boolean; generationId?: string } = {},
 ): Promise<AiSubtaskPreviewState> {
   const access = await getAiSubtaskParentAccess(projectId, taskId);
   if ("error" in access) return { error: access.error };
 
   const { session, task, documents } = access;
-  if (!isAiTaskGenerationConfigured()) {
-    return { error: "AI chưa được cấu hình. Cần thiết lập OPENAI_API_KEY trên môi trường chạy app." };
-  }
   if (!task.description?.trim() && !task.acceptanceCriteria?.trim() && documents.length === 0) {
     return {
       success: "Task chưa có đủ mô tả, tiêu chí nghiệm thu hoặc tài liệu liên quan để AI phân rã.",
@@ -764,25 +788,56 @@ export async function previewAiSubtasksAction(
     };
   }
 
-  try {
-    const aiResult = await generateAiSubtaskProposalResult({
-      id: task.id,
-      title: task.title,
-      description: task.description ?? "",
-      acceptanceCriteria: task.acceptanceCriteria ?? "",
-      priority: task.priority,
-      moduleName: task.module?.name ?? null,
-      epicName: task.epic?.name ?? null,
-      sprintName: task.sprint?.name ?? null,
-      milestoneName: task.milestone?.name ?? null,
-      devEstimateHours: Number(task.devEstimateHours),
-      documents: documents.map((document) => ({
-        id: document.id,
-        title: document.title,
-        currentContent: document.currentContent,
-      })),
-      externalLinks: normalizeStoredExternalLinks(task.externalLinks),
+  const parentContext = {
+    id: task.id,
+    title: task.title,
+    description: task.description ?? "",
+    acceptanceCriteria: task.acceptanceCriteria ?? "",
+    priority: task.priority,
+    moduleName: task.module?.name ?? null,
+    epicName: task.epic?.name ?? null,
+    sprintName: task.sprint?.name ?? null,
+    milestoneName: task.milestone?.name ?? null,
+    devEstimateHours: Number(task.devEstimateHours),
+    documents: documents.map((document) => ({
+      id: document.id,
+      title: document.title,
+      currentContent: document.currentContent,
+    })),
+    externalLinks: normalizeStoredExternalLinks(task.externalLinks),
+  };
+  const prepared = buildAiSubtaskContext(parentContext);
+  const requestedGeneration = options.generationId
+    ? await prisma.aiSubtaskGeneration.findFirst({
+        where: { id: options.generationId, projectId, parentTaskId: taskId },
+        include: { createdBy: { select: { fullName: true } } },
+      })
+    : null;
+  const cachedGeneration =
+    !options.forceNew && !requestedGeneration
+      ? await prisma.aiSubtaskGeneration.findFirst({
+          where: { projectId, parentTaskId: taskId, contextHash: prepared.contextHash },
+          include: { createdBy: { select: { fullName: true } } },
+          orderBy: { versionNo: "desc" },
+        })
+      : null;
+  const reusableGeneration = requestedGeneration ?? cachedGeneration;
+  if (reusableGeneration) {
+    return buildAiSubtaskPreviewState({
+      projectId,
+      taskId,
+      task,
+      generation: reusableGeneration,
+      currentContextHash: prepared.contextHash,
     });
+  }
+
+  if (!isAiTaskGenerationConfigured()) {
+    return { error: "AI chưa được cấu hình. Cần thiết lập OPENAI_API_KEY trên môi trường chạy app." };
+  }
+
+  try {
+    const aiResult = await generateAiSubtaskProposalResult(parentContext);
 
     await logAiUsage({
       userId: session.user.id,
@@ -793,32 +848,46 @@ export async function previewAiSubtasksAction(
       metadata: {
         parentTaskId: taskId,
         generatedProposals: aiResult.proposals.length,
+        contextHash: aiResult.contextHash,
+        promptVersion: AI_SUBTASK_PROMPT_VERSION,
       },
     });
 
-    const sourceHighlights = aiResult.proposals.map(
-      (proposal) => `AI_SUBTASK:${taskId}:${proposal.sourceKey}`,
-    );
-    const existing = sourceHighlights.length
-      ? await prisma.task.findMany({
-          where: { projectId, deletedAt: null, sourceHighlight: { in: sourceHighlights } },
-          select: { sourceHighlight: true },
-        })
-      : [];
-    const existingKeys = new Set(existing.map((item) => item.sourceHighlight));
-    const proposals = aiResult.proposals.map((proposal) => ({
-      ...proposal,
-      duplicate: existingKeys.has(`AI_SUBTASK:${taskId}:${proposal.sourceKey}`),
-    }));
+    const latest = await prisma.aiSubtaskGeneration.aggregate({
+      where: { parentTaskId: taskId },
+      _max: { versionNo: true },
+    });
+    const generation = await prisma.aiSubtaskGeneration.create({
+      data: {
+        projectId,
+        parentTaskId: taskId,
+        createdById: session.user.id,
+        versionNo: (latest._max.versionNo ?? 0) + 1,
+        model: aiResult.model,
+        promptVersion: AI_SUBTASK_PROMPT_VERSION,
+        contextHash: aiResult.contextHash,
+        contextSnapshot: aiResult.contextSnapshot as unknown as Prisma.InputJsonValue,
+        proposals: aiResult.proposals as unknown as Prisma.InputJsonValue,
+        coverageReport: aiResult.coverageReport as unknown as Prisma.InputJsonValue,
+        totalEstimateHours: aiResult.proposals.reduce(
+          (sum, proposal) => sum + proposal.devEstimateHours,
+          0,
+        ),
+      },
+      include: { createdBy: { select: { fullName: true } } },
+    });
 
-    return {
+    return buildAiSubtaskPreviewState({
+      projectId,
+      taskId,
+      task,
+      generation,
+      currentContextHash: prepared.contextHash,
       success:
-        proposals.length > 0
-          ? `AI đã đề xuất ${proposals.length} sub-task.`
+        aiResult.proposals.length > 0
+          ? `AI đã tạo phiên bản ${generation.versionNo} với ${aiResult.proposals.length} sub-task.`
           : "AI chưa tìm thấy phạm vi đủ rõ để tạo sub-task.",
-      proposals,
-      parentEstimateHours: Number(task.devEstimateHours),
-    };
+    });
   } catch (error) {
     console.error("AI subtask generation failed", {
       name: error instanceof Error ? error.name : "UnknownError",
@@ -828,9 +897,99 @@ export async function previewAiSubtasksAction(
   }
 }
 
+async function buildAiSubtaskPreviewState({
+  projectId,
+  taskId,
+  task,
+  generation,
+  currentContextHash,
+  success,
+}: {
+  projectId: string;
+  taskId: string;
+  task: { devEstimateHours: unknown };
+  generation: {
+    id: string;
+    versionNo: number;
+    model: string;
+    promptVersion: string;
+    status: string;
+    contextHash: string;
+    totalEstimateHours: unknown;
+    proposals: unknown;
+    coverageReport: unknown;
+    contextSnapshot: unknown;
+    createdAt: Date;
+    createdBy: { fullName: string };
+  };
+  currentContextHash: string;
+  success?: string;
+}): Promise<AiSubtaskPreviewState> {
+  const parsedProposals = aiSubtaskInputSchema.safeParse(generation.proposals);
+  if (!parsedProposals.success) return { error: "Phiên bản AI đã lưu có format không hợp lệ." };
+  const snapshot = generation.contextSnapshot as {
+    sourceReferences?: AiSubtaskSourceReference[];
+  };
+  const sourceReferences = snapshot.sourceReferences ?? [];
+  const coverageReport = calculateAiSubtaskCoverage(parsedProposals.data, sourceReferences);
+  const sourceHighlights = parsedProposals.data.map(
+    (proposal) => `AI_SUBTASK:${taskId}:${proposal.sourceKey}`,
+  );
+  const existing = sourceHighlights.length
+    ? await prisma.task.findMany({
+        where: { projectId, deletedAt: null, sourceHighlight: { in: sourceHighlights } },
+        select: { sourceHighlight: true },
+      })
+    : [];
+  const existingKeys = new Set(existing.map((item) => item.sourceHighlight));
+  const generations = await prisma.aiSubtaskGeneration.findMany({
+    where: { projectId, parentTaskId: taskId },
+    include: { createdBy: { select: { fullName: true } } },
+    orderBy: { versionNo: "desc" },
+  });
+  return {
+    success: success ?? `Đã tải lại phiên bản ${generation.versionNo}; không gọi AI mới.`,
+    proposals: parsedProposals.data.map((proposal) => ({
+      ...proposal,
+      duplicate: existingKeys.has(`AI_SUBTASK:${taskId}:${proposal.sourceKey}`),
+    })),
+    parentEstimateHours: Number(task.devEstimateHours),
+    generation: summarizeAiSubtaskGeneration(generation),
+    generations: generations.map(summarizeAiSubtaskGeneration),
+    sourceReferences,
+    coverageReport,
+    contextCurrent: generation.contextHash === currentContextHash,
+  };
+}
+
+function summarizeAiSubtaskGeneration(generation: {
+  id: string;
+  versionNo: number;
+  model: string;
+  promptVersion: string;
+  status: string;
+  contextHash: string;
+  totalEstimateHours: unknown;
+  createdAt: Date;
+  createdBy: { fullName: string };
+}): AiSubtaskGenerationSummary {
+  return {
+    id: generation.id,
+    versionNo: generation.versionNo,
+    model: generation.model,
+    promptVersion: generation.promptVersion,
+    status: generation.status,
+    contextHash: generation.contextHash,
+    totalEstimateHours: Number(generation.totalEstimateHours),
+    createdAt: generation.createdAt.toISOString(),
+    createdByName: generation.createdBy.fullName,
+  };
+}
+
 export async function createAiSubtasksAction(
   projectId: string,
   taskId: string,
+  generationId: string,
   rawProposals: unknown,
 ): Promise<CreateAiSubtasksState> {
   const access = await getAiSubtaskParentAccess(projectId, taskId);
@@ -847,6 +1006,25 @@ export async function createAiSubtasksAction(
 
   const { session, task, projectRole, documents } = access;
   const proposals = parsed.data;
+  if (new Set(proposals.map((proposal) => proposal.sourceKey)).size !== proposals.length) {
+    return { error: "Các sub-task không được trùng source key." };
+  }
+  const generation = await prisma.aiSubtaskGeneration.findFirst({
+    where: { id: generationId, projectId, parentTaskId: taskId },
+  });
+  if (!generation) return { error: "Không tìm thấy phiên bản AI đã chọn." };
+  const snapshot = generation.contextSnapshot as {
+    sourceReferences?: AiSubtaskSourceReference[];
+  };
+  const coverageReport = calculateAiSubtaskCoverage(
+    proposals,
+    snapshot.sourceReferences ?? [],
+  );
+  if (!coverageReport.complete) {
+    return {
+      error: `Chưa thể tạo task: còn thiếu coverage ${coverageReport.missingSourceRefs.join(", ") || "hoặc có source reference không hợp lệ"}.`,
+    };
+  }
   const sourceHighlights = proposals.map(
     (proposal) => `AI_SUBTASK:${taskId}:${proposal.sourceKey}`,
   );
@@ -906,6 +1084,7 @@ export async function createAiSubtasksAction(
           parentTaskId: task.id,
           relatedDocumentId: relatedDocumentIds[0] ?? task.relatedDocumentId,
           sourceHighlight: `AI_SUBTASK:${taskId}:${proposal.sourceKey}`,
+          aiSubtaskGenerationId: generation.id,
           createdById: session.user.id,
           reporterId: session.user.id,
           sortOrder: firstSortOrder + index,
@@ -921,6 +1100,19 @@ export async function createAiSubtasksAction(
     }),
   );
 
+  await prisma.aiSubtaskGeneration.update({
+    where: { id: generation.id },
+    data: {
+      proposals: proposals as unknown as Prisma.InputJsonValue,
+      coverageReport: coverageReport as unknown as Prisma.InputJsonValue,
+      totalEstimateHours: proposals.reduce(
+        (sum, proposal) => sum + proposal.devEstimateHours,
+        0,
+      ),
+      status: "ACCEPTED",
+      acceptedAt: new Date(),
+    },
+  });
   await refreshTaskDerivedFields(taskId);
   await logAudit({
     actorId: session.user.id,
@@ -931,6 +1123,8 @@ export async function createAiSubtasksAction(
     metadata: {
       mode: "auto_subtask",
       parentTaskId: taskId,
+      generationId: generation.id,
+      generationVersion: generation.versionNo,
       created: createdTasks.length,
       skipped: proposals.length - creatable.length,
       projectRole,
@@ -947,6 +1141,60 @@ export async function createAiSubtasksAction(
     created: createdTasks.length,
     skipped: proposals.length - creatable.length,
   };
+}
+
+export async function saveAiSubtaskDraftAction(
+  projectId: string,
+  taskId: string,
+  generationId: string,
+  rawProposals: unknown,
+): Promise<ActionState> {
+  const access = await getAiSubtaskParentAccess(projectId, taskId);
+  if ("error" in access) return { error: access.error };
+  const parsed = aiSubtaskInputSchema.safeParse(rawProposals);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Danh sách sub-task không hợp lệ." };
+  }
+  if (new Set(parsed.data.map((proposal) => proposal.sourceKey)).size !== parsed.data.length) {
+    return { error: "Các sub-task không được trùng source key." };
+  }
+  const generation = await prisma.aiSubtaskGeneration.findFirst({
+    where: { id: generationId, projectId, parentTaskId: taskId },
+  });
+  if (!generation) return { error: "Không tìm thấy phiên bản AI." };
+  if (generation.status === "ACCEPTED") {
+    return { error: "Phiên bản đã tạo task không thể chỉnh sửa." };
+  }
+  const snapshot = generation.contextSnapshot as {
+    sourceReferences?: AiSubtaskSourceReference[];
+  };
+  const coverageReport = calculateAiSubtaskCoverage(
+    parsed.data,
+    snapshot.sourceReferences ?? [],
+  );
+  if (coverageReport.invalidSourceRefs.length > 0) {
+    return { error: "Source mapping chứa tham chiếu không hợp lệ." };
+  }
+  await prisma.aiSubtaskGeneration.update({
+    where: { id: generation.id },
+    data: {
+      proposals: parsed.data as unknown as Prisma.InputJsonValue,
+      coverageReport: coverageReport as unknown as Prisma.InputJsonValue,
+      totalEstimateHours: parsed.data.reduce(
+        (sum, proposal) => sum + proposal.devEstimateHours,
+        0,
+      ),
+    },
+  });
+  await logAudit({
+    actorId: access.session.user.id,
+    action: "UPDATE",
+    entityType: "AiSubtaskGeneration",
+    entityId: generation.id,
+    projectId,
+    metadata: { parentTaskId: taskId, versionNo: generation.versionNo },
+  });
+  return { success: `Đã lưu bản nháp phiên bản ${generation.versionNo}.` };
 }
 
 async function getAiSubtaskParentAccess(projectId: string, taskId: string) {

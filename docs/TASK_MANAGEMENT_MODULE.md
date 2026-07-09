@@ -175,7 +175,13 @@ creation. Every generated item is an unassigned `BACKLOG` `SUBTASK`, inherits
 the parent module/Epic/Sprint/Milestone/priority and related documents, and has a
 server-enforced Dev estimate of `0.5-8h`. Stable
 `AI_SUBTASK:<parentTaskId>:<sourceKey>` markers prevent duplicate active
-sub-tasks. AI-created sub-tasks cannot be broken down again by this flow.
+sub-tasks. Each preview is stored as an `AiSubtaskGeneration` version with its
+context hash, prompt/model, source coverage and proposal snapshot. Unchanged
+context reuses the latest matching version without another AI call; users can
+explicitly generate and compare versions. Every mandatory task-description and
+acceptance-criteria source reference must be covered before persistence, and
+created tasks retain their generation link. AI-created sub-tasks cannot be
+broken down again by this flow.
 
 **AI usage report** (`/admin/ai-usage`) — system admins can view total AI calls,
 input/output tokens, estimated cost, per-user summaries, and recent usage logs.

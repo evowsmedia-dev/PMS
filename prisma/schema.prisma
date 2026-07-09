@@ -208,6 +208,11 @@ enum AuditAction {
   EXPORT
 }
 
+enum AiSubtaskGenerationStatus {
+  DRAFT
+  ACCEPTED
+}
+
 // ============================================================
 // CORE MODELS
 // ============================================================
@@ -257,6 +262,7 @@ model User {
   testRunsCreated     TestRun[]
   testResultsExecuted TestResult[]
   aiUsageLogs         AiUsageLog[]
+  aiSubtaskGenerations AiSubtaskGeneration[]
 
   @@index([systemRole, isActive])
 }
@@ -300,6 +306,7 @@ model Project {
   testRuns   TestRun[]
   snapshots  DailyProjectSnapshot[]
   aiUsageLogs AiUsageLog[]
+  aiSubtaskGenerations AiSubtaskGeneration[]
 
   @@index([status, deletedAt])
   @@index([subsystemId])
@@ -568,6 +575,9 @@ model Task {
   externalLinks     Json      @default("[]")
   sourceHighlight   String?
   isReviewRequest   Boolean   @default(false)
+  aiSubtaskGenerationId String?
+  aiSubtaskGeneration   AiSubtaskGeneration? @relation("GeneratedSubtasks", fields: [aiSubtaskGenerationId], references: [id], onDelete: SetNull)
+  aiSubtaskGenerations  AiSubtaskGeneration[] @relation("ParentTaskGenerations")
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -595,6 +605,7 @@ model Task {
   @@index([milestoneId])
   @@index([dueDate])
   @@index([createdAt])
+  @@index([aiSubtaskGenerationId])
 }
 
 model TaskRelatedDocument {
@@ -946,6 +957,35 @@ model AiUsageLog {
   @@index([operation, createdAt])
   @@index([model, createdAt])
   @@index([createdAt])
+}
+
+model AiSubtaskGeneration {
+  id              String                    @id @default(cuid())
+  projectId       String
+  parentTaskId    String
+  createdById     String
+  versionNo       Int
+  model           String
+  promptVersion   String
+  contextHash     String
+  contextSnapshot Json
+  proposals       Json
+  coverageReport  Json
+  totalEstimateHours Decimal                @default(0) @db.Decimal(10, 2)
+  status          AiSubtaskGenerationStatus @default(DRAFT)
+  acceptedAt      DateTime?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  project       Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parentTask    Task    @relation("ParentTaskGenerations", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  createdBy     User    @relation(fields: [createdById], references: [id])
+  generatedTasks Task[] @relation("GeneratedSubtasks")
+
+  @@unique([parentTaskId, versionNo])
+  @@index([parentTaskId, createdAt])
+  @@index([parentTaskId, contextHash])
+  @@index([projectId, createdAt])
 }
 
 model SystemSetting {

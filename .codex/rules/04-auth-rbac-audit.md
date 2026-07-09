@@ -44,7 +44,9 @@ Audit:
   module access, preview editable proposals before persistence, enforce a hard
   `0.5-8h` Dev estimate per sub-task on the server, prevent nested AI breakdown,
   deduplicate by parent/source key, log AI usage, and audit created/skipped
-  counts.
+  counts. Cache proposals by normalized context hash, persist AI generation
+  versions, require complete mandatory source coverage before task
+  creation, and retain the generation link on created sub-tasks.
 - Task effort/deadline/time-log changes must reuse shared calculation helpers,
   keep Dev/Test/Standard/Actual fields consistent, revalidate task/dashboard/My
   Tasks paths, and write audit metadata for meaningful mutations.
