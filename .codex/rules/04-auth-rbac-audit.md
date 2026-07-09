@@ -46,7 +46,8 @@ Audit:
   deduplicate by parent/source key, log AI usage, and audit created/skipped
   counts. Cache proposals by normalized context hash, persist AI generation
   versions, require complete mandatory source coverage before task
-  creation, and retain the generation link on created sub-tasks.
+  creation, retain the generation link on created sub-tasks, and bound AI
+  generation time so the UI cannot wait indefinitely.
 - Task effort/deadline/time-log changes must reuse shared calculation helpers,
   keep Dev/Test/Standard/Actual fields consistent, revalidate task/dashboard/My
   Tasks paths, and write audit metadata for meaningful mutations.

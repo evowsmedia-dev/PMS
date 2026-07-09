@@ -182,6 +182,11 @@ explicitly generate and compare versions. Every mandatory task-description and
 acceptance-criteria source reference must be covered before persistence, and
 created tasks retain their generation link. AI-created sub-tasks cannot be
 broken down again by this flow.
+Generation uses one bounded AI request with a 45-second timeout and a compact
+source context. Proposals always contain a concrete goal, implementation scope,
+conditions/exceptions, Dev checklist, Test checklist, and testable acceptance
+criteria; generic reading/analysis/completion tasks are explicitly rejected by
+the prompt.
 
 **AI usage report** (`/admin/ai-usage`) — system admins can view total AI calls,
 input/output tokens, estimated cost, per-user summaries, and recent usage logs.

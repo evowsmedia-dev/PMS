@@ -4,10 +4,11 @@ import { openai } from "@ai-sdk/openai";
 import sanitizeHtml from "sanitize-html";
 import { z } from "zod";
 
-export const AI_SUBTASK_PROMPT_VERSION = "2026-07-09.v2";
+export const AI_SUBTASK_PROMPT_VERSION = "2026-07-09.v3";
 const DEFAULT_AI_TASK_MODEL = "gpt-5.4-mini";
-const MAX_PROPOSALS = 20;
-const MAX_CONTEXT_CHARS = 50000;
+const MAX_PROPOSALS = 16;
+const MAX_CONTEXT_CHARS = 24000;
+const AI_TIMEOUT_MS = 45000;
 
 export interface AiSubtaskSourceDocument {
   id: string;
@@ -112,30 +113,15 @@ export async function generateAiSubtaskProposalResult(
 
   const prepared = buildAiSubtaskContext(context);
   const first = await runGeneration(prepared.model, prepared.sourceReferences);
-  let proposals = normalizeProposals(first.object.subtasks, prepared.sourceReferences);
-  let coverageReport = calculateCoverage(proposals, prepared.sourceReferences);
-  let usage = first.usage;
-
-  if (!coverageReport.complete && proposals.length < MAX_PROPOSALS) {
-    const repair = await runGeneration(
-      prepared.model,
-      prepared.sourceReferences.filter((ref) => coverageReport.missingSourceRefs.includes(ref.id)),
-      proposals,
-    );
-    proposals = mergeProposals(
-      proposals,
-      normalizeProposals(repair.object.subtasks, prepared.sourceReferences),
-    );
-    coverageReport = calculateCoverage(proposals, prepared.sourceReferences);
-    usage = mergeUsage(usage, repair.usage);
-  }
+  const proposals = normalizeProposals(first.object.subtasks, prepared.sourceReferences);
+  const coverageReport = calculateCoverage(proposals, prepared.sourceReferences);
 
   return {
     proposals,
     coverageReport,
     contextSnapshot: prepared.contextSnapshot,
     contextHash: prepared.contextHash,
-    usage,
+    usage: first.usage,
     model: prepared.model,
   };
 }
@@ -143,10 +129,11 @@ export async function generateAiSubtaskProposalResult(
 async function runGeneration(
   model: string,
   sourceReferences: AiSubtaskSourceReference[],
-  existing: AiSubtaskProposal[] = [],
 ) {
   return generateObject({
     model: openai(model),
+    abortSignal: AbortSignal.timeout(AI_TIMEOUT_MS),
+    maxRetries: 1,
     schema: aiSubtaskSchema,
     schemaName: "TaskBreakdownProposal",
     schemaDescription: "Danh sách sub-task truy vết được về task cha và không quá 8 giờ Dev.",
@@ -155,16 +142,17 @@ async function runGeneration(
       "Ưu tiên vertical slice có đầu ra kiểm thử được và không chồng chéo.",
       "Mỗi sub-task phải hoàn thành trong 0.5-8 giờ; phần lớn hơn phải chia tiếp.",
       "Không tạo việc đọc tài liệu, tìm hiểu, phân tích chung hoặc phạm vi không có trong nguồn.",
+      "Mỗi proposal bắt buộc có đúng format: Mục tiêu; Phạm vi triển khai; Điều kiện và ngoại lệ; Checklist Dev; Checklist Test; Acceptance criteria kiểm chứng được.",
+      "Mục tiêu phải là hành vi kỹ thuật hoặc nghiệp vụ cụ thể, không phải hoạt động chung chung.",
+      "Không tạo task có mục tiêu đọc tài liệu, phân tích, tìm hiểu hoặc hoàn thiện chức năng.",
       "Mỗi sub-task phải dẫn coveredSourceRefs hợp lệ và sourceEvidence bám sát nguồn.",
       "Tất cả source reference bắt buộc phải được bao phủ.",
       "Trả về tiếng Việt, đủ rõ để Dev làm và Tester nghiệm thu.",
     ].join("\n"),
     prompt: [
-      existing.length > 0
-        ? "Đây là lượt sửa coverage. Chỉ bổ sung sub-task còn thiếu, không lặp các task hiện có."
-        : "Phân rã task cha thành tối đa 20 sub-task.",
+      `Phân rã task cha thành tối đa ${MAX_PROPOSALS} sub-task.`,
       "sourceKey phải ngắn, ổn định theo phạm vi và dependencies phải dùng sourceKey.",
-      existing.length > 0 ? `Task đã có:\n${JSON.stringify(existing)}` : "",
+      "Acceptance criteria phải mô tả kết quả quan sát/kiểm thử được, không dùng từ mơ hồ như đúng, ổn, hoàn thiện.",
       "Nguồn được phép sử dụng:",
       sourceReferences.map((ref) => `[${ref.id}] ${ref.label}: ${ref.text}`).join("\n"),
     ]
@@ -178,7 +166,7 @@ function buildSourceReferences(context: AiSubtaskParentContext) {
   const refs: AiSubtaskSourceReference[] = [
     { id: "TITLE", label: "Tiêu đề", text: context.title.trim(), mandatory: true },
   ];
-  splitContent(context.description).forEach((text, index) =>
+  splitContent(context.description).slice(0, 12).forEach((text, index) =>
     refs.push({
       id: `DESC-${String(index + 1).padStart(2, "0")}`,
       label: "Mô tả",
@@ -186,7 +174,7 @@ function buildSourceReferences(context: AiSubtaskParentContext) {
       mandatory: true,
     }),
   );
-  splitContent(context.acceptanceCriteria).forEach((text, index) =>
+  splitContent(context.acceptanceCriteria).slice(0, 12).forEach((text, index) =>
     refs.push({
       id: `AC-${String(index + 1).padStart(2, "0")}`,
       label: "Tiêu chí nghiệm thu",
@@ -194,14 +182,19 @@ function buildSourceReferences(context: AiSubtaskParentContext) {
       mandatory: true,
     }),
   );
-  for (const document of context.documents) {
+  let documentChunkCount = 0;
+  for (const document of context.documents.slice(0, 8)) {
     splitContent(toPlainText(document.currentContent).slice(0, 8000), 1200).forEach((text, index) =>
-      refs.push({
-        id: `DOC:${document.id}:${String(index + 1).padStart(2, "0")}`,
-        label: `Tài liệu ${document.title}`,
-        text,
-        mandatory: false,
-      }),
+      {
+        if (documentChunkCount >= 12) return;
+        refs.push({
+          id: `DOC:${document.id}:${String(index + 1).padStart(2, "0")}`,
+          label: `Tài liệu ${document.title}`,
+          text,
+          mandatory: false,
+        });
+        documentChunkCount += 1;
+      },
     );
   }
   return refs;
@@ -262,30 +255,6 @@ function calculateCoverage(proposals: AiSubtaskProposal[], refs: AiSubtaskSource
     coveredSourceRefs: covered,
     missingSourceRefs: missing,
     invalidSourceRefs: invalid,
-  };
-}
-
-function mergeProposals(current: AiSubtaskProposal[], added: AiSubtaskProposal[]) {
-  const keys = new Set(current.map((proposal) => proposal.sourceKey));
-  return [...current, ...added.filter((proposal) => !keys.has(proposal.sourceKey))].slice(0, MAX_PROPOSALS);
-}
-
-function mergeUsage(first: LanguageModelUsage, second: LanguageModelUsage): LanguageModelUsage {
-  const inputTokens = (first.inputTokens ?? 0) + (second.inputTokens ?? 0);
-  const outputTokens = (first.outputTokens ?? 0) + (second.outputTokens ?? 0);
-  return {
-    inputTokens,
-    outputTokens,
-    totalTokens: (first.totalTokens ?? 0) + (second.totalTokens ?? 0),
-    inputTokenDetails: {
-      noCacheTokens: inputTokens,
-      cacheReadTokens: 0,
-      cacheWriteTokens: 0,
-    },
-    outputTokenDetails: {
-      textTokens: outputTokens,
-      reasoningTokens: 0,
-    },
   };
 }
 

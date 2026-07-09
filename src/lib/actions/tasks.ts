@@ -636,6 +636,9 @@ function getAiTaskGenerationErrorMessage(error: unknown) {
   if (lowerMessage.includes("rate limit") || lowerMessage.includes("429")) {
     return "OpenAI đang giới hạn request. Vui lòng thử lại sau ít phút.";
   }
+  if (lowerMessage.includes("abort") || lowerMessage.includes("timeout") || lowerMessage.includes("timed out")) {
+    return "AI phản hồi quá thời gian 45 giây. Hãy thử lại; hệ thống đã dừng request để tránh màn hình chờ vô hạn.";
+  }
   if (lowerMessage.includes("schema") || lowerMessage.includes("validation")) {
     return "AI trả dữ liệu chưa đúng format task. Vui lòng thử lại.";
   }

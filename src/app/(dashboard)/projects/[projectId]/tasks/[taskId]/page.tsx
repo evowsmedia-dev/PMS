@@ -23,6 +23,8 @@ import {
   TASK_STATUS_LABEL,
 } from "@/lib/validation/task";
 
+export const maxDuration = 60;
+
 function normalizeExternalLinks(value: unknown) {
   if (!Array.isArray(value)) return [];
   return value
