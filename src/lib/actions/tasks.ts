@@ -266,6 +266,43 @@ const aiSubtaskInputSchema = z
   .min(1)
   .max(20);
 
+const legacyAiSubtaskInputSchema = z
+  .array(
+    z.object({
+      sourceKey: z.string().trim().min(1).max(120),
+      title: z.string().trim().min(1).max(200),
+      description: z.string().trim().min(1).max(5000),
+      acceptanceCriteria: z.string().trim().min(1).max(5000),
+      devEstimateHours: z.number().min(0.5).max(8),
+      confidence: z.number().min(0).max(1),
+      dependencies: z.array(z.string().trim().min(1).max(120)).max(10).optional(),
+      coveredSourceRefs: z.array(z.string().trim().min(1).max(160)).max(30).optional(),
+      sourceEvidence: z.string().trim().max(1000).optional(),
+    }),
+  )
+  .min(1)
+  .max(20);
+
+function parseStoredAiSubtaskProposals(rawProposals: unknown) {
+  const current = aiSubtaskInputSchema.safeParse(rawProposals);
+  if (current.success) return { proposals: current.data, currentFormat: true };
+
+  const legacy = legacyAiSubtaskInputSchema.safeParse(rawProposals);
+  if (!legacy.success) return null;
+
+  return {
+    currentFormat: false,
+    proposals: legacy.data.map((proposal) => ({
+      ...proposal,
+      devEstimateHours: Math.round(proposal.devEstimateHours * 2) / 2,
+      dependencies: proposal.dependencies ?? [],
+      coveredSourceRefs: proposal.coveredSourceRefs ?? [],
+      sourceEvidence:
+        proposal.sourceEvidence || "Phiên bản cũ chưa lưu thông tin trích dẫn nguồn.",
+    })),
+  };
+}
+
 /** Module-scoped create (legacy route). Keeps the original lightweight fields. */
 export async function createTaskAction(
   projectId: string,
@@ -826,13 +863,16 @@ export async function previewAiSubtasksAction(
       : null;
   const reusableGeneration = requestedGeneration ?? cachedGeneration;
   if (reusableGeneration) {
-    return buildAiSubtaskPreviewState({
-      projectId,
-      taskId,
-      task,
-      generation: reusableGeneration,
-      currentContextHash: prepared.contextHash,
-    });
+    const storedProposals = parseStoredAiSubtaskProposals(reusableGeneration.proposals);
+    if (storedProposals && (requestedGeneration || storedProposals.currentFormat)) {
+      return buildAiSubtaskPreviewState({
+        projectId,
+        taskId,
+        task,
+        generation: reusableGeneration,
+        currentContextHash: prepared.contextHash,
+      });
+    }
   }
 
   if (!isAiTaskGenerationConfigured()) {
@@ -928,14 +968,19 @@ async function buildAiSubtaskPreviewState({
   currentContextHash: string;
   success?: string;
 }): Promise<AiSubtaskPreviewState> {
-  const parsedProposals = aiSubtaskInputSchema.safeParse(generation.proposals);
-  if (!parsedProposals.success) return { error: "Phiên bản AI đã lưu có format không hợp lệ." };
+  const parsedProposals = parseStoredAiSubtaskProposals(generation.proposals);
+  if (!parsedProposals) {
+    return {
+      error:
+        "Phiên bản AI đã lưu bị hỏng và không thể khôi phục. Hãy chọn Tạo phiên bản mới.",
+    };
+  }
   const snapshot = generation.contextSnapshot as {
     sourceReferences?: AiSubtaskSourceReference[];
   };
   const sourceReferences = snapshot.sourceReferences ?? [];
-  const coverageReport = calculateAiSubtaskCoverage(parsedProposals.data, sourceReferences);
-  const sourceHighlights = parsedProposals.data.map(
+  const coverageReport = calculateAiSubtaskCoverage(parsedProposals.proposals, sourceReferences);
+  const sourceHighlights = parsedProposals.proposals.map(
     (proposal) => `AI_SUBTASK:${taskId}:${proposal.sourceKey}`,
   );
   const existing = sourceHighlights.length
@@ -952,7 +997,7 @@ async function buildAiSubtaskPreviewState({
   });
   return {
     success: success ?? `Đã tải lại phiên bản ${generation.versionNo}; không gọi AI mới.`,
-    proposals: parsedProposals.data.map((proposal) => ({
+    proposals: parsedProposals.proposals.map((proposal) => ({
       ...proposal,
       duplicate: existingKeys.has(`AI_SUBTASK:${taskId}:${proposal.sourceKey}`),
     })),

@@ -219,6 +219,10 @@ function normalizeProposals(raw: RawProposal[], refs: AiSubtaskSourceReference[]
   for (const item of raw) {
     const sourceKey = normalizeSourceKey(item.sourceKey);
     if (!sourceKey || seen.has(sourceKey)) continue;
+    const coveredSourceRefs = [
+      ...new Set(item.coveredSourceRefs.filter((ref) => validRefs.has(ref))),
+    ];
+    if (coveredSourceRefs.length === 0) continue;
     seen.add(sourceKey);
     proposals.push({
       sourceKey,
@@ -228,7 +232,7 @@ function normalizeProposals(raw: RawProposal[], refs: AiSubtaskSourceReference[]
       devEstimateHours: normalizeEstimate(item.devEstimateHours),
       confidence: item.confidence,
       dependencies: item.dependencies.map(normalizeSourceKey).filter(Boolean),
-      coveredSourceRefs: [...new Set(item.coveredSourceRefs.filter((ref) => validRefs.has(ref)))],
+      coveredSourceRefs,
       sourceEvidence: item.sourceEvidence.trim(),
     });
   }
