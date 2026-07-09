@@ -88,7 +88,7 @@ as-is.
 |---|---|
 | `tasks` | Task list with hierarchy, status/type/warning filters, effort/deadline/warning fields, AI auto-task action |
 | `tasks/new` | Create task/bug with full planning, parent task, Dev/Test/Standard estimates, related documents, external links, and dependency fields |
-| `tasks/[taskId]` | Task detail: unified parent/sub-task layout with planning meta, related documents/external links, effort/deadline warnings, QA links, editable own time logs, history + comments |
+| `tasks/[taskId]` | Task detail: unified parent/sub-task layout with planning meta, related documents/external links, effort/deadline warnings, QA links, editable own time logs, concise field-change history + comments |
 | `kanban` | 12-column drag-and-drop board (filter assignee / priority / sprint) |
 | `gantt` | CSS timeline grouped by epic, progress bars, overdue markers, today line |
 | `epics` / `sprints` / `milestones` | List + inline create + task counts |

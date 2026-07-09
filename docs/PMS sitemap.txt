@@ -100,7 +100,7 @@ Ghi chú:
 │   ├── Hiển thị Dev/Test/Standard estimate, Actual Dev/Test, progress, overdue/blocked/warning.
 │   ├── Time log theo loại việc: Dev, Test, BA, PM, Review, Other; user sửa được log của chính mình.
 │   ├── Comment task hỗ trợ @mention thành viên dự án và sinh notification.
-│   └── History hiển thị cả thay đổi task và comment task.
+│   └── History chỉ hiển thị người thay đổi, tên trường dữ liệu và thời gian thay đổi.
 │
 ├── /projects/:projectId/kanban
 │   └── Kanban project-level theo 12 trạng thái task.

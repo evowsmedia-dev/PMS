@@ -14,7 +14,7 @@ import {
   TaskTimeLogList,
 } from "@/components/task-detail-panel";
 import { TaskViewTabs } from "@/components/task-view-tabs";
-import { formatTaskHistoryField, formatTaskHistoryValue } from "@/lib/task-history-display";
+import { formatTaskHistoryField } from "@/lib/task-history-display";
 import {
   BUG_STATUS_LABEL,
   TASK_PRIORITY_LABEL,
@@ -117,8 +117,6 @@ export default async function TaskDetailPage({
       orderBy: { updatedAt: "desc" },
     }),
   ]);
-  const memberNameById = new Map(members.map((member) => [member.userId, member.user.fullName]));
-
   const candidateTasks = await prisma.task.findMany({
     where: { projectId, deletedAt: null, id: { not: taskId } },
     select: { id: true, title: true, taskCode: true },
@@ -315,19 +313,11 @@ export default async function TaskDetailPage({
               <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
                 {task.history.map((h) => (
                   <li key={h.id}>
-                    {h.changedBy.fullName} đổi {formatTaskHistoryField(h.field)}:{" "}
-                    {formatTaskHistoryValue(h.field, h.oldValue, memberNameById)} →{" "}
-                    {formatTaskHistoryValue(h.field, h.newValue, memberNameById)} (
-                    {h.createdAt.toLocaleString("vi-VN")})
+                    {h.changedBy.fullName} đã thay đổi {formatTaskHistoryField(h.field)} vào{" "}
+                    {h.createdAt.toLocaleString("vi-VN")}
                   </li>
                 ))}
-                {task.comments.map((comment) => (
-                  <li key={`comment-${comment.id}`}>
-                    {comment.author.fullName} bình luận: {comment.content} (
-                    {comment.createdAt.toLocaleString("vi-VN")})
-                  </li>
-                ))}
-                {task.history.length === 0 && task.comments.length === 0 ? (
+                {task.history.length === 0 ? (
                   <li>Chưa có lịch sử thay đổi.</li>
                 ) : null}
               </ul>
