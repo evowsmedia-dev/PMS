@@ -92,7 +92,8 @@ Ghi chú:
 ├── /projects/:projectId/tasks/:taskId
 │   ├── Chi tiết task project-level và sub-task dùng cùng format với detail task trong module.
 │   ├── Hiển thị trạng thái trong grid thông tin, không hiển thị field Mã trong grid.
-│   ├── Button Chỉnh sửa task và Tạo sub-task.
+│   ├── Button Chỉnh sửa task, Tạo sub-task và Tự động tạo sub-task bằng AI.
+│   ├── AI đọc context task cha, preview cho phép chọn/chỉnh sửa và giới hạn mỗi sub-task từ 0.5-8 giờ Dev.
 │   ├── Planning metadata, task cha, QA links.
 │   ├── Tài liệu liên quan hỗ trợ chọn nhiều tài liệu trong dự án.
 │   ├── External link mở new tab.

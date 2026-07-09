@@ -40,6 +40,11 @@ Audit:
   caller's document/module visibility, preview proposals before persistence,
   avoid duplicate active tasks for the same source document/section, and write
   audit metadata with created/skipped counts.
+- AI sub-task breakdown must reuse `task.create`, verify the parent task and
+  module access, preview editable proposals before persistence, enforce a hard
+  `0.5-8h` Dev estimate per sub-task on the server, prevent nested AI breakdown,
+  deduplicate by parent/source key, log AI usage, and audit created/skipped
+  counts.
 - Task effort/deadline/time-log changes must reuse shared calculation helpers,
   keep Dev/Test/Standard/Actual fields consistent, revalidate task/dashboard/My
   Tasks paths, and write audit metadata for meaningful mutations.

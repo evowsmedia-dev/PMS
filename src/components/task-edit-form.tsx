@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { AutoSubtaskDialog } from "@/components/auto-subtask-dialog";
 import {
   Select,
   SelectContent,
@@ -74,6 +75,8 @@ export function TaskEditForm({
   externalLinks = [],
   documents = [],
   createChildTaskHref,
+  canCreateChild = false,
+  allowAutoSubtask = false,
   canEdit,
   showPriorityDueDate = true,
   fullPlanningFields = false,
@@ -115,6 +118,8 @@ export function TaskEditForm({
   externalLinks?: string[];
   documents?: Option[];
   createChildTaskHref?: string;
+  canCreateChild?: boolean;
+  allowAutoSubtask?: boolean;
   canEdit: boolean;
   showPriorityDueDate?: boolean;
   fullPlanningFields?: boolean;
@@ -216,15 +221,24 @@ export function TaskEditForm({
           </>
         ) : null}
 
-        {canEdit ? (
+        {canEdit || canCreateChild ? (
           <div className="flex flex-wrap gap-2">
-            <Button type="button" size="sm" variant="outline" onClick={() => setEditing(true)}>
-              Chỉnh sửa task
-            </Button>
-            {createChildTaskHref ? (
+            {canEdit ? (
+              <Button type="button" size="sm" variant="outline" onClick={() => setEditing(true)}>
+                Chỉnh sửa task
+              </Button>
+            ) : null}
+            {canCreateChild && createChildTaskHref ? (
               <Button asChild type="button" size="sm" variant="outline">
                 <Link href={createChildTaskHref}>Tạo sub-task</Link>
               </Button>
+            ) : null}
+            {canCreateChild && allowAutoSubtask ? (
+              <AutoSubtaskDialog
+                projectId={projectId}
+                taskId={taskId}
+                parentEstimateHours={Number(devEstimateHours)}
+              />
             ) : null}
           </div>
         ) : null}

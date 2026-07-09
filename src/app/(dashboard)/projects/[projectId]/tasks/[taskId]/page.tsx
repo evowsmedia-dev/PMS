@@ -99,6 +99,7 @@ export default async function ProjectTaskDetailPage({
 
   const roleCtx = { systemRole: session.user.systemRole };
   const canEdit = await canAccess(roleCtx, "task.edit", projectRole);
+  const canCreate = await canAccess(roleCtx, "task.create", projectRole);
   const canComment = await canAccess(roleCtx, "comment.create", projectRole);
 
   const [members, epics, sprints, milestones, documents, candidateTasks] = await Promise.all([
@@ -250,6 +251,8 @@ export default async function ProjectTaskDetailPage({
                 label: `${document.module.name} · ${document.title}`,
               }))}
               createChildTaskHref={`/projects/${projectId}/tasks/new?parentTaskId=${taskId}`}
+              canCreateChild={canCreate}
+              allowAutoSubtask={!task.parentTaskId}
               canEdit={canEdit}
               fullPlanningFields
               readOnlyDetails={{

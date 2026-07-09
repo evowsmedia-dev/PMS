@@ -7,13 +7,17 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canAccess } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
-import { getAssignedModuleIdsForUser } from "@/lib/document-type-access";
+import { canAccessModule, getAssignedModuleIdsForUser } from "@/lib/document-type-access";
 import { logAudit } from "@/lib/audit";
 import {
   generateAiTaskCandidateResult,
   isAiTaskGenerationConfigured,
   type AutoTaskCandidate,
 } from "@/lib/auto-task-generator";
+import {
+  generateAiSubtaskProposalResult,
+  type AiSubtaskProposal,
+} from "@/lib/ai-subtask-generator";
 import { logAiUsage } from "@/lib/ai-usage";
 import { taskFormSchema, taskTimeLogSchema, TASK_PRIORITY_ORDER } from "@/lib/validation/task";
 import {
@@ -205,6 +209,36 @@ const autoTaskCandidateInputSchema = z.array(
     needsClarification: z.boolean(),
   }),
 ).max(100);
+
+export interface AiSubtaskPreviewProposal extends AiSubtaskProposal {
+  duplicate?: boolean;
+}
+
+export interface AiSubtaskPreviewState extends ActionState {
+  proposals?: AiSubtaskPreviewProposal[];
+  parentEstimateHours?: number;
+}
+
+export interface CreateAiSubtasksState extends ActionState {
+  created?: number;
+  skipped?: number;
+}
+
+const aiSubtaskInputSchema = z
+  .array(
+    z.object({
+      sourceKey: z.string().trim().min(1).max(120),
+      title: z.string().trim().min(1).max(200),
+      description: z.string().trim().min(1).max(5000),
+      acceptanceCriteria: z.string().trim().min(1).max(5000),
+      devEstimateHours: z.number().min(0.5).max(8).refine((value) => value * 2 === Math.round(value * 2), {
+        message: "Dev estimate phải theo bước 0.5 giờ.",
+      }),
+      confidence: z.number().min(0).max(1),
+    }),
+  )
+  .min(1)
+  .max(20);
 
 /** Module-scoped create (legacy route). Keeps the original lightweight fields. */
 export async function createTaskAction(
@@ -709,6 +743,284 @@ export async function createAutoTasksFromDocumentsAction(
     scannedDocuments: sourceDocuments.length,
     candidates: candidates.length,
   };
+}
+
+export async function previewAiSubtasksAction(
+  projectId: string,
+  taskId: string,
+): Promise<AiSubtaskPreviewState> {
+  const access = await getAiSubtaskParentAccess(projectId, taskId);
+  if ("error" in access) return { error: access.error };
+
+  const { session, task, documents } = access;
+  if (!isAiTaskGenerationConfigured()) {
+    return { error: "AI chưa được cấu hình. Cần thiết lập OPENAI_API_KEY trên môi trường chạy app." };
+  }
+  if (!task.description?.trim() && !task.acceptanceCriteria?.trim() && documents.length === 0) {
+    return {
+      success: "Task chưa có đủ mô tả, tiêu chí nghiệm thu hoặc tài liệu liên quan để AI phân rã.",
+      proposals: [],
+      parentEstimateHours: Number(task.devEstimateHours),
+    };
+  }
+
+  try {
+    const aiResult = await generateAiSubtaskProposalResult({
+      id: task.id,
+      title: task.title,
+      description: task.description ?? "",
+      acceptanceCriteria: task.acceptanceCriteria ?? "",
+      priority: task.priority,
+      moduleName: task.module?.name ?? null,
+      epicName: task.epic?.name ?? null,
+      sprintName: task.sprint?.name ?? null,
+      milestoneName: task.milestone?.name ?? null,
+      devEstimateHours: Number(task.devEstimateHours),
+      documents: documents.map((document) => ({
+        id: document.id,
+        title: document.title,
+        currentContent: document.currentContent,
+      })),
+      externalLinks: normalizeStoredExternalLinks(task.externalLinks),
+    });
+
+    await logAiUsage({
+      userId: session.user.id,
+      projectId,
+      operation: "auto_subtask_preview",
+      model: aiResult.model,
+      usage: aiResult.usage,
+      metadata: {
+        parentTaskId: taskId,
+        generatedProposals: aiResult.proposals.length,
+      },
+    });
+
+    const sourceHighlights = aiResult.proposals.map(
+      (proposal) => `AI_SUBTASK:${taskId}:${proposal.sourceKey}`,
+    );
+    const existing = sourceHighlights.length
+      ? await prisma.task.findMany({
+          where: { projectId, deletedAt: null, sourceHighlight: { in: sourceHighlights } },
+          select: { sourceHighlight: true },
+        })
+      : [];
+    const existingKeys = new Set(existing.map((item) => item.sourceHighlight));
+    const proposals = aiResult.proposals.map((proposal) => ({
+      ...proposal,
+      duplicate: existingKeys.has(`AI_SUBTASK:${taskId}:${proposal.sourceKey}`),
+    }));
+
+    return {
+      success:
+        proposals.length > 0
+          ? `AI đã đề xuất ${proposals.length} sub-task.`
+          : "AI chưa tìm thấy phạm vi đủ rõ để tạo sub-task.",
+      proposals,
+      parentEstimateHours: Number(task.devEstimateHours),
+    };
+  } catch (error) {
+    console.error("AI subtask generation failed", {
+      name: error instanceof Error ? error.name : "UnknownError",
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return { error: getAiTaskGenerationErrorMessage(error) };
+  }
+}
+
+export async function createAiSubtasksAction(
+  projectId: string,
+  taskId: string,
+  rawProposals: unknown,
+): Promise<CreateAiSubtasksState> {
+  const access = await getAiSubtaskParentAccess(projectId, taskId);
+  if ("error" in access) return { error: access.error };
+
+  const parsed = aiSubtaskInputSchema.safeParse(rawProposals);
+  if (!parsed.success) {
+    return {
+      error:
+        parsed.error.issues[0]?.message ??
+        "Danh sách sub-task không hợp lệ. Mỗi Dev estimate phải từ 0.5 đến 8 giờ.",
+    };
+  }
+
+  const { session, task, projectRole, documents } = access;
+  const proposals = parsed.data;
+  const sourceHighlights = proposals.map(
+    (proposal) => `AI_SUBTASK:${taskId}:${proposal.sourceKey}`,
+  );
+  const existing = await prisma.task.findMany({
+    where: { projectId, deletedAt: null, sourceHighlight: { in: sourceHighlights } },
+    select: { sourceHighlight: true },
+  });
+  const existingKeys = new Set(existing.map((item) => item.sourceHighlight));
+  const creatable = proposals.filter(
+    (proposal) => !existingKeys.has(`AI_SUBTASK:${taskId}:${proposal.sourceKey}`),
+  );
+
+  if (creatable.length === 0) {
+    return {
+      success: `Không tạo sub-task mới. ${proposals.length} đề xuất đã tồn tại.`,
+      created: 0,
+      skipped: proposals.length,
+    };
+  }
+
+  const [project, taskCount, maxOrder] = await Promise.all([
+    prisma.project.findUnique({ where: { id: projectId }, select: { code: true } }),
+    prisma.task.count({ where: { projectId } }),
+    prisma.task.aggregate({
+      where: { projectId, status: "BACKLOG", deletedAt: null },
+      _max: { sortOrder: true },
+    }),
+  ]);
+  const prefix = (project?.code ?? "TASK").toUpperCase();
+  const firstSortOrder = (maxOrder._max.sortOrder ?? -1) + 1;
+  const relatedDocumentIds = documents.map((document) => document.id);
+
+  const createdTasks = await prisma.$transaction(
+    creatable.map((proposal, index) => {
+      const derived = deriveTaskEffortFields({
+        status: "BACKLOG",
+        devEstimateHours: proposal.devEstimateHours,
+        testEstimateHours: null,
+        testEstimateSource: "AUTO",
+        standardEstimateMandays: proposal.devEstimateHours / 8,
+      });
+      return prisma.task.create({
+        data: {
+          projectId,
+          moduleId: task.moduleId,
+          taskCode: `${prefix}-${taskCount + index + 1}`,
+          title: proposal.title,
+          description: proposal.description,
+          acceptanceCriteria: proposal.acceptanceCriteria,
+          type: "SUBTASK",
+          priority: task.priority,
+          status: "BACKLOG",
+          assigneeId: null,
+          epicId: task.epicId,
+          sprintId: task.sprintId,
+          milestoneId: task.milestoneId,
+          parentTaskId: task.id,
+          relatedDocumentId: relatedDocumentIds[0] ?? task.relatedDocumentId,
+          sourceHighlight: `AI_SUBTASK:${taskId}:${proposal.sourceKey}`,
+          createdById: session.user.id,
+          reporterId: session.user.id,
+          sortOrder: firstSortOrder + index,
+          ...derived,
+          relatedDocuments:
+            relatedDocumentIds.length > 0
+              ? {
+                  create: relatedDocumentIds.map((documentId) => ({ documentId })),
+                }
+              : undefined,
+        },
+      });
+    }),
+  );
+
+  await refreshTaskDerivedFields(taskId);
+  await logAudit({
+    actorId: session.user.id,
+    action: "CREATE",
+    entityType: "Task",
+    entityId: createdTasks[0]?.id,
+    projectId,
+    metadata: {
+      mode: "auto_subtask",
+      parentTaskId: taskId,
+      created: createdTasks.length,
+      skipped: proposals.length - creatable.length,
+      projectRole,
+    },
+  });
+
+  revalidateTaskPaths(projectId, task.moduleId, taskId);
+  for (const createdTask of createdTasks) {
+    revalidateTaskPaths(projectId, task.moduleId, createdTask.id);
+  }
+
+  return {
+    success: `Đã tạo ${createdTasks.length} sub-task, bỏ qua ${proposals.length - creatable.length} task trùng.`,
+    created: createdTasks.length,
+    skipped: proposals.length - creatable.length,
+  };
+}
+
+async function getAiSubtaskParentAccess(projectId: string, taskId: string) {
+  const session = await auth();
+  if (!session?.user) return { error: "Bạn cần đăng nhập." } as const;
+
+  const task = await prisma.task.findFirst({
+    where: { id: taskId, projectId, deletedAt: null },
+    include: {
+      module: { select: { name: true } },
+      epic: { select: { name: true } },
+      sprint: { select: { name: true } },
+      milestone: { select: { name: true } },
+      relatedDocument: {
+        select: { id: true, title: true, currentContent: true, moduleId: true },
+      },
+      relatedDocuments: {
+        where: { document: { deletedAt: null, module: { deletedAt: null } } },
+        include: {
+          document: { select: { id: true, title: true, currentContent: true, moduleId: true } },
+        },
+      },
+    },
+  });
+  if (!task) return { error: "Không tìm thấy task cha." } as const;
+  if (task.parentTaskId) {
+    return { error: "Không thể tự động phân rã tiếp một sub-task." } as const;
+  }
+
+  const projectRole = await getProjectRole(session.user.id, projectId);
+  if (!(await canAccess({ systemRole: session.user.systemRole }, "task.create", projectRole))) {
+    return { error: "Bạn không có quyền tạo sub-task." } as const;
+  }
+
+  const assignedModuleIds = await getAssignedModuleIdsForUser({
+    projectId,
+    userId: session.user.id,
+    systemRole: session.user.systemRole,
+    projectRole,
+  });
+  if (task.moduleId && !canAccessModule(assignedModuleIds, task.moduleId)) {
+    return { error: "Bạn không có quyền truy cập phân hệ của task này." } as const;
+  }
+
+  const documentsById = new Map<
+    string,
+    { id: string; title: string; currentContent: string; moduleId: string }
+  >();
+  if (
+    task.relatedDocument &&
+    canAccessModule(assignedModuleIds, task.relatedDocument.moduleId)
+  ) {
+    documentsById.set(task.relatedDocument.id, task.relatedDocument);
+  }
+  for (const relation of task.relatedDocuments) {
+    if (canAccessModule(assignedModuleIds, relation.document.moduleId)) {
+      documentsById.set(relation.document.id, relation.document);
+    }
+  }
+
+  return { session, task, projectRole, documents: [...documentsById.values()] } as const;
+}
+
+function normalizeStoredExternalLinks(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) =>
+      typeof item === "string"
+        ? item
+        : item && typeof item === "object" && "url" in item && typeof item.url === "string"
+          ? item.url
+          : "",
+    )
+    .filter(Boolean);
 }
 
 async function findExistingAutoTaskKeys(

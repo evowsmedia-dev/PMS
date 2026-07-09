@@ -167,6 +167,16 @@ write an audit log, and record token/cost usage in `AiUsageLog`.
 `autoGenerateTasksFromDocumentsAction` remains as a compatibility wrapper around
 the new preview/create flow.
 
+**AI sub-task breakdown** (`previewAiSubtasksAction` +
+`createAiSubtasksAction`) — a parent task detail can ask AI to analyze its
+description, acceptance criteria, planning metadata, related document content,
+and external-link labels. The user reviews, selects, and edits proposals before
+creation. Every generated item is an unassigned `BACKLOG` `SUBTASK`, inherits
+the parent module/Epic/Sprint/Milestone/priority and related documents, and has a
+server-enforced Dev estimate of `0.5-8h`. Stable
+`AI_SUBTASK:<parentTaskId>:<sourceKey>` markers prevent duplicate active
+sub-tasks. AI-created sub-tasks cannot be broken down again by this flow.
+
 **AI usage report** (`/admin/ai-usage`) — system admins can view total AI calls,
 input/output tokens, estimated cost, per-user summaries, and recent usage logs.
 Costs are stored per call using the token rates configured in code at the time
