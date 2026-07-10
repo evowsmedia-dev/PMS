@@ -2,6 +2,8 @@ import { marked } from "marked";
 import sanitizeHtml from "sanitize-html";
 import type { ContentFormat } from "@/generated/prisma/enums";
 
+export const HTML_MOCKUP_MARKER = "<!-- PMS_HTML_MOCKUP -->";
+
 const allowedTags = [
   ...sanitizeHtml.defaults.allowedTags,
   "h1",

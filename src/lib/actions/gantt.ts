@@ -23,13 +23,14 @@ export async function updateTaskScheduleAction(
   if (!session?.user) return;
   if (!(await requireEdit(session.user.id, session.user.systemRole, projectId))) return;
 
-  await prisma.task.update({
-    where: { id: taskId },
+  const result = await prisma.task.updateMany({
+    where: { id: taskId, projectId, deletedAt: null },
     data: {
       startDate: startDate ? new Date(startDate) : null,
       dueDate: dueDate ? new Date(dueDate) : null,
     },
   });
+  if (result.count === 0) return;
 
   await logAudit({
     actorId: session.user.id,
@@ -55,6 +56,12 @@ export async function addTaskDependencyAction(
   }
   if (taskId === dependsOnTaskId) return { error: "Task không thể phụ thuộc chính nó." };
 
+  const tasks = await prisma.task.findMany({
+    where: { id: { in: [taskId, dependsOnTaskId] }, projectId, deletedAt: null },
+    select: { id: true },
+  });
+  if (tasks.length !== 2) return { error: "Không tìm thấy task trong dự án." };
+
   await prisma.taskDependency.upsert({
     where: { taskId_dependsOnTaskId: { taskId, dependsOnTaskId } },
     create: { taskId, dependsOnTaskId, createdById: session.user.id },
@@ -72,10 +79,12 @@ export async function removeTaskDependencyAction(projectId: string, dependencyId
   if (!session?.user) return;
   if (!(await requireEdit(session.user.id, session.user.systemRole, projectId))) return;
 
-  const dependency = await prisma.taskDependency.delete({
-    where: { id: dependencyId },
-    select: { taskId: true },
+  const dependency = await prisma.taskDependency.findFirst({
+    where: { id: dependencyId, task: { projectId, deletedAt: null } },
+    select: { id: true, taskId: true },
   });
+  if (!dependency) return;
+  await prisma.taskDependency.delete({ where: { id: dependency.id } });
   await refreshTaskDerivedFields(dependency.taskId);
   revalidatePath(`/projects/${projectId}/gantt`);
   revalidatePath(`/projects/${projectId}/tasks/${dependency.taskId}`);

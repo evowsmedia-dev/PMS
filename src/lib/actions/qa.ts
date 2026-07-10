@@ -50,6 +50,13 @@ export async function createBugAction(
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   const v = parsed.data;
+  if (v.taskId) {
+    const task = await prisma.task.findFirst({
+      where: { id: v.taskId, projectId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!task) return { error: "Task liên quan không thuộc dự án này." };
+  }
 
   const bug = await prisma.bug.create({
     data: {
@@ -91,7 +98,8 @@ export async function changeBugStatusAction(projectId: string, bugId: string, st
   const needed: Action = BUG_CLOSE_STATUSES.has(status) ? "bug.close" : "bug.edit";
   if (!(await requires(session.user.id, session.user.systemRole, projectId, needed))) return;
 
-  const before = await prisma.bug.findUniqueOrThrow({ where: { id: bugId } });
+  const before = await prisma.bug.findFirst({ where: { id: bugId, projectId } });
+  if (!before) return;
   if (before.status === status) return;
 
   await prisma.bug.update({
@@ -139,6 +147,13 @@ export async function createTestCaseAction(
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ." };
   const v = parsed.data;
+  if (v.taskId) {
+    const task = await prisma.task.findFirst({
+      where: { id: v.taskId, projectId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!task) return { error: "Task liên quan không thuộc dự án này." };
+  }
 
   const testCase = await prisma.testCase.create({
     data: {
@@ -185,7 +200,8 @@ export async function submitTestResultAction(
   if (!session?.user) return;
   if (!(await requires(session.user.id, session.user.systemRole, projectId, "test.execute"))) return;
 
-  const testCase = await prisma.testCase.findUniqueOrThrow({ where: { id: testCaseId } });
+  const testCase = await prisma.testCase.findFirst({ where: { id: testCaseId, projectId } });
+  if (!testCase) return;
 
   const run = await prisma.testRun.create({
     data: {
@@ -221,7 +237,7 @@ export async function submitTestResultAction(
 
     // Move the linked task back to BUG_FIXING and record history.
     if (testCase.taskId) {
-      const task = await prisma.task.findUnique({ where: { id: testCase.taskId } });
+      const task = await prisma.task.findFirst({ where: { id: testCase.taskId, projectId, deletedAt: null } });
       if (task && task.status !== "BUG_FIXING") {
         await prisma.task.update({ where: { id: task.id }, data: { status: "BUG_FIXING" } });
         await prisma.taskHistory.create({

@@ -265,7 +265,7 @@ export async function removeMemberAction(projectId: string, memberId: string) {
     return;
   }
 
-  const member = await prisma.projectMember.findUnique({ where: { id: memberId } });
+  const member = await prisma.projectMember.findFirst({ where: { id: memberId, projectId } });
   if (!member) return;
 
   await prisma.projectMember.delete({ where: { id: memberId } });
@@ -363,10 +363,11 @@ export async function changeMemberRoleAction(
     return;
   }
 
-  await prisma.projectMember.update({
-    where: { id: memberId },
+  const result = await prisma.projectMember.updateMany({
+    where: { id: memberId, projectId },
     data: { role: role as never },
   });
+  if (result.count === 0) return;
 
   await logAudit({
     actorId: session.user.id,

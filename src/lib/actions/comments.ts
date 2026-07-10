@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canAccess } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
+import { canAccessModule, getAssignedModuleIdsForUser } from "@/lib/document-type-access";
 import { logAudit } from "@/lib/audit";
 import type { ActionState } from "@/lib/actions/profile";
 
@@ -22,6 +23,20 @@ export async function addDocumentCommentAction(
   if (!(await canAccess({ systemRole: session.user.systemRole }, "comment.create", projectRole))) {
     return { error: "Bạn không có quyền bình luận." };
   }
+  const assignedModuleIds = await getAssignedModuleIdsForUser({
+    projectId,
+    userId: session.user.id,
+    systemRole: session.user.systemRole,
+    projectRole,
+  });
+  if (!canAccessModule(assignedModuleIds, moduleId)) {
+    return { error: "Bạn không có quyền truy cập phân hệ này." };
+  }
+  const document = await prisma.document.findFirst({
+    where: { id: docId, projectId, moduleId, deletedAt: null, module: { deletedAt: null } },
+    select: { id: true },
+  });
+  if (!document) return { error: "Không tìm thấy tài liệu." };
 
   const content = String(formData.get("content") ?? "").trim();
   if (!content) return { error: "Nội dung bình luận không được để trống." };
@@ -83,6 +98,23 @@ export async function resolveCommentAction(
 
   const projectRole = await getProjectRole(session.user.id, projectId);
   if (!(await canAccess({ systemRole: session.user.systemRole }, "comment.create", projectRole))) return;
+  const assignedModuleIds = await getAssignedModuleIdsForUser({
+    projectId,
+    userId: session.user.id,
+    systemRole: session.user.systemRole,
+    projectRole,
+  });
+  if (!canAccessModule(assignedModuleIds, moduleId)) return;
+
+  const comment = await prisma.comment.findFirst({
+    where: {
+      id: commentId,
+      documentId: docId,
+      document: { projectId, moduleId, deletedAt: null, module: { deletedAt: null } },
+    },
+    select: { id: true },
+  });
+  if (!comment) return;
 
   await prisma.comment.update({ where: { id: commentId }, data: { resolved } });
   revalidatePath(`/projects/${projectId}/modules/${moduleId}/documents/${docId}`);

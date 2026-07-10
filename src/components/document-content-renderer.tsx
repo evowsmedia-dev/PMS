@@ -1,7 +1,7 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ImagePreviewScope } from "@/components/image-preview-scope";
-import { contentToSafeHtml } from "@/lib/document-content";
+import { contentToSafeHtml, HTML_MOCKUP_MARKER } from "@/lib/document-content";
 import type { ContentFormat } from "@/generated/prisma/enums";
 
 export function DocumentContentRenderer({
@@ -14,6 +14,20 @@ export function DocumentContentRenderer({
   scrollClassName?: string;
 }) {
   if (format === "HTML") {
+    const mockupHtml = getHtmlMockupContent(content);
+    if (mockupHtml) {
+      return (
+        <div className="overflow-hidden rounded-[10px] border bg-black">
+          <iframe
+            title="Mô phỏng thiết bị PDA"
+            srcDoc={mockupHtml}
+            sandbox="allow-forms allow-scripts"
+            className="h-[calc(100vh-10rem)] min-h-[720px] w-full bg-black"
+          />
+        </div>
+      );
+    }
+
     return (
       <ImagePreviewScope>
         <div className={scrollClassName}>
@@ -35,4 +49,10 @@ export function DocumentContentRenderer({
       </div>
     </ImagePreviewScope>
   );
+}
+
+function getHtmlMockupContent(content: string) {
+  const trimmed = content.trimStart();
+  if (!trimmed.startsWith(HTML_MOCKUP_MARKER)) return null;
+  return trimmed.slice(HTML_MOCKUP_MARKER.length).trimStart();
 }

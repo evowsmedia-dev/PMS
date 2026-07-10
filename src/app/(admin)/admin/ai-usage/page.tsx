@@ -1,11 +1,12 @@
 import { prisma } from "@/lib/prisma";
-import { formatUsd } from "@/lib/ai-usage";
+import { formatUsd, formatVnd } from "@/lib/ai-usage";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageShell, PageSection, PageToolbar, ResponsiveTableFrame } from "@/components/page-shell";
 
 const MAX_LOGS_FOR_REPORT = 5000;
 const RECENT_LOGS = 80;
+const FALLBACK_USD_VND_RATE = 26_000;
 
 interface UserUsageSummary {
   userId: string;
@@ -35,6 +36,8 @@ export default async function AdminAiUsagePage() {
   const totalOutputTokens = sum(logs.map((log) => log.outputTokens));
   const totalTokens = sum(logs.map((log) => log.totalTokens));
   const totalCostUsd = sum(logs.map((log) => Number(log.costUsd)));
+  const usdVndRate = await getUsdVndRate();
+  const totalCostVnd = totalCostUsd * usdVndRate.rate;
   const recentLogs = logs.slice(0, RECENT_LOGS);
 
   return (
@@ -45,12 +48,19 @@ export default async function AdminAiUsagePage() {
           description="Thống kê token và chi phí từ các lần gọi AI đã được hệ thống ghi nhận."
         />
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
           <MetricCard label="Lượt gọi AI" value={formatNumber(totalCalls)} />
           <MetricCard label="Input tokens" value={formatNumber(totalInputTokens)} />
           <MetricCard label="Output tokens" value={formatNumber(totalOutputTokens)} />
           <MetricCard label="Tổng tokens" value={formatNumber(totalTokens)} />
-          <MetricCard label="Chi phí ước tính" value={formatUsd(totalCostUsd)} />
+          <MetricCard label="Chi phí ước tính USD" value={formatUsd(totalCostUsd)} />
+          <MetricCard
+            label="Chi phí ước tính VND"
+            value={formatVnd(totalCostVnd)}
+            description={`1 USD ≈ ${formatNumber(Math.round(usdVndRate.rate))} VND${
+              usdVndRate.fallback ? " · tạm tính" : ""
+            }`}
+          />
         </div>
 
         <Card>
@@ -171,7 +181,15 @@ export default async function AdminAiUsagePage() {
   );
 }
 
-function MetricCard({ label, value }: { label: string; value: string }) {
+function MetricCard({
+  label,
+  value,
+  description,
+}: {
+  label: string;
+  value: string;
+  description?: string;
+}) {
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -179,6 +197,7 @@ function MetricCard({ label, value }: { label: string; value: string }) {
       </CardHeader>
       <CardContent>
         <p className="text-2xl font-semibold leading-none">{value}</p>
+        {description ? <p className="mt-2 text-xs text-muted-foreground">{description}</p> : null}
       </CardContent>
     </Card>
   );
@@ -231,4 +250,24 @@ function sum(values: number[]) {
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat("vi-VN").format(value);
+}
+
+async function getUsdVndRate() {
+  try {
+    const response = await fetch("https://open.er-api.com/v6/latest/USD", {
+      next: { revalidate: 3600 },
+    });
+    if (!response.ok) throw new Error(`Exchange rate API returned ${response.status}`);
+    const payload = (await response.json()) as {
+      result?: string;
+      rates?: { VND?: number };
+    };
+    const rate = payload.rates?.VND;
+    if (payload.result !== "success" || typeof rate !== "number" || !Number.isFinite(rate)) {
+      throw new Error("Exchange rate API returned an invalid VND rate");
+    }
+    return { rate, fallback: false };
+  } catch {
+    return { rate: FALLBACK_USD_VND_RATE, fallback: true };
+  }
 }

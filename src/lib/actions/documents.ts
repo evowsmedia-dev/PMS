@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canAccess } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
+import { canAccessModule, getAssignedModuleIdsForUser } from "@/lib/document-type-access";
 import { logAudit } from "@/lib/audit";
 import { sanitizeDocumentHtml } from "@/lib/document-content";
 import { documentFormSchema } from "@/lib/validation/document";
@@ -25,6 +26,16 @@ export async function createDocumentAction(
   const projectRole = await getProjectRole(session.user.id, projectId);
   if (!(await canAccess({ systemRole: session.user.systemRole }, "document.create", projectRole))) {
     return { error: "Bạn không có quyền tạo tài liệu." };
+  }
+  if (
+    !(await assertCanAccessRouteModule({
+      userId: session.user.id,
+      systemRole: session.user.systemRole,
+      projectId,
+      moduleId,
+    }))
+  ) {
+    return { error: "Bạn không có quyền truy cập phân hệ này." };
   }
 
   const parsed = documentFormSchema.safeParse({
@@ -124,11 +135,21 @@ export async function createFlowDocumentAction(
   if (!(await canAccess({ systemRole: session.user.systemRole }, "document.create", projectRole))) {
     return { error: "Bạn không có quyền tạo tài liệu." };
   }
+  if (
+    !(await assertCanAccessRouteModule({
+      userId: session.user.id,
+      systemRole: session.user.systemRole,
+      projectId,
+      moduleId,
+    }))
+  ) {
+    return { error: "Bạn không có quyền truy cập phân hệ này." };
+  }
 
   const title = String(formData.get("title") ?? "").trim();
   if (!title) return { error: "Vui lòng nhập tiêu đề sơ đồ quy trình." };
 
-  const doc = await prisma.document.findUnique({ where: { id: docId } });
+  const doc = await getRouteDocument(projectId, moduleId, docId);
   if (!doc) return { error: "Không tìm thấy tài liệu." };
 
   const rootId = doc.parentDocumentId ?? doc.id;
@@ -188,6 +209,39 @@ async function assertCanEdit(userId: string, systemRole: string, projectId: stri
   return await canAccess({ systemRole: systemRole as never }, "document.edit", projectRole);
 }
 
+async function assertCanAccessRouteModule({
+  userId,
+  systemRole,
+  projectId,
+  moduleId,
+}: {
+  userId: string;
+  systemRole: string;
+  projectId: string;
+  moduleId: string;
+}) {
+  const projectRole = await getProjectRole(userId, projectId);
+  const assignedModuleIds = await getAssignedModuleIdsForUser({
+    projectId,
+    userId,
+    systemRole: systemRole as never,
+    projectRole,
+  });
+  if (!canAccessModule(assignedModuleIds, moduleId)) return false;
+
+  const module_ = await prisma.module.findFirst({
+    where: { id: moduleId, projectId, deletedAt: null },
+    select: { id: true },
+  });
+  return Boolean(module_);
+}
+
+async function getRouteDocument(projectId: string, moduleId: string, docId: string) {
+  return prisma.document.findFirst({
+    where: { id: docId, projectId, moduleId, deletedAt: null, module: { deletedAt: null } },
+  });
+}
+
 export async function saveDocumentEditAction(
   projectId: string,
   moduleId: string,
@@ -215,7 +269,8 @@ export async function saveDocumentEditAction(
   const values = parsed.data;
   const content = sanitizeDocumentHtml(values.content || "");
 
-  const doc = await prisma.document.findUniqueOrThrow({ where: { id: docId } });
+  const doc = await getRouteDocument(projectId, moduleId, docId);
+  if (!doc) return { error: "Không tìm thấy tài liệu." };
   const nextVersionNo = doc.currentVersionNo + 1;
 
   await prisma.$transaction([
@@ -266,10 +321,22 @@ export async function autosaveDocumentAction(docId: string, content: string) {
   const session = await auth();
   if (!session?.user) return { ok: false };
 
-  const doc = await prisma.document.findUnique({ where: { id: docId } });
+  const doc = await prisma.document.findFirst({
+    where: { id: docId, deletedAt: null, module: { deletedAt: null } },
+  });
   if (!doc) return { ok: false };
 
   if (!(await assertCanEdit(session.user.id, session.user.systemRole, doc.projectId))) {
+    return { ok: false };
+  }
+  if (
+    !(await assertCanAccessRouteModule({
+      userId: session.user.id,
+      systemRole: session.user.systemRole,
+      projectId: doc.projectId,
+      moduleId: doc.moduleId,
+    }))
+  ) {
     return { ok: false };
   }
 
@@ -292,6 +359,8 @@ export async function setDocumentDiagramUrlAction(
   if (!session?.user) return;
 
   if (!(await assertCanEdit(session.user.id, session.user.systemRole, projectId))) return;
+  const doc = await getRouteDocument(projectId, moduleId, docId);
+  if (!doc) return;
 
   await prisma.document.update({
     where: { id: docId },
@@ -333,7 +402,7 @@ export async function changeDocumentStatusAction(
   const session = await auth();
   if (!session?.user) return;
 
-  const doc = await prisma.document.findUnique({ where: { id: docId } });
+  const doc = await getRouteDocument(projectId, moduleId, docId);
   if (!doc) return;
 
   if (!STATUS_TRANSITIONS[doc.status].includes(newStatus)) return;
@@ -370,7 +439,7 @@ export async function submitDocumentForReviewAction(
   const session = await auth();
   if (!session?.user) return { error: "Bạn cần đăng nhập." };
 
-  const doc = await prisma.document.findUnique({ where: { id: docId } });
+  const doc = await getRouteDocument(projectId, moduleId, docId);
   if (!doc) return { error: "Không tìm thấy tài liệu." };
   if (doc.status !== "DRAFT") return { error: "Tài liệu không ở trạng thái nháp." };
 
@@ -472,6 +541,8 @@ export async function addLinkAttachmentAction(
   if (!(await assertCanEdit(session.user.id, session.user.systemRole, projectId))) {
     return { error: "Bạn không có quyền thêm đính kèm." };
   }
+  const doc = await getRouteDocument(projectId, moduleId, docId);
+  if (!doc) return { error: "Không tìm thấy tài liệu." };
 
   const url = String(formData.get("url") ?? "").trim();
   const fileName = String(formData.get("fileName") ?? "").trim();
@@ -501,6 +572,8 @@ export async function recordUploadedAttachmentAction(
   if (!session?.user) return;
 
   if (!(await assertCanEdit(session.user.id, session.user.systemRole, projectId))) return;
+  const doc = await getRouteDocument(projectId, moduleId, docId);
+  if (!doc) return;
 
   await prisma.attachment.create({
     data: {
@@ -526,6 +599,12 @@ export async function deleteAttachmentAction(
   const session = await auth();
   if (!session?.user) return;
   if (!(await assertCanEdit(session.user.id, session.user.systemRole, projectId))) return;
+
+  const attachment = await prisma.attachment.findFirst({
+    where: { id: attachmentId, document: { id: docId, projectId, moduleId, deletedAt: null } },
+    select: { id: true },
+  });
+  if (!attachment) return;
 
   await prisma.attachment.delete({ where: { id: attachmentId } });
   revalidatePath(`/projects/${projectId}/modules/${moduleId}/documents/${docId}`);

@@ -61,7 +61,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DOC_CATEGORY_LABEL } from "@/lib/validation/document";
-import { saveDocumentEditAction, autosaveDocumentAction } from "@/lib/actions/documents";
+import { saveDocumentEditAction, autosaveDocumentAction, recordUploadedAttachmentAction } from "@/lib/actions/documents";
 import { toAppBlobUrl } from "@/lib/blob-proxy";
 import { DocumentDiagramEditor } from "@/components/document-diagram-editor";
 import type { ActionState } from "@/lib/actions/profile";
@@ -473,8 +473,9 @@ export function DocumentEditForm({
   }
 
   async function uploadEditorImage(file: File) {
+    let uploaded: { url: string };
     try {
-      return await upload(file.name, file, {
+      uploaded = await upload(file.name, file, {
         access: "private",
         handleUploadUrl: "/api/upload",
       }).then((blob) => ({ ...blob, url: toAppBlobUrl(blob.url) }));
@@ -492,8 +493,16 @@ export function DocumentEditForm({
         throw new Error(payload?.error ?? (error as Error).message);
       }
 
-      return (await response.json()) as { url: string };
+      uploaded = (await response.json()) as { url: string };
     }
+    await recordUploadedAttachmentAction(projectId, moduleId, docId, {
+      kind: "IMAGE",
+      url: uploaded.url,
+      fileName: file.name,
+      mimeType: file.type,
+      sizeBytes: file.size,
+    });
+    return uploaded;
   }
 
   function setLink() {

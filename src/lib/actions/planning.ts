@@ -72,7 +72,11 @@ export async function deleteEpicAction(projectId: string, epicId: string) {
   if (!session?.user) return;
   if (!(await requirePlanningAccess(session.user.id, session.user.systemRole, projectId))) return;
 
-  await prisma.epic.update({ where: { id: epicId }, data: { deletedAt: new Date() } });
+  const result = await prisma.epic.updateMany({
+    where: { id: epicId, projectId, deletedAt: null },
+    data: { deletedAt: new Date() },
+  });
+  if (result.count === 0) return;
   await logAudit({
     actorId: session.user.id,
     action: "DELETE",
@@ -136,7 +140,11 @@ export async function deleteSprintAction(projectId: string, sprintId: string) {
   if (!session?.user) return;
   if (!(await requirePlanningAccess(session.user.id, session.user.systemRole, projectId))) return;
 
-  await prisma.sprint.update({ where: { id: sprintId }, data: { deletedAt: new Date() } });
+  const result = await prisma.sprint.updateMany({
+    where: { id: sprintId, projectId, deletedAt: null },
+    data: { deletedAt: new Date() },
+  });
+  if (result.count === 0) return;
   await logAudit({
     actorId: session.user.id,
     action: "DELETE",
@@ -199,7 +207,11 @@ export async function deleteMilestoneAction(projectId: string, milestoneId: stri
   if (!session?.user) return;
   if (!(await requirePlanningAccess(session.user.id, session.user.systemRole, projectId))) return;
 
-  await prisma.milestone.update({ where: { id: milestoneId }, data: { deletedAt: new Date() } });
+  const result = await prisma.milestone.updateMany({
+    where: { id: milestoneId, projectId, deletedAt: null },
+    data: { deletedAt: new Date() },
+  });
+  if (result.count === 0) return;
   await logAudit({
     actorId: session.user.id,
     action: "DELETE",

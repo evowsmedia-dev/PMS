@@ -336,6 +336,16 @@ export async function createTaskAction(
   if (!(await canAccess({ systemRole: session.user.systemRole }, "task.create", projectRole))) {
     return { error: "Bạn không có quyền tạo task." };
   }
+  if (
+    !(await canUseProjectModule({
+      userId: session.user.id,
+      systemRole: session.user.systemRole,
+      projectId,
+      moduleId,
+    }))
+  ) {
+    return { error: "Bạn không có quyền truy cập phân hệ này." };
+  }
 
   const parsed = parseTaskForm(formData);
   if (!parsed.success) {
@@ -1365,6 +1375,18 @@ export async function setTaskParentAction(
   if (!session?.user) return;
   if (!(await requireTaskEditAccess(session.user.id, session.user.systemRole, projectId))) return;
   if (parentTaskId === taskId) return;
+  const task = await prisma.task.findFirst({
+    where: scopedTaskWhere(projectId, null, taskId),
+    select: { id: true },
+  });
+  if (!task) return;
+  if (parentTaskId) {
+    const parent = await prisma.task.findFirst({
+      where: scopedTaskWhere(projectId, null, parentTaskId),
+      select: { id: true },
+    });
+    if (!parent) return;
+  }
 
   await prisma.task.update({
     where: { id: taskId },
@@ -1379,6 +1401,41 @@ async function requireTaskEditAccess(userId: string, systemRole: string, project
   return await canAccess({ systemRole: systemRole as never }, "task.edit", projectRole);
 }
 
+function scopedTaskWhere(projectId: string, moduleId: string | null, taskId: string) {
+  return {
+    id: taskId,
+    projectId,
+    deletedAt: null,
+    ...(moduleId ? { moduleId } : {}),
+  };
+}
+
+async function canUseProjectModule({
+  userId,
+  systemRole,
+  projectId,
+  moduleId,
+}: {
+  userId: string;
+  systemRole: string;
+  projectId: string;
+  moduleId: string;
+}) {
+  const projectRole = await getProjectRole(userId, projectId);
+  const assignedModuleIds = await getAssignedModuleIdsForUser({
+    projectId,
+    userId,
+    systemRole: systemRole as never,
+    projectRole,
+  });
+  if (!canAccessModule(assignedModuleIds, moduleId)) return false;
+  const module_ = await prisma.module.findFirst({
+    where: { id: moduleId, projectId, deletedAt: null },
+    select: { id: true },
+  });
+  return Boolean(module_);
+}
+
 export async function updateTaskPriorityAction(
   projectId: string,
   moduleId: string | null,
@@ -1390,7 +1447,8 @@ export async function updateTaskPriorityAction(
   if (!(await requireTaskEditAccess(session.user.id, session.user.systemRole, projectId))) return;
   if (!TASK_PRIORITY_ORDER.includes(priority as (typeof TASK_PRIORITY_ORDER)[number])) return;
 
-  const before = await prisma.task.findUniqueOrThrow({ where: { id: taskId } });
+  const before = await prisma.task.findFirst({ where: scopedTaskWhere(projectId, moduleId, taskId) });
+  if (!before) return;
   if (before.priority === priority) return;
 
   await prisma.task.update({
@@ -1429,7 +1487,8 @@ export async function updateTaskDueDateAction(
   if (!session?.user) return;
   if (!(await requireTaskEditAccess(session.user.id, session.user.systemRole, projectId))) return;
 
-  const before = await prisma.task.findUniqueOrThrow({ where: { id: taskId } });
+  const before = await prisma.task.findFirst({ where: scopedTaskWhere(projectId, moduleId, taskId) });
+  if (!before) return;
   const nextDue = dueDate ? new Date(dueDate) : null;
   const beforeDue = before.dueDate ? before.dueDate.toISOString().slice(0, 10) : "";
   if (beforeDue === dueDate) return;
@@ -1499,7 +1558,8 @@ export async function updateTaskAction(
   const shouldUpdateRelatedDocuments = formData.has("relatedDocumentsTouched") || formData.has("relatedDocumentId");
   const shouldUpdateExternalLinks = formData.has("externalLinks");
 
-  const before = await prisma.task.findUniqueOrThrow({ where: { id: taskId } });
+  const before = await prisma.task.findFirst({ where: scopedTaskWhere(projectId, moduleId, taskId) });
+  if (!before) return { error: "Không tìm thấy task." };
   const has = (key: string) => formData.has(key);
   const nextStatus = has("status") ? values.status : before.status;
   const nextType = has("type") ? values.type : before.type;
@@ -1697,7 +1757,8 @@ export async function reassignTaskAction(
   const projectRole = await getProjectRole(session.user.id, projectId);
   if (!(await canAccess({ systemRole: session.user.systemRole }, "task.reassign", projectRole))) return;
 
-  const before = await prisma.task.findUniqueOrThrow({ where: { id: taskId } });
+  const before = await prisma.task.findFirst({ where: scopedTaskWhere(projectId, moduleId, taskId) });
+  if (!before) return;
 
   await prisma.task.update({
     where: { id: taskId },
@@ -1784,7 +1845,8 @@ export async function changeTaskStatusAction(
   const projectRole = await getProjectRole(session.user.id, projectId);
   if (!(await canAccess({ systemRole: session.user.systemRole }, "task.move", projectRole))) return;
 
-  const before = await prisma.task.findUniqueOrThrow({ where: { id: taskId } });
+  const before = await prisma.task.findFirst({ where: scopedTaskWhere(projectId, moduleId, taskId) });
+  if (!before) return;
   if (before.status === status) return;
   const derived = deriveTaskEffortFields({
     status,
@@ -1872,9 +1934,10 @@ export async function addTaskCommentAction(
   }
 
   const task = await prisma.task.findFirst({
-    where: { id: taskId, projectId, deletedAt: null },
+    where: scopedTaskWhere(projectId, moduleId, taskId),
     select: { title: true, taskCode: true },
   });
+  if (!task) return { error: "Không tìm thấy task." };
 
   const comment = await prisma.comment.create({
     data: {
@@ -1929,7 +1992,7 @@ export async function addTaskTimeLogAction(
   }
 
   const task = await prisma.task.findFirst({
-    where: { id: taskId, projectId, deletedAt: null },
+    where: scopedTaskWhere(projectId, moduleId, taskId),
     select: { id: true },
   });
   if (!task) return { error: "Không tìm thấy task." };
@@ -2058,7 +2121,11 @@ export async function deleteTaskAction(
   const projectRole = await getProjectRole(session.user.id, projectId);
   if (!(await canAccess({ systemRole: session.user.systemRole }, "task.edit", projectRole))) return;
 
-  await prisma.task.update({ where: { id: taskId }, data: { deletedAt: new Date() } });
+  const result = await prisma.task.updateMany({
+    where: scopedTaskWhere(projectId, moduleId, taskId),
+    data: { deletedAt: new Date() },
+  });
+  if (result.count === 0) return;
 
   await logAudit({
     actorId: session.user.id,

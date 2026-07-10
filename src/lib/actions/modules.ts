@@ -67,10 +67,11 @@ export async function renameModuleAction(
   }
   if (!name.trim()) return;
 
-  await prisma.module.update({
-    where: { id: moduleId },
+  const result = await prisma.module.updateMany({
+    where: { id: moduleId, projectId, deletedAt: null },
     data: { name: name.trim() },
   });
+  if (result.count === 0) return;
 
   await logAudit({
     actorId: session.user.id,
@@ -129,8 +130,16 @@ export async function reorderModulesAction(
     return;
   }
 
+  const modules = await prisma.module.findMany({
+    where: { id: { in: orderedModuleIds }, projectId, deletedAt: null },
+    select: { id: true },
+  });
+  const moduleIds = new Set(modules.map((module_) => module_.id));
+  const scopedOrderedModuleIds = orderedModuleIds.filter((id) => moduleIds.has(id));
+  if (scopedOrderedModuleIds.length !== orderedModuleIds.length) return;
+
   await prisma.$transaction(
-    orderedModuleIds.map((id, index) =>
+    scopedOrderedModuleIds.map((id, index) =>
       prisma.module.update({ where: { id }, data: { sortOrder: index } }),
     ),
   );

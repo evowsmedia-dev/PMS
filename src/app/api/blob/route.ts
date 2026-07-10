@@ -1,6 +1,11 @@
 import { get } from "@vercel/blob";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { canAccess } from "@/lib/rbac";
+import { getProjectRole } from "@/lib/project-role";
+import { canAccessModule, getAssignedModuleIdsForUser } from "@/lib/document-type-access";
+import { toAppBlobUrl } from "@/lib/blob-proxy";
 
 export async function GET(request: Request) {
   const session = await auth();
@@ -16,6 +21,10 @@ export async function GET(request: Request) {
   }
 
   try {
+    if (!(await canReadStoredBlob(session.user.id, session.user.systemRole, blobUrl))) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const ifNoneMatch = request.headers.get("if-none-match");
     const result = await get(blobUrl, {
       access: "private",
@@ -45,4 +54,37 @@ function toResponseHeaders(headers: { forEach(callback: (value: string, key: str
   const responseHeaders = new Headers();
   headers.forEach((value, key) => responseHeaders.set(key, value));
   return responseHeaders;
+}
+
+async function canReadStoredBlob(userId: string, systemRole: string, blobUrl: string) {
+  const appBlobUrl = toAppBlobUrl(blobUrl);
+  const blobUrlVariants = Array.from(new Set([blobUrl, appBlobUrl]));
+  const blobUrlContains = blobUrlVariants.map((value) => ({ currentContent: { contains: value } }));
+
+  const document = await prisma.document.findFirst({
+    where: {
+      deletedAt: null,
+      module: { deletedAt: null },
+      OR: [
+        { diagramUrl: { in: blobUrlVariants } },
+        { attachments: { some: { url: { in: blobUrlVariants } } } },
+        ...blobUrlContains,
+      ],
+    },
+    select: { projectId: true, moduleId: true },
+  });
+  if (!document) return false;
+
+  const projectRole = await getProjectRole(userId, document.projectId);
+  if (!(await canAccess({ systemRole: systemRole as never }, "document.view", projectRole))) {
+    return false;
+  }
+
+  const assignedModuleIds = await getAssignedModuleIdsForUser({
+    projectId: document.projectId,
+    userId,
+    systemRole: systemRole as never,
+    projectRole,
+  });
+  return canAccessModule(assignedModuleIds, document.moduleId);
 }
