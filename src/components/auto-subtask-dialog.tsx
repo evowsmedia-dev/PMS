@@ -98,19 +98,23 @@ export function AutoSubtaskDialog({
   function handleCreate() {
     if (!preview.generation) return;
     startCreateTransition(async () => {
-      const result = await createAiSubtasksAction(
-        projectId,
-        taskId,
-        preview.generation!.id,
-        selectedProposals,
-      );
-      if (result.error) {
-        toast.error(result.error);
-        return;
+      try {
+        const result = await createAiSubtasksAction(
+          projectId,
+          taskId,
+          preview.generation!.id,
+          selectedProposals,
+        );
+        if (result.error) {
+          toast.error(result.error);
+          return;
+        }
+        if (result.success) toast.success(result.success);
+        setOpen(false);
+        router.refresh();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Không thể tạo sub-task. Vui lòng thử lại.");
       }
-      if (result.success) toast.success(result.success);
-      setOpen(false);
-      router.refresh();
     });
   }
 

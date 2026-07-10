@@ -252,15 +252,15 @@ const aiSubtaskInputSchema = z
     z.object({
       sourceKey: z.string().trim().min(1).max(120),
       title: z.string().trim().min(1).max(200),
-      description: z.string().trim().min(1).max(5000),
-      acceptanceCriteria: z.string().trim().min(1).max(5000),
-      devEstimateHours: z.number().min(0.5).max(8).refine((value) => value * 2 === Math.round(value * 2), {
+      description: z.string().trim().min(1).max(20000),
+      acceptanceCriteria: z.string().trim().min(1).max(20000),
+      devEstimateHours: z.coerce.number().min(0.5).max(8).refine((value) => value * 2 === Math.round(value * 2), {
         message: "Dev estimate phải theo bước 0.5 giờ.",
       }),
       confidence: z.number().min(0).max(1),
-      dependencies: z.array(z.string().trim().min(1).max(120)).max(10),
-      coveredSourceRefs: z.array(z.string().trim().min(1).max(160)).min(1).max(30),
-      sourceEvidence: z.string().trim().min(1).max(1000),
+      dependencies: z.array(z.string().trim().min(1).max(120)).max(10).default([]),
+      coveredSourceRefs: z.array(z.string().trim().min(1).max(160)).max(30).default([]),
+      sourceEvidence: z.string().trim().max(2000).default(""),
     }),
   )
   .min(1)
@@ -271,13 +271,13 @@ const legacyAiSubtaskInputSchema = z
     z.object({
       sourceKey: z.string().trim().min(1).max(120),
       title: z.string().trim().min(1).max(200),
-      description: z.string().trim().min(1).max(5000),
-      acceptanceCriteria: z.string().trim().min(1).max(5000),
-      devEstimateHours: z.number().min(0.5).max(8),
+      description: z.string().trim().min(1).max(20000),
+      acceptanceCriteria: z.string().trim().min(1).max(20000),
+      devEstimateHours: z.coerce.number().min(0.5).max(8),
       confidence: z.number().min(0).max(1),
       dependencies: z.array(z.string().trim().min(1).max(120)).max(10).optional(),
       coveredSourceRefs: z.array(z.string().trim().min(1).max(160)).max(30).optional(),
-      sourceEvidence: z.string().trim().max(1000).optional(),
+      sourceEvidence: z.string().trim().max(2000).optional(),
     }),
   )
   .min(1)
@@ -301,6 +301,25 @@ function parseStoredAiSubtaskProposals(rawProposals: unknown) {
         proposal.sourceEvidence || "Phiên bản cũ chưa lưu thông tin trích dẫn nguồn.",
     })),
   };
+}
+
+function backfillAiSubtaskCoverageFromGeneration(
+  proposals: z.infer<typeof aiSubtaskInputSchema>,
+  generationProposals: unknown,
+) {
+  const stored = parseStoredAiSubtaskProposals(generationProposals)?.proposals ?? [];
+  const storedBySourceKey = new Map(stored.map((proposal) => [proposal.sourceKey, proposal]));
+  return proposals.map((proposal) => {
+    if (proposal.coveredSourceRefs.length > 0) return proposal;
+    const storedProposal = storedBySourceKey.get(proposal.sourceKey);
+    return storedProposal?.coveredSourceRefs.length
+      ? {
+          ...proposal,
+          coveredSourceRefs: storedProposal.coveredSourceRefs,
+          sourceEvidence: proposal.sourceEvidence || storedProposal.sourceEvidence,
+        }
+      : proposal;
+  });
 }
 
 /** Module-scoped create (legacy route). Keeps the original lightweight fields. */
@@ -1053,14 +1072,14 @@ export async function createAiSubtasksAction(
   }
 
   const { session, task, projectRole, documents } = access;
-  const proposals = parsed.data;
-  if (new Set(proposals.map((proposal) => proposal.sourceKey)).size !== proposals.length) {
+  if (new Set(parsed.data.map((proposal) => proposal.sourceKey)).size !== parsed.data.length) {
     return { error: "Các sub-task không được trùng source key." };
   }
   const generation = await prisma.aiSubtaskGeneration.findFirst({
     where: { id: generationId, projectId, parentTaskId: taskId },
   });
   if (!generation) return { error: "Không tìm thấy phiên bản AI đã chọn." };
+  const proposals = backfillAiSubtaskCoverageFromGeneration(parsed.data, generation.proposals);
   const snapshot = generation.contextSnapshot as {
     sourceReferences?: AiSubtaskSourceReference[];
   };
@@ -1070,7 +1089,7 @@ export async function createAiSubtasksAction(
   );
   if (!coverageReport.complete) {
     return {
-      error: `Chưa thể tạo task: còn thiếu coverage ${coverageReport.missingSourceRefs.join(", ") || "hoặc có source reference không hợp lệ"}.`,
+      error: `Chưa thể tạo task: còn thiếu coverage ${coverageReport.missingSourceRefs.join(", ") || "hoặc có source reference không hợp lệ"}${coverageReport.invalidSourceRefs.length ? `; source không hợp lệ ${coverageReport.invalidSourceRefs.join(", ")}` : ""}.`,
     };
   }
   const sourceHighlights = proposals.map(
