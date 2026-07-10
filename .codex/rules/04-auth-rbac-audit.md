@@ -48,6 +48,11 @@ Audit:
   versions, require complete mandatory source coverage before task
   creation, retain the generation link on created sub-tasks, and bound AI
   generation time so the UI cannot wait indefinitely.
+- AI sub-task breakdown must treat the parent task title, description, and
+  acceptance criteria as the only source of truth for creating sub-task scope.
+  Related documents and external links are reference-only consistency checks;
+  they must not introduce new logic, scope, rules, or acceptance criteria that
+  are absent from the parent task.
 - Task effort/deadline/time-log changes must reuse shared calculation helpers,
   keep Dev/Test/Standard/Actual fields consistent, revalidate task/dashboard/My
   Tasks paths, and write audit metadata for meaningful mutations.

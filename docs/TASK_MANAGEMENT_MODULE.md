@@ -168,15 +168,18 @@ write an audit log, and record token/cost usage in `AiUsageLog`.
 the new preview/create flow.
 
 **AI sub-task breakdown** (`previewAiSubtasksAction` +
-`createAiSubtasksAction`) — a parent task detail can ask AI to analyze its
-description, acceptance criteria, planning metadata, related document content,
-and external-link labels. The user reviews, selects, and edits proposals before
-creation. Every generated item is an unassigned `BACKLOG` `SUBTASK`, inherits
-the parent module/Epic/Sprint/Milestone/priority and related documents, and has a
+`createAiSubtasksAction`) — a parent task detail can ask AI to break down the
+parent task title, description, and acceptance criteria into concrete
+sub-tasks. The parent task is the only source of truth for generated scope;
+related documents and external-link labels are reference-only consistency
+checks and must not introduce new logic or acceptance criteria. The user
+reviews, selects, and edits proposals before creation. Every generated item is
+an unassigned `BACKLOG` `SUBTASK`, inherits the parent
+module/Epic/Sprint/Milestone/priority and related documents, and has a
 server-enforced Dev estimate of `0.5-8h`. Stable
 `AI_SUBTASK:<parentTaskId>:<sourceKey>` markers prevent duplicate active
 sub-tasks. Each preview is stored as an `AiSubtaskGeneration` version with its
-context hash, prompt/model, source coverage and proposal snapshot. Unchanged
+context hash, prompt/model, parent-task source coverage and proposal snapshot. Unchanged
 context reuses the latest matching version without another AI call; users can
 explicitly generate and compare versions. Every mandatory task-description and
 acceptance-criteria source reference must be covered before persistence, and
@@ -185,8 +188,8 @@ broken down again by this flow.
 Generation uses one bounded AI request with a 45-second timeout and a compact
 source context. Proposals always contain a concrete goal, implementation scope,
 conditions/exceptions, Dev checklist, Test checklist, and testable acceptance
-criteria; generic reading/analysis/completion tasks are explicitly rejected by
-the prompt.
+criteria; generic reading/analysis/completion tasks and scope inferred only
+from reference documents are explicitly rejected by the prompt.
 
 **AI usage report** (`/admin/ai-usage`) — system admins can view total AI calls,
 input/output tokens, estimated cost, per-user summaries, and recent usage logs.
