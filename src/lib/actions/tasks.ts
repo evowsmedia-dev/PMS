@@ -890,15 +890,8 @@ export async function previewAiSubtasksAction(
         taskId,
         task,
         generation: reusableGeneration,
-        parsedProposals: storedProposals.proposals,
         currentContextHash: prepared.contextHash,
       });
-    }
-    if (requestedGeneration) {
-      return {
-        error:
-          "Phiên bản AI đã lưu bị hỏng và không thể khôi phục. Hãy chọn Tạo phiên bản mới.",
-      };
     }
   }
 
@@ -952,7 +945,6 @@ export async function previewAiSubtasksAction(
       taskId,
       task,
       generation,
-      parsedProposals: aiResult.proposals,
       currentContextHash: prepared.contextHash,
       success:
         aiResult.proposals.length > 0
@@ -973,7 +965,6 @@ async function buildAiSubtaskPreviewState({
   taskId,
   task,
   generation,
-  parsedProposals,
   currentContextHash,
   success,
 }: {
@@ -994,13 +985,11 @@ async function buildAiSubtaskPreviewState({
     createdAt: Date;
     createdBy: { fullName: string };
   };
-  parsedProposals?: AiSubtaskProposal[];
   currentContextHash: string;
   success?: string;
 }): Promise<AiSubtaskPreviewState> {
-  const proposals =
-    parsedProposals ?? parseStoredAiSubtaskProposals(generation.proposals)?.proposals;
-  if (!proposals) {
+  const parsedProposals = parseStoredAiSubtaskProposals(generation.proposals);
+  if (!parsedProposals) {
     return {
       error:
         "Phiên bản AI đã lưu bị hỏng và không thể khôi phục. Hãy chọn Tạo phiên bản mới.",
@@ -1010,8 +999,8 @@ async function buildAiSubtaskPreviewState({
     sourceReferences?: AiSubtaskSourceReference[];
   };
   const sourceReferences = snapshot.sourceReferences ?? [];
-  const coverageReport = calculateAiSubtaskCoverage(proposals, sourceReferences);
-  const sourceHighlights = proposals.map(
+  const coverageReport = calculateAiSubtaskCoverage(parsedProposals.proposals, sourceReferences);
+  const sourceHighlights = parsedProposals.proposals.map(
     (proposal) => `AI_SUBTASK:${taskId}:${proposal.sourceKey}`,
   );
   const existing = sourceHighlights.length
@@ -1028,7 +1017,7 @@ async function buildAiSubtaskPreviewState({
   });
   return {
     success: success ?? `Đã tải lại phiên bản ${generation.versionNo}; không gọi AI mới.`,
-    proposals: proposals.map((proposal) => ({
+    proposals: parsedProposals.proposals.map((proposal) => ({
       ...proposal,
       duplicate: existingKeys.has(`AI_SUBTASK:${taskId}:${proposal.sourceKey}`),
     })),
