@@ -4,7 +4,7 @@ import { openai } from "@ai-sdk/openai";
 import sanitizeHtml from "sanitize-html";
 import { z } from "zod";
 
-export const AI_SUBTASK_PROMPT_VERSION = "2026-07-10.v4";
+export const AI_SUBTASK_PROMPT_VERSION = "2026-07-09.v3";
 const DEFAULT_AI_TASK_MODEL = "gpt-5.4-mini";
 const MAX_PROPOSALS = 16;
 const MAX_CONTEXT_CHARS = 24000;
@@ -36,7 +36,6 @@ export interface AiSubtaskSourceReference {
   label: string;
   text: string;
   mandatory: boolean;
-  sourceType: "PRIMARY_SOURCE" | "REFERENCE_ONLY";
 }
 
 export interface AiSubtaskProposal {
@@ -49,8 +48,6 @@ export interface AiSubtaskProposal {
   dependencies: string[];
   coveredSourceRefs: string[];
   sourceEvidence: string;
-  referenceCheckStatus: "CONSISTENT" | "NEEDS_REVIEW" | "NOT_CHECKED";
-  referenceNotes: string;
 }
 
 export interface AiSubtaskCoverageReport {
@@ -92,8 +89,6 @@ const aiSubtaskSchema = z.object({
         dependencies: z.array(z.string().min(1).max(120)).max(10),
         coveredSourceRefs: z.array(z.string().min(1).max(160)).min(1).max(30),
         sourceEvidence: z.string().min(1).max(1000),
-        referenceCheckStatus: z.enum(["CONSISTENT", "NEEDS_REVIEW", "NOT_CHECKED"]),
-        referenceNotes: z.string().max(1000),
       }),
     )
     .max(MAX_PROPOSALS),
@@ -141,37 +136,25 @@ async function runGeneration(
     maxRetries: 1,
     schema: aiSubtaskSchema,
     schemaName: "TaskBreakdownProposal",
-    schemaDescription: "Danh sách sub-task chỉ phân rã từ task cha, có đối chiếu tài liệu/link tham khảo và không quá 8 giờ Dev.",
+    schemaDescription: "Danh sách sub-task truy vết được về task cha và không quá 8 giờ Dev.",
     system: [
       "Bạn là Tech Lead và BA đang phân rã công việc cho một middle developer.",
-      "Task cha là source of truth duy nhất để phân rã sub-task.",
-      "Chỉ được tạo scope, logic, rule và acceptance criteria từ PRIMARY_SOURCE.",
-      "REFERENCE_ONLY chỉ dùng để đối chiếu tính nhất quán với yêu cầu ban đầu; không được dùng để tạo thêm task hoặc thêm logic ngoài task cha.",
       "Ưu tiên vertical slice có đầu ra kiểm thử được và không chồng chéo.",
       "Mỗi sub-task phải hoàn thành trong 0.5-8 giờ; phần lớn hơn phải chia tiếp.",
       "Không tạo việc đọc tài liệu, tìm hiểu, phân tích chung hoặc phạm vi không có trong nguồn.",
       "Mỗi proposal bắt buộc có đúng format: Mục tiêu; Phạm vi triển khai; Điều kiện và ngoại lệ; Checklist Dev; Checklist Test; Acceptance criteria kiểm chứng được.",
       "Mục tiêu phải là hành vi kỹ thuật hoặc nghiệp vụ cụ thể, không phải hoạt động chung chung.",
       "Không tạo task có mục tiêu đọc tài liệu, phân tích, tìm hiểu hoặc hoàn thiện chức năng.",
-      "Mỗi sub-task phải dẫn coveredSourceRefs hợp lệ từ PRIMARY_SOURCE và sourceEvidence bám sát task cha.",
-      "Tất cả PRIMARY_SOURCE bắt buộc phải được bao phủ bởi các sub-task được đề xuất.",
-      "Nếu REFERENCE_ONLY mâu thuẫn hoặc thiếu thống nhất với task cha, chỉ ghi referenceCheckStatus NEEDS_REVIEW và referenceNotes; không tự sửa hoặc suy diễn.",
+      "Mỗi sub-task phải dẫn coveredSourceRefs hợp lệ và sourceEvidence bám sát nguồn.",
+      "Tất cả source reference bắt buộc phải được bao phủ.",
       "Trả về tiếng Việt, đủ rõ để Dev làm và Tester nghiệm thu.",
     ].join("\n"),
     prompt: [
       `Phân rã task cha thành tối đa ${MAX_PROPOSALS} sub-task.`,
       "sourceKey phải ngắn, ổn định theo phạm vi và dependencies phải dùng sourceKey.",
       "Acceptance criteria phải mô tả kết quả quan sát/kiểm thử được, không dùng từ mơ hồ như đúng, ổn, hoàn thiện.",
-      "PRIMARY_SOURCE là nguồn duy nhất được phép dùng để tạo sub-task:",
-      sourceReferences
-        .filter((ref) => ref.sourceType === "PRIMARY_SOURCE")
-        .map((ref) => `[${ref.id}] ${ref.label}: ${ref.text}`)
-        .join("\n"),
-      "REFERENCE_ONLY chỉ để kiểm tra thống nhất, không dùng để sinh thêm phạm vi:",
-      sourceReferences
-        .filter((ref) => ref.sourceType === "REFERENCE_ONLY")
-        .map((ref) => `[${ref.id}] ${ref.label}: ${ref.text}`)
-        .join("\n") || "Không có tài liệu/link tham khảo.",
+      "Nguồn được phép sử dụng:",
+      sourceReferences.map((ref) => `[${ref.id}] ${ref.label}: ${ref.text}`).join("\n"),
     ]
       .filter(Boolean)
       .join("\n\n")
@@ -181,7 +164,7 @@ async function runGeneration(
 
 function buildSourceReferences(context: AiSubtaskParentContext) {
   const refs: AiSubtaskSourceReference[] = [
-    { id: "TITLE", label: "Tiêu đề", text: context.title.trim(), mandatory: true, sourceType: "PRIMARY_SOURCE" },
+    { id: "TITLE", label: "Tiêu đề", text: context.title.trim(), mandatory: true },
   ];
   splitContent(context.description).slice(0, 12).forEach((text, index) =>
     refs.push({
@@ -189,7 +172,6 @@ function buildSourceReferences(context: AiSubtaskParentContext) {
       label: "Mô tả",
       text,
       mandatory: true,
-      sourceType: "PRIMARY_SOURCE",
     }),
   );
   splitContent(context.acceptanceCriteria).slice(0, 12).forEach((text, index) =>
@@ -198,7 +180,6 @@ function buildSourceReferences(context: AiSubtaskParentContext) {
       label: "Tiêu chí nghiệm thu",
       text,
       mandatory: true,
-      sourceType: "PRIMARY_SOURCE",
     }),
   );
   let documentChunkCount = 0;
@@ -211,21 +192,11 @@ function buildSourceReferences(context: AiSubtaskParentContext) {
           label: `Tài liệu ${document.title}`,
           text,
           mandatory: false,
-          sourceType: "REFERENCE_ONLY",
         });
         documentChunkCount += 1;
       },
     );
   }
-  context.externalLinks.slice(0, 12).forEach((link, index) => {
-    refs.push({
-      id: `LINK:${String(index + 1).padStart(2, "0")}`,
-      label: "External link tham khảo",
-      text: link,
-      mandatory: false,
-      sourceType: "REFERENCE_ONLY",
-    });
-  });
   return refs;
 }
 
@@ -242,18 +213,14 @@ function splitContent(value: string, maxLength = 800) {
 }
 
 function normalizeProposals(raw: RawProposal[], refs: AiSubtaskSourceReference[]) {
-  const primaryRefs = new Set(
-    refs
-      .filter((ref) => ref.sourceType === "PRIMARY_SOURCE" || ref.mandatory)
-      .map((ref) => ref.id),
-  );
+  const validRefs = new Set(refs.map((ref) => ref.id));
   const seen = new Set<string>();
   const proposals: AiSubtaskProposal[] = [];
   for (const item of raw) {
     const sourceKey = normalizeSourceKey(item.sourceKey);
     if (!sourceKey || seen.has(sourceKey)) continue;
     const coveredSourceRefs = [
-      ...new Set(item.coveredSourceRefs.filter((ref) => primaryRefs.has(ref))),
+      ...new Set(item.coveredSourceRefs.filter((ref) => validRefs.has(ref))),
     ];
     if (coveredSourceRefs.length === 0) continue;
     seen.add(sourceKey);
@@ -267,8 +234,6 @@ function normalizeProposals(raw: RawProposal[], refs: AiSubtaskSourceReference[]
       dependencies: item.dependencies.map(normalizeSourceKey).filter(Boolean),
       coveredSourceRefs,
       sourceEvidence: item.sourceEvidence.trim(),
-      referenceCheckStatus: item.referenceCheckStatus,
-      referenceNotes: item.referenceNotes.trim(),
     });
   }
   return proposals;

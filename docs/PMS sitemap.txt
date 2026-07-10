@@ -93,10 +93,9 @@ Ghi chú:
 │   ├── Chi tiết task project-level và sub-task dùng cùng format với detail task trong module.
 │   ├── Hiển thị trạng thái trong grid thông tin, không hiển thị field Mã trong grid.
 │   ├── Button Chỉnh sửa task, Tạo sub-task và Tự động tạo sub-task bằng AI.
-│   ├── AI chỉ phân rã từ tiêu đề, mô tả và tiêu chí nghiệm thu của task cha; tài liệu/link liên quan chỉ dùng để đối chiếu thống nhất.
-│   ├── Preview cho phép chọn/chỉnh sửa và giới hạn mỗi sub-task từ 0.5-8 giờ Dev.
+│   ├── AI đọc context task cha, preview cho phép chọn/chỉnh sửa và giới hạn mỗi sub-task từ 0.5-8 giờ Dev.
 │   ├── Cùng context tái sử dụng generation gần nhất; hỗ trợ tạo mới, xem lịch sử và so sánh các phiên bản proposal.
-│   ├── Source mapping truy vết nội dung task cha; chỉ cho tạo khi mandatory coverage của task cha đầy đủ.
+│   ├── Source mapping truy vết mô tả/acceptance criteria; chỉ cho tạo khi mandatory coverage đầy đủ.
 │   ├── Planning metadata, task cha, QA links.
 │   ├── Tài liệu liên quan hỗ trợ chọn nhiều tài liệu trong dự án.
 │   ├── External link mở new tab.

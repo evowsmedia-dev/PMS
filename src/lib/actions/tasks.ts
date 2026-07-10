@@ -261,8 +261,6 @@ const aiSubtaskInputSchema = z
       dependencies: z.array(z.string().trim().min(1).max(120)).max(10),
       coveredSourceRefs: z.array(z.string().trim().min(1).max(160)).min(1).max(30),
       sourceEvidence: z.string().trim().min(1).max(1000),
-      referenceCheckStatus: z.enum(["CONSISTENT", "NEEDS_REVIEW", "NOT_CHECKED"]).default("NOT_CHECKED"),
-      referenceNotes: z.string().trim().max(1000).default(""),
     }),
   )
   .min(1)
@@ -280,8 +278,6 @@ const legacyAiSubtaskInputSchema = z
       dependencies: z.array(z.string().trim().min(1).max(120)).max(10).optional(),
       coveredSourceRefs: z.array(z.string().trim().min(1).max(160)).max(30).optional(),
       sourceEvidence: z.string().trim().max(1000).optional(),
-      referenceCheckStatus: z.enum(["CONSISTENT", "NEEDS_REVIEW", "NOT_CHECKED"]).optional(),
-      referenceNotes: z.string().trim().max(1000).optional(),
     }),
   )
   .min(1)
@@ -303,24 +299,8 @@ function parseStoredAiSubtaskProposals(rawProposals: unknown) {
       coveredSourceRefs: proposal.coveredSourceRefs ?? [],
       sourceEvidence:
         proposal.sourceEvidence || "Phiên bản cũ chưa lưu thông tin trích dẫn nguồn.",
-      referenceCheckStatus: proposal.referenceCheckStatus ?? "NOT_CHECKED",
-      referenceNotes: proposal.referenceNotes ?? "",
     })),
   };
-}
-
-function isPrimaryAiSubtaskSourceRef(ref: AiSubtaskSourceReference) {
-  return ref.sourceType === "PRIMARY_SOURCE" || ref.mandatory;
-}
-
-function findProposalsMissingPrimaryCoverage(
-  proposals: Pick<AiSubtaskProposal, "sourceKey" | "coveredSourceRefs">[],
-  refs: AiSubtaskSourceReference[],
-) {
-  const primaryRefs = new Set(refs.filter(isPrimaryAiSubtaskSourceRef).map((ref) => ref.id));
-  return proposals
-    .filter((proposal) => !proposal.coveredSourceRefs.some((ref) => primaryRefs.has(ref)))
-    .map((proposal) => proposal.sourceKey);
 }
 
 /** Module-scoped create (legacy route). Keeps the original lightweight fields. */
@@ -1084,16 +1064,9 @@ export async function createAiSubtasksAction(
   const snapshot = generation.contextSnapshot as {
     sourceReferences?: AiSubtaskSourceReference[];
   };
-  const sourceReferences = snapshot.sourceReferences ?? [];
-  const missingPrimaryCoverage = findProposalsMissingPrimaryCoverage(proposals, sourceReferences);
-  if (missingPrimaryCoverage.length > 0) {
-    return {
-      error: `Chưa thể tạo task: proposal ${missingPrimaryCoverage.join(", ")} chưa truy vết về nội dung task cha.`,
-    };
-  }
   const coverageReport = calculateAiSubtaskCoverage(
     proposals,
-    sourceReferences,
+    snapshot.sourceReferences ?? [],
   );
   if (!coverageReport.complete) {
     return {
@@ -1243,16 +1216,9 @@ export async function saveAiSubtaskDraftAction(
   const snapshot = generation.contextSnapshot as {
     sourceReferences?: AiSubtaskSourceReference[];
   };
-  const sourceReferences = snapshot.sourceReferences ?? [];
-  const missingPrimaryCoverage = findProposalsMissingPrimaryCoverage(parsed.data, sourceReferences);
-  if (missingPrimaryCoverage.length > 0) {
-    return {
-      error: `Chưa thể lưu bản nháp: proposal ${missingPrimaryCoverage.join(", ")} chưa truy vết về nội dung task cha.`,
-    };
-  }
   const coverageReport = calculateAiSubtaskCoverage(
     parsed.data,
-    sourceReferences,
+    snapshot.sourceReferences ?? [],
   );
   if (coverageReport.invalidSourceRefs.length > 0) {
     return { error: "Source mapping chứa tham chiếu không hợp lệ." };

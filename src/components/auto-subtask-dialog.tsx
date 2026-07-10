@@ -57,13 +57,6 @@ export function AutoSubtaskDialog({
     () => (preview.sourceReferences ?? []).filter((ref) => ref.mandatory).map((ref) => ref.id),
     [preview.sourceReferences],
   );
-  const parentSourceReferences = useMemo(
-    () =>
-      (preview.sourceReferences ?? []).filter(
-        (ref) => ref.sourceType === "PRIMARY_SOURCE" || ref.mandatory,
-      ),
-    [preview.sourceReferences],
-  );
   const coveredRefs = useMemo(
     () => new Set(selectedProposals.flatMap((proposal) => proposal.coveredSourceRefs)),
     [selectedProposals],
@@ -201,7 +194,7 @@ export function AutoSubtaskDialog({
           <SummaryItem label="Đề xuất" value={String(proposals.length)} />
           <SummaryItem label="Đã chọn" value={String(selectedProposals.length)} />
           <SummaryItem label="Tổng Dev estimate" value={`${totalEstimate}h`} />
-          <SummaryItem label="Coverage task cha còn thiếu" value={String(missingRefs.length)} />
+          <SummaryItem label="Coverage còn thiếu" value={String(missingRefs.length)} />
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -255,7 +248,7 @@ export function AutoSubtaskDialog({
 
         {missingRefs.length > 0 ? (
           <Warning>
-            Task cha chưa được bao phủ: {missingRefs.join(", ")}. Hãy chọn source mapping từ task cha trước khi tạo.
+            Chưa bao phủ: {missingRefs.join(", ")}. Hãy chọn source mapping phù hợp trước khi tạo.
           </Warning>
         ) : effectiveParentEstimate > 0 && totalEstimate > effectiveParentEstimate ? (
           <Warning>
@@ -303,10 +296,10 @@ export function AutoSubtaskDialog({
                         </Field>
                       </div>
                       <details className="rounded-[10px] border p-2 text-xs">
-                        <summary className="cursor-pointer font-medium">Nguồn task cha ({proposal.coveredSourceRefs.length})</summary>
+                        <summary className="cursor-pointer font-medium">Nguồn truy vết ({proposal.coveredSourceRefs.length})</summary>
                         <p className="mt-2 text-muted-foreground">{proposal.sourceEvidence}</p>
                         <div className="mt-2 grid gap-1 sm:grid-cols-2">
-                          {parentSourceReferences.map((ref) => (
+                          {preview.sourceReferences?.map((ref) => (
                             <label key={ref.id} className="flex items-start gap-2 rounded-md p-1 hover:bg-muted/40">
                               <Checkbox checked={proposal.coveredSourceRefs.includes(ref.id)} disabled={proposal.duplicate} onCheckedChange={(checked) => toggleSourceRef(proposal.sourceKey, ref.id, checked === true)} />
                               <span><strong>{ref.id}</strong> · {ref.text}</span>
@@ -314,14 +307,6 @@ export function AutoSubtaskDialog({
                           ))}
                         </div>
                       </details>
-                      {proposal.referenceCheckStatus !== "NOT_CHECKED" || proposal.referenceNotes ? (
-                        <div className="rounded-[10px] border bg-muted/30 p-2 text-xs">
-                          <p className="font-medium">Đối chiếu tài liệu/link: {formatReferenceCheckStatus(proposal.referenceCheckStatus)}</p>
-                          {proposal.referenceNotes ? (
-                            <p className="mt-1 text-muted-foreground">{proposal.referenceNotes}</p>
-                          ) : null}
-                        </div>
-                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -375,10 +360,7 @@ function compareProposals(before: AiSubtaskPreviewProposal[], after: AiSubtaskPr
     if (left.devEstimateHours !== right.devEstimateHours) {
       changes.push(`Estimate ${left.devEstimateHours}h → ${right.devEstimateHours}h`);
     }
-    if (left.coveredSourceRefs.join("|") !== right.coveredSourceRefs.join("|")) changes.push("Coverage task cha");
-    if (left.referenceCheckStatus !== right.referenceCheckStatus || left.referenceNotes !== right.referenceNotes) {
-      changes.push("Đối chiếu tài liệu/link");
-    }
+    if (left.coveredSourceRefs.join("|") !== right.coveredSourceRefs.join("|")) changes.push("Source coverage");
     return { sourceKey, label: right.title, type: changes.length > 0 ? "Thay đổi" : "Không đổi", changes };
   });
 }
@@ -402,7 +384,7 @@ function VersionDiff({
     <div className="max-h-32 overflow-y-auto rounded-[10px] border p-3 text-xs">
       <p className="mb-2 font-semibold">So với phiên bản {versionNo}</p>
       <p className="mb-2 text-muted-foreground">
-        Tổng estimate {beforeHours}h → {afterHours}h · Coverage task cha {beforeCoverage} → {afterCoverage} nguồn
+        Tổng estimate {beforeHours}h → {afterHours}h · Coverage {beforeCoverage} → {afterCoverage} nguồn
       </p>
       <div className="space-y-1">
         {diffs.map((diff) => (
@@ -426,10 +408,4 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function SummaryItem({ label, value }: { label: string; value: string }) {
   return <div className="rounded-[10px] border bg-muted/30 p-2.5"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 font-semibold">{value}</p></div>;
-}
-
-function formatReferenceCheckStatus(status: AiSubtaskPreviewProposal["referenceCheckStatus"]) {
-  if (status === "CONSISTENT") return "Thống nhất";
-  if (status === "NEEDS_REVIEW") return "Cần rà soát";
-  return "Chưa kiểm tra";
 }
