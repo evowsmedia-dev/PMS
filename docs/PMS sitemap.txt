@@ -14,6 +14,10 @@ Ghi chú:
 ├── /dashboard/overview
 │   ├── Dashboard tổng hợp.
 │   ├── Chỉ số dự án, phân hệ, tài liệu, task.
+│   ├── BI Dashboard tổng quan theo các dự án user có quyền xem.
+│   ├── KPI phase 1: progress actual/target, SPI proxy, completion/on-time, cycle/lead time, velocity, burndown, effort variance, defect, issue resolution, resource utilization.
+│   ├── Bảng "Dự án cần chú ý" xếp theo overdue, blocked, bug mở và SPI proxy.
+│   ├── Chỉ số chưa có nguồn dữ liệu hiện hữu hiển thị "Chưa cấu hình dữ liệu".
 │   └── Dữ liệu phân hệ lấy từ tổng số module còn hiển thị của các dự án.
 │
 ├── /dashboard/my-tasks
@@ -49,7 +53,10 @@ Ghi chú:
     ├── 3 card trạng thái: task, test/bug, tài liệu.
     ├── Task/test/tài liệu dùng donut chart + danh sách chỉ số ngắn.
     ├── Card task hiển thị tổng task, hoàn thành, quá hạn, blocked, giờ estimate/actual và variance ngày công.
-    ├── Nếu user có quyền `report.view`: hiển thị báo cáo dự án gồm trạng thái nhân sự và burndown.
+    ├── Nếu user có quyền `report.view`: hiển thị BI Dashboard phase 1 của dự án.
+    ├── BI Dashboard dùng `docs/BI_dashboard_rule.md` làm source công thức, nhưng chỉ tự động hóa KPI có dữ liệu live từ task/bug/time log/snapshot/member.
+    ├── Các KPI thiếu dữ liệu như AC/CPI/CV/EAC tài chính, risk exposure, thay đổi phạm vi, overtime hiển thị "Chưa cấu hình dữ liệu".
+    ├── Nếu user có quyền `report.view`: hiển thị thêm báo cáo dự án gồm trạng thái nhân sự và burndown.
     ├── Không còn card bar riêng cho task-status hoặc bug-severity trong report section.
     ├── Thông tin chung: mã dự án, trạng thái, ưu tiên, phân hệ, ngày bắt đầu/kết thúc, mô tả.
     └── Vấn đề nổi bật nếu có.
@@ -183,7 +190,7 @@ Ghi chú:
 │   └── Comment task.
 │
 ├── /projects/:projectId/reports
-│   └── Redirect về `/projects/:projectId/overview`; nội dung report hiện nằm trong dashboard dự án.
+│   └── Redirect về `/projects/:projectId/overview`; BI dashboard và nội dung report hiện nằm trong dashboard dự án.
 │
 ├── /projects/:projectId/settings/edit
 │   ├── Sửa thông tin dự án.

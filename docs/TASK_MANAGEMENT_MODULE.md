@@ -100,10 +100,22 @@ Legacy module-scoped task routes (`…/modules/[moduleId]/tasks/…`) keep worki
 `taskHref()` (`src/lib/task-href.ts`) routes module-less tasks to the project-level
 URL and module tasks to their legacy URL.
 
-Report content on the project dashboard currently includes personnel workload
-and burndown. Headline task / bug / document status distributions live in the
-overview's top cards; the old report-only task-status and bug-severity bar cards
-were removed.
+Report content on the project dashboard now includes a phase-1 BI dashboard
+derived from `docs/BI_dashboard_rule.md`, plus the existing personnel workload
+and burndown section. The BI cards use current `Task`, `Bug`, `TimeLog`,
+`DailyProjectSnapshot`, `Sprint`, and `ProjectMember` data to calculate progress,
+target progress, SPI proxy, completion/on-time rates, cycle/lead time, velocity,
+burndown, effort variance, defect rate, issue resolution, and resource
+utilization. Metrics that need data not yet modeled in PMS, such as financial
+AC/CPI/CV/EAC, risk exposure, scope baseline changes, or overtime
+classification, are shown as "Chưa cấu hình dữ liệu" instead of estimated from
+fake values.
+
+`/dashboard/overview` also shows a portfolio BI dashboard across projects the
+current user can see, with an attention table sorted by overdue work, blocked
+tasks, bugs, and SPI proxy. Headline task / bug / document status distributions
+remain in the project overview top cards; the old report-only task-status and
+bug-severity bar cards were removed.
 
 Nav lives in the project sidebar under **"Quản lý công việc"**
 (`src/app/(dashboard)/projects/[projectId]/layout.tsx`).
@@ -202,6 +214,13 @@ the unified task detail edit form.
 `CRON_SECRET`) iterates active projects and upserts one `DailyProjectSnapshot` per
 project per day; the overview burndown reads from these rows. Scheduled daily at
 01:00 via `vercel.json`.
+
+**BI dashboard phase 1** — `src/lib/reports/bi-dashboard.ts` is the shared
+calculation layer for `/dashboard/overview` and `/projects/:projectId/overview`.
+It follows the KPI groups in `docs/BI_dashboard_rule.md`, but only automates
+metrics backed by existing live data. EVM financial metrics and risk/scope
+metrics without current source data stay neutral and explicitly report "Chưa cấu
+hình dữ liệu".
 
 ---
 
