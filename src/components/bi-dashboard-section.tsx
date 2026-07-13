@@ -7,7 +7,6 @@ import type { BiDashboardMetrics, ProjectBiSummary } from "@/lib/reports/bi-dash
 export function ProjectBiDashboardSection({ metrics }: { metrics: ProjectBiSummary }) {
   return (
     <div className="space-y-4">
-      <SectionHeader title="BI Dashboard" description="Chỉ số vận hành tính theo công thức BI phase 1." />
       <BiMetricGrid metrics={metrics} />
       <div className="grid gap-4 lg:grid-cols-2">
         <ProgressComparison metrics={metrics} />

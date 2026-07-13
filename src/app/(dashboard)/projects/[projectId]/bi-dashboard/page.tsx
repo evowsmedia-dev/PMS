@@ -4,9 +4,10 @@ import { prisma } from "@/lib/prisma";
 import { canAccess } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { computeProjectBiMetrics } from "@/lib/reports/bi-dashboard";
+import type { ProjectBiSummary } from "@/lib/reports/bi-dashboard";
 import { ProjectBiDashboardSection } from "@/components/bi-dashboard-section";
 import { PageSection, PageToolbar } from "@/components/page-shell";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function ProjectBiDashboardPage({
   params,
@@ -33,6 +34,7 @@ export default async function ProjectBiDashboardPage({
 
   const metrics = await computeProjectBiMetrics(projectId);
   if (!metrics) notFound();
+  const summary = buildBiSummary(metrics);
 
   return (
     <PageSection>
@@ -41,12 +43,110 @@ export default async function ProjectBiDashboardPage({
         description={`${project.code} - ${project.name}`}
       />
       <Card>
-        <CardContent className="pt-6 text-sm text-muted-foreground">
-          Các chỉ số phase 1 được tính từ dữ liệu task, bug, time log, snapshot và thành viên dự án hiện có.
-          Chỉ số chưa có nguồn dữ liệu sẽ hiển thị trạng thái chưa cấu hình thay vì dùng số giả.
+        <CardHeader>
+          <CardTitle className="text-sm">Nhận xét tóm tắt</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ul className="space-y-2 text-sm text-muted-foreground">
+            {summary.map((item) => (
+              <li key={item} className="leading-6">
+                {item}
+              </li>
+            ))}
+          </ul>
         </CardContent>
       </Card>
       <ProjectBiDashboardSection metrics={metrics} />
     </PageSection>
   );
+}
+
+function buildBiSummary(metrics: ProjectBiSummary) {
+  const summary: string[] = [];
+  const actual = metrics.progress.actualPercent;
+  const target = metrics.progress.targetPercent;
+  const spi = metrics.progress.spi;
+  const completion = metrics.progress.completionRatePercent;
+  const effortVariance = metrics.effort.effortVariancePercent;
+  const utilization = metrics.effort.resourceUtilizationPercent;
+
+  if (metrics.counts.tasks === 0) {
+    return [
+      "Dự án chưa có task active để phân tích tiến độ, effort và chất lượng.",
+      "Hãy tạo task, estimate và time log để dashboard có thể đưa ra nhận xét vận hành chính xác hơn.",
+    ];
+  }
+
+  if (actual !== null && target !== null) {
+    const diff = actual - target;
+    if (diff < -10) {
+      summary.push(
+        `Tiến độ thực tế đang thấp hơn kế hoạch ${formatPercent(Math.abs(diff))}; SPI proxy hiện là ${formatRatio(spi)}, cần rà soát các task trễ hoặc blocked.`,
+      );
+    } else if (diff > 10) {
+      summary.push(
+        `Tiến độ thực tế đang cao hơn kế hoạch ${formatPercent(diff)}; SPI proxy hiện là ${formatRatio(spi)}, dự án đang có tín hiệu vượt nhịp kế hoạch.`,
+      );
+    } else {
+      summary.push(
+        `Tiến độ thực tế đang bám sát kế hoạch với chênh lệch ${formatPercent(diff)}; SPI proxy hiện là ${formatRatio(spi)}.`,
+      );
+    }
+  } else {
+    summary.push("Dữ liệu ngày kế hoạch hoặc estimate chưa đủ để so sánh tiến độ thực tế với target.");
+  }
+
+  const riskParts = [];
+  if (metrics.quality.overdueTasks > 0) riskParts.push(`${metrics.quality.overdueTasks} task quá hạn`);
+  if (metrics.quality.blockedTasks > 0) riskParts.push(`${metrics.quality.blockedTasks} task blocked`);
+  if (metrics.quality.openBugs > 0) riskParts.push(`${metrics.quality.openBugs} bug mở`);
+  if (riskParts.length > 0) {
+    summary.push(`Điểm cần chú ý hiện tại: ${riskParts.join(", ")}.`);
+  } else {
+    summary.push("Chưa ghi nhận task quá hạn, task blocked hoặc bug mở trong dữ liệu hiện tại.");
+  }
+
+  if (effortVariance !== null) {
+    if (effortVariance > 20) {
+      summary.push(
+        `Actual effort đang vượt estimate ${formatPercent(effortVariance)} (${formatHours(metrics.effort.actualHours)} / ${formatHours(metrics.effort.estimateHours)}), nên kiểm tra scope hoặc chất lượng estimate.`,
+      );
+    } else if (effortVariance < -20) {
+      summary.push(
+        `Actual effort đang thấp hơn estimate ${formatPercent(Math.abs(effortVariance))}; cần xác nhận team đã log giờ đầy đủ trước khi kết luận tiết kiệm effort.`,
+      );
+    } else {
+      summary.push(
+        `Effort đang trong vùng kiểm soát: ${formatHours(metrics.effort.actualHours)} actual so với ${formatHours(metrics.effort.estimateHours)} estimate.`,
+      );
+    }
+  } else {
+    summary.push("Chưa đủ estimate/time log để đánh giá chênh lệch effort.");
+  }
+
+  if (completion !== null) {
+    summary.push(`Tỷ lệ hoàn thành hiện tại là ${formatPercent(completion)} trên ${metrics.counts.tasks} task được tính.`);
+  }
+
+  if (utilization !== null) {
+    summary.push(`Resource utilization proxy hiện là ${formatPercent(utilization)}, tính theo actual hours trên capacity proxy của thành viên dự án.`);
+  }
+
+  return summary;
+}
+
+function formatPercent(value: number) {
+  return `${formatNumber(value)}%`;
+}
+
+function formatRatio(value: number | null) {
+  return value === null ? "chưa đủ dữ liệu" : `${formatNumber(value)}x`;
+}
+
+function formatHours(value: number) {
+  return `${formatNumber(value)}h`;
+}
+
+function formatNumber(value: number) {
+  return new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 1 }).format(value);
 }
