@@ -53,10 +53,7 @@ Ghi chú:
     ├── 3 card trạng thái: task, test/bug, tài liệu.
     ├── Task/test/tài liệu dùng donut chart + danh sách chỉ số ngắn.
     ├── Card task hiển thị tổng task, hoàn thành, quá hạn, blocked, giờ estimate/actual và variance ngày công.
-    ├── Nếu user có quyền `report.view`: hiển thị BI Dashboard phase 1 của dự án.
-    ├── BI Dashboard dùng `docs/BI_dashboard_rule.md` làm source công thức, nhưng chỉ tự động hóa KPI có dữ liệu live từ task/bug/time log/snapshot/member.
-    ├── Các KPI thiếu dữ liệu như AC/CPI/CV/EAC tài chính, risk exposure, thay đổi phạm vi, overtime hiển thị "Chưa cấu hình dữ liệu".
-    ├── Nếu user có quyền `report.view`: hiển thị thêm báo cáo dự án gồm trạng thái nhân sự và burndown.
+    ├── Nếu user có quyền `report.view`: hiển thị báo cáo dự án gồm trạng thái nhân sự và burndown.
     ├── Không còn card bar riêng cho task-status hoặc bug-severity trong report section.
     ├── Thông tin chung: mã dự án, trạng thái, ưu tiên, phân hệ, ngày bắt đầu/kết thúc, mô tả.
     └── Vấn đề nổi bật nếu có.
@@ -66,13 +63,19 @@ Ghi chú:
 ├── Layout dự án
 │   ├── Sidebar project desktop.
 │   ├── Mobile project navigation bằng sheet.
-│   ├── Mục cùng cấp: Dashboard dự án, Tài liệu, Export JSON.
+│   ├── Mục cùng cấp: Dashboard dự án, BI Dashboard, Tài liệu, Export JSON.
 │   ├── Nhóm "Quản lý công việc" chứa task list, kanban, gantt, bugs, test cases, planning.
 │   ├── "Tài liệu" hiển thị tài liệu chung và các loại tài liệu/phân hệ.
 │   ├── Icon thêm loại tài liệu đang tạm ẩn.
 │   ├── Nút thêm tài liệu vẫn hiển thị theo quyền.
 │   ├── Menu tài liệu tự wrap khi tên dài.
 │   └── User chỉ thấy phân hệ được phép truy cập theo assignment.
+│
+├── /projects/:projectId/bi-dashboard
+│   ├── Module BI Dashboard riêng dưới menu sidebar của Dashboard dự án.
+│   ├── Chỉ hiển thị cho user có quyền `report.view`; user thiếu quyền bị chuyển về `/overview`.
+│   ├── Dùng `docs/BI_dashboard_rule.md` làm source công thức, nhưng chỉ tự động hóa KPI có dữ liệu live từ task/bug/time log/snapshot/member.
+│   └── Các KPI thiếu dữ liệu như AC/CPI/CV/EAC tài chính, risk exposure, thay đổi phạm vi, overtime hiển thị "Chưa cấu hình dữ liệu".
 │
 ├── /projects/:projectId/tasks
 │   ├── Task list project-level.
@@ -190,7 +193,7 @@ Ghi chú:
 │   └── Comment task.
 │
 ├── /projects/:projectId/reports
-│   └── Redirect về `/projects/:projectId/overview`; BI dashboard và nội dung report hiện nằm trong dashboard dự án.
+│   └── Redirect về `/projects/:projectId/bi-dashboard`; giữ để link/bookmark cũ không 404.
 │
 ├── /projects/:projectId/settings/edit
 │   ├── Sửa thông tin dự án.
@@ -272,7 +275,7 @@ Main user flow:
   -> [/dashboard/overview]
   -> [/projects]
   -> [/projects/:projectId/overview]
-  -> [Sidebar project: Dashboard dự án / Tài liệu / Export JSON]
+  -> [Sidebar project: Dashboard dự án / BI Dashboard / Tài liệu / Export JSON]
   -> [/projects/:projectId/modules/:moduleId/documents]
   -> [/projects/:projectId/modules/:moduleId/documents/:docId]
   -> [Edit / History / Comment / Task liên quan]

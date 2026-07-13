@@ -66,6 +66,14 @@ export function ProjectMobileNav({
                 Dashboard dự án
               </Link>
             </SheetClose>
+            <SheetClose asChild>
+              <Link
+                href={`/projects/${projectId}/bi-dashboard`}
+                className="block rounded-lg px-2 py-1.5 hover:bg-muted"
+              >
+                BI Dashboard
+              </Link>
+            </SheetClose>
           </nav>
 
           <ProjectDocumentsNav

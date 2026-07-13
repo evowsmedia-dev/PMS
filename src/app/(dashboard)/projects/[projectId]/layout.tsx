@@ -131,6 +131,12 @@ export default async function ProjectLayout({
             <Link href={`/projects/${project.id}/overview`} className="block rounded-lg px-2 py-1.5 hover:bg-accent">
               Dashboard dự án
             </Link>
+            <Link
+              href={`/projects/${project.id}/bi-dashboard`}
+              className="block rounded-lg px-2 py-1.5 hover:bg-accent"
+            >
+              BI Dashboard
+            </Link>
             <Link href={`/projects/${project.id}/tasks`} className="block rounded-lg px-2 py-1.5 hover:bg-accent">
               Task
             </Link>

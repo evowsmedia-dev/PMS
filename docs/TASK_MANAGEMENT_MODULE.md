@@ -94,22 +94,23 @@ as-is.
 | `epics` / `sprints` / `milestones` | List + inline create + task counts |
 | `bugs` | Bug list + filter + create + status change |
 | `test-cases` | Test-case list + create + inline execute (pass/fail) |
-| `reports` | Redirect to project overview; report content is embedded in `/overview` |
+| `bi-dashboard` | Project BI dashboard module, shown from the project sidebar under Dashboard dự án |
+| `reports` | Redirect to `bi-dashboard` for existing links/bookmarks |
 
 Legacy module-scoped task routes (`…/modules/[moduleId]/tasks/…`) keep working —
 `taskHref()` (`src/lib/task-href.ts`) routes module-less tasks to the project-level
 URL and module tasks to their legacy URL.
 
-Report content on the project dashboard now includes a phase-1 BI dashboard
-derived from `docs/BI_dashboard_rule.md`, plus the existing personnel workload
-and burndown section. The BI cards use current `Task`, `Bug`, `TimeLog`,
-`DailyProjectSnapshot`, `Sprint`, and `ProjectMember` data to calculate progress,
-target progress, SPI proxy, completion/on-time rates, cycle/lead time, velocity,
-burndown, effort variance, defect rate, issue resolution, and resource
-utilization. Metrics that need data not yet modeled in PMS, such as financial
-AC/CPI/CV/EAC, risk exposure, scope baseline changes, or overtime
-classification, are shown as "Chưa cấu hình dữ liệu" instead of estimated from
-fake values.
+The project BI dashboard now lives in `/projects/:projectId/bi-dashboard` as a
+separate project-sidebar module under **Dashboard dự án**, rather than inside the
+overview page. It is derived from `docs/BI_dashboard_rule.md` and uses current
+`Task`, `Bug`, `TimeLog`, `DailyProjectSnapshot`, `Sprint`, and `ProjectMember`
+data to calculate progress, target progress, SPI proxy, completion/on-time
+rates, cycle/lead time, velocity, burndown, effort variance, defect rate, issue
+resolution, and resource utilization. Metrics that need data not yet modeled in
+PMS, such as financial AC/CPI/CV/EAC, risk exposure, scope baseline changes, or
+overtime classification, are shown as "Chưa cấu hình dữ liệu" instead of
+estimated from fake values.
 
 `/dashboard/overview` also shows a portfolio BI dashboard across projects the
 current user can see, with an attention table sorted by overdue work, blocked
@@ -216,7 +217,7 @@ project per day; the overview burndown reads from these rows. Scheduled daily at
 01:00 via `vercel.json`.
 
 **BI dashboard phase 1** — `src/lib/reports/bi-dashboard.ts` is the shared
-calculation layer for `/dashboard/overview` and `/projects/:projectId/overview`.
+calculation layer for `/dashboard/overview` and `/projects/:projectId/bi-dashboard`.
 It follows the KPI groups in `docs/BI_dashboard_rule.md`, but only automates
 metrics backed by existing live data. EVM financial metrics and risk/scope
 metrics without current source data stay neutral and explicitly report "Chưa cấu

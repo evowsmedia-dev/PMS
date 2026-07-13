@@ -12,8 +12,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageSection } from "@/components/page-shell";
 import { ProjectReportSection } from "@/components/project-report-section";
-import { ProjectBiDashboardSection } from "@/components/bi-dashboard-section";
-import { computeProjectBiMetrics } from "@/lib/reports/bi-dashboard";
 import {
   TASK_STATUS_LABEL,
   TASK_STATUS_ORDER,
@@ -78,12 +76,11 @@ export default async function ProjectOverviewPage({
 
   // Task and bug metrics are project-wide (they include module-less tasks and
   // subtasks); document status stays module-scoped to what the user can see.
-  const [metrics, taskStatusCounts, bugStatusCounts, docStatusCounts, biMetrics] = await Promise.all([
+  const [metrics, taskStatusCounts, bugStatusCounts, docStatusCounts] = await Promise.all([
     computeProjectMetrics(projectId),
     prisma.task.groupBy({ by: ["status"], where: { projectId, deletedAt: null }, _count: true }),
     prisma.bug.groupBy({ by: ["status"], where: { projectId, deletedAt: null }, _count: true }),
     prisma.document.groupBy({ by: ["status"], where: docScope, _count: true }),
-    canViewReports ? computeProjectBiMetrics(projectId) : Promise.resolve(null),
   ]);
 
   const taskCountByStatus = new Map(taskStatusCounts.map((s) => [s.status, s._count]));
@@ -181,8 +178,6 @@ export default async function ProjectOverviewPage({
           </CardContent>
         </Card>
       </div>
-
-      {canViewReports && biMetrics ? <ProjectBiDashboardSection metrics={biMetrics} /> : null}
 
       {canViewReports ? <ProjectReportSection projectId={projectId} /> : null}
 
