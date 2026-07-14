@@ -10,7 +10,9 @@ import {
   importDocumentFromFileAction,
 } from "@/lib/actions/documents";
 import {
+  exportProjectTasksForEditingAction,
   exportTaskForEditingAction,
+  importProjectTasksFromFileAction,
   importTaskFromFileAction,
 } from "@/lib/actions/tasks";
 
@@ -205,6 +207,77 @@ export function TaskOfflineEditActions({
         className="hidden"
         onChange={(event) => importFile(event.target.files?.[0])}
       />
+    </div>
+  );
+}
+
+export function ProjectTasksOfflineActions({
+  projectId,
+  canImport,
+}: {
+  projectId: string;
+  canImport: boolean;
+}) {
+  const [pending, startTransition] = useTransition();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+
+  function exportFile() {
+    startTransition(async () => {
+      const result = await exportProjectTasksForEditingAction(projectId);
+      if (result.error || !result.content || !result.fileName) {
+        toast.error(result.error ?? "Không export được danh sách task.");
+        return;
+      }
+      downloadFile(result.fileName, result.content, {
+        encoding: result.encoding,
+        mimeType: result.mimeType,
+      });
+      toast.success(result.success ?? "Đã export danh sách task.");
+    });
+  }
+
+  async function importFile(file: File | undefined) {
+    if (!file) return;
+    try {
+      const content = await readFileForImport(file, [".xlsx"]);
+      startTransition(async () => {
+        const result = await importProjectTasksFromFileAction(projectId, content);
+        if (result.error) {
+          toast.error(result.error);
+          return;
+        }
+        toast.success(result.success ?? "Đã import danh sách task.");
+        router.refresh();
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Không đọc được file import.");
+    } finally {
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Button type="button" size="sm" variant="outline" disabled={pending} onClick={exportFile}>
+        <Download className="size-4" />
+        Export task XLSX
+      </Button>
+      {canImport ? (
+        <>
+          <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => inputRef.current?.click()}>
+            <Upload className="size-4" />
+            Import task XLSX
+          </Button>
+          <input
+            ref={inputRef}
+            type="file"
+            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            className="hidden"
+            onChange={(event) => importFile(event.target.files?.[0])}
+          />
+        </>
+      ) : null}
     </div>
   );
 }

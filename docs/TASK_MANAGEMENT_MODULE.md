@@ -86,7 +86,7 @@ as-is.
 
 | Route | Page |
 |---|---|
-| `tasks` | Task list with hierarchy, status/type/warning filters, effort/deadline/warning fields, AI auto-task action |
+| `tasks` | Task list with hierarchy, status/type/warning filters, effort/deadline/warning fields, AI auto-task action, and project-level XLSX export/import |
 | `tasks/new` | Create task/bug with full planning, parent task, Dev/Test/Standard estimates, related documents, external links, and dependency fields |
 | `tasks/[taskId]` | Task detail: unified parent/sub-task layout with planning meta, related documents/external links, effort/deadline warnings, QA links, offline XLSX export/import, editable own time logs, concise field-change history + comments |
 | `kanban` | 12-column drag-and-drop board (filter assignee / priority / sprint) |
@@ -101,11 +101,14 @@ Legacy module-scoped task routes (`…/modules/[moduleId]/tasks/…`) keep worki
 `taskHref()` (`src/lib/task-href.ts`) routes module-less tasks to the project-level
 URL and module tasks to their legacy URL.
 
-Task detail supports offline XLSX export/import for users with `task.edit`; the
-file opens cleanly in Excel using a Field/Value/Help table. Import validates the
-XLSX payload server-side, updates the current task, refreshes derived
-effort/deadline fields, writes `TaskHistory` entries for changed fields, and
-records an audit log. Document detail mirrors the same offline flow for
+Task list supports project-level offline XLSX export/import. Export creates a
+`Tasks` sheet with one active task per row and a `Help` sheet for allowed enum
+values. Import only updates existing task ids in the current project, validates
+the workbook server-side, refreshes derived effort/deadline fields, writes
+`TaskHistory` entries for changed fields, and records an audit log. Task detail
+keeps the single-task XLSX flow for users with `task.edit`; the file opens
+cleanly in Excel using a Field/Value/Help table. Document detail mirrors the
+same offline flow for
 `document.edit` using a real `.xlsx` workbook: metadata is edited on the
 `Metadata` sheet and document content/tables are edited on the `Content` sheet
 so table columns remain visible in Excel/Google Sheets. Document import creates
@@ -117,9 +120,11 @@ overview page. It is derived from `docs/BI_dashboard_rule.md` and uses current
 `Task`, `Bug`, `TimeLog`, `DailyProjectSnapshot`, `Sprint`, and `ProjectMember`
 data to calculate progress, target progress, SPI proxy, completion/on-time
 rates, cycle/lead time, velocity, burndown, effort variance, defect rate, issue
-resolution, and resource utilization. Metrics that need data not yet modeled in
-PMS, such as financial AC/CPI/CV/EAC, risk exposure, scope baseline changes, or
-overtime classification, are shown as "Chưa cấu hình dữ liệu" instead of
+resolution, and resource utilization. The page includes a **Đồng bộ** action that
+upserts today's `DailyProjectSnapshot`, revalidates the project/portfolio report
+routes, and refreshes the current view. Metrics that need data not yet modeled
+in PMS, such as financial AC/CPI/CV/EAC, risk exposure, scope baseline changes,
+or overtime classification, are shown as "Chưa cấu hình dữ liệu" instead of
 estimated from fake values.
 
 `/dashboard/overview` also shows a portfolio BI dashboard across projects the

@@ -1380,6 +1380,51 @@ const taskImportSchema = z.object({
   }),
 });
 
+const projectTaskImportRowSchema = z.object({
+  taskId: z.string().trim().min(1),
+  title: z.string().trim().min(1, "Tiêu đề không được để trống").max(200),
+  description: z.string().trim().max(20000).optional().or(z.literal("")),
+  acceptanceCriteria: z.string().trim().max(20000).optional().or(z.literal("")),
+  status: z.enum(TASK_STATUS_ORDER).default("BACKLOG"),
+  type: z.enum(TASK_TYPE_ORDER).default("TASK"),
+  priority: z.enum(TASK_PRIORITY_ORDER).default("MEDIUM"),
+  plannedStartAt: z.string().trim().optional().or(z.literal("")),
+  startDate: z.string().trim().optional().or(z.literal("")),
+  dueDate: z.string().trim().optional().or(z.literal("")),
+  devDueAt: z.string().trim().optional().or(z.literal("")),
+  testDueAt: z.string().trim().optional().or(z.literal("")),
+  devEstimateHours: z.coerce.number().min(0).max(100000).default(0),
+  testEstimateHours: z.coerce.number().min(0).max(100000).default(0),
+  testEstimateSource: z.enum(["AUTO", "MANUAL"]).default("MANUAL"),
+  standardEstimateMandays: z.coerce.number().min(0).max(100000).default(0),
+  storyPoint: z.coerce.number().min(0).max(1000).default(0),
+  relatedDocumentIds: z.array(z.string().trim().min(1)).max(100).default([]),
+  externalLinks: z.array(z.string().trim().url()).max(100).default([]),
+});
+
+const PROJECT_TASK_EXPORT_HEADERS = [
+  "taskId",
+  "taskCode",
+  "title",
+  "description",
+  "acceptanceCriteria",
+  "status",
+  "type",
+  "priority",
+  "plannedStartAt",
+  "startDate",
+  "dueDate",
+  "devDueAt",
+  "testDueAt",
+  "devEstimateHours",
+  "testEstimateHours",
+  "testEstimateSource",
+  "standardEstimateMandays",
+  "storyPoint",
+  "relatedDocumentIds",
+  "externalLinks",
+] as const;
+
 export interface ExportTaskState extends ActionState {
   fileName?: string;
   content?: string;
@@ -1529,6 +1574,130 @@ function parseTaskXlsxExport(rawBase64: string) {
       externalLinks: splitCsvList(values.get("externalLinks") ?? ""),
     },
   });
+}
+
+function buildProjectTasksXlsxExport(
+  tasks: {
+    id: string;
+    taskCode: string | null;
+    title: string;
+    description: string | null;
+    acceptanceCriteria: string | null;
+    status: string;
+    type: string;
+    priority: string;
+    plannedStartAt: Date | null;
+    startDate: Date | null;
+    dueDate: Date | null;
+    devDueAt: Date | null;
+    testDueAt: Date | null;
+    devEstimateHours: unknown;
+    testEstimateHours: unknown;
+    testEstimateSource: string;
+    standardEstimateMandays: unknown;
+    storyPoint: unknown;
+    externalLinks: unknown;
+    relatedDocuments: { documentId: string }[];
+  }[],
+) {
+  const workbook = XLSX.utils.book_new();
+  const worksheet = XLSX.utils.json_to_sheet(
+    tasks.map((task) => ({
+      taskId: task.id,
+      taskCode: task.taskCode ?? "",
+      title: task.title,
+      description: task.description ?? "",
+      acceptanceCriteria: task.acceptanceCriteria ?? "",
+      status: task.status,
+      type: task.type,
+      priority: task.priority,
+      plannedStartAt: dateToInputValue(task.plannedStartAt),
+      startDate: dateToInputValue(task.startDate),
+      dueDate: dateToInputValue(task.dueDate),
+      devDueAt: dateToInputValue(task.devDueAt),
+      testDueAt: dateToInputValue(task.testDueAt),
+      devEstimateHours: Number(task.devEstimateHours),
+      testEstimateHours: Number(task.testEstimateHours),
+      testEstimateSource: task.testEstimateSource,
+      standardEstimateMandays: Number(task.standardEstimateMandays),
+      storyPoint: Number(task.storyPoint),
+      relatedDocumentIds: task.relatedDocuments.map((relation) => relation.documentId).join("\n"),
+      externalLinks: normalizeStoredExternalLinks(task.externalLinks).join("\n"),
+    })),
+    { header: [...PROJECT_TASK_EXPORT_HEADERS] },
+  );
+  worksheet["!cols"] = [
+    { wch: 28 },
+    { wch: 16 },
+    { wch: 42 },
+    { wch: 70 },
+    { wch: 70 },
+    { wch: 18 },
+    { wch: 14 },
+    { wch: 14 },
+    { wch: 14 },
+    { wch: 14 },
+    { wch: 14 },
+    { wch: 14 },
+    { wch: 14 },
+    { wch: 16 },
+    { wch: 16 },
+    { wch: 18 },
+    { wch: 22 },
+    { wch: 12 },
+    { wch: 38 },
+    { wch: 50 },
+  ];
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Tasks");
+  const help = XLSX.utils.aoa_to_sheet([
+    ["Lưu ý"],
+    ["Không sửa taskId. Import chỉ cập nhật các task đang tồn tại trong dự án."],
+    [`status: ${TASK_STATUS_ORDER.join(", ")}`],
+    [`type: ${TASK_TYPE_ORDER.join(", ")}`],
+    [`priority: ${TASK_PRIORITY_ORDER.join(", ")}`],
+    ["Các cột ngày dùng định dạng YYYY-MM-DD."],
+    ["relatedDocumentIds/externalLinks: mỗi giá trị một dòng hoặc ngăn cách bằng dấu ;"],
+  ]);
+  help["!cols"] = [{ wch: 96 }];
+  XLSX.utils.book_append_sheet(workbook, help, "Help");
+  const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
+  return buffer.toString("base64");
+}
+
+function parseProjectTasksXlsxExport(rawBase64: string) {
+  const workbook = XLSX.read(Buffer.from(rawBase64, "base64"), { type: "buffer" });
+  const worksheet = workbook.Sheets.Tasks ?? workbook.Sheets[workbook.SheetNames[0] ?? ""];
+  if (!worksheet) return null;
+  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, { defval: "" });
+  return rows
+    .map((row, index) => {
+      const raw = {
+        taskId: String(row.taskId ?? row.TaskId ?? "").trim(),
+        title: String(row.title ?? row.Title ?? "").trim(),
+        description: String(row.description ?? row.Description ?? ""),
+        acceptanceCriteria: String(row.acceptanceCriteria ?? row.AcceptanceCriteria ?? ""),
+        status: String(row.status ?? row.Status ?? "BACKLOG").trim(),
+        type: String(row.type ?? row.Type ?? "TASK").trim(),
+        priority: String(row.priority ?? row.Priority ?? "MEDIUM").trim(),
+        plannedStartAt: String(row.plannedStartAt ?? ""),
+        startDate: String(row.startDate ?? ""),
+        dueDate: String(row.dueDate ?? ""),
+        devDueAt: String(row.devDueAt ?? ""),
+        testDueAt: String(row.testDueAt ?? ""),
+        devEstimateHours: row.devEstimateHours ?? 0,
+        testEstimateHours: row.testEstimateHours ?? 0,
+        testEstimateSource: String(row.testEstimateSource ?? "MANUAL").trim() || "MANUAL",
+        standardEstimateMandays: row.standardEstimateMandays ?? 0,
+        storyPoint: row.storyPoint ?? 0,
+        relatedDocumentIds: splitCsvList(String(row.relatedDocumentIds ?? "")),
+        externalLinks: splitCsvList(String(row.externalLinks ?? "")),
+      };
+      const parsed = projectTaskImportRowSchema.safeParse(raw);
+      return parsed.success
+        ? ({ success: true, rowNumber: index + 2, data: parsed.data } as const)
+        : ({ success: false, rowNumber: index + 2, error: parsed.error.issues[0]?.message ?? "Dòng không hợp lệ." } as const);
+    })
+    .filter((row) => row.success || row.error);
 }
 
 function splitCsvList(value: string) {
@@ -1795,6 +1964,200 @@ export async function importTaskFromFileAction(
 
   revalidateTaskPaths(projectId, moduleId, taskId);
   return { success: "Đã import task từ file chỉnh sửa offline." };
+}
+
+export async function exportProjectTasksForEditingAction(projectId: string): Promise<ExportTaskState> {
+  const session = await auth();
+  if (!session?.user) return { error: "Bạn cần đăng nhập." };
+
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, deletedAt: null },
+    select: { id: true, code: true, name: true },
+  });
+  if (!project) return { error: "Không tìm thấy dự án." };
+
+  const projectRole = await getProjectRole(session.user.id, projectId);
+  if (!(await canAccess({ systemRole: session.user.systemRole }, "task.view", projectRole))) {
+    return { error: "Bạn không có quyền xem task dự án này." };
+  }
+
+  const tasks = await prisma.task.findMany({
+    where: { projectId, deletedAt: null },
+    include: {
+      relatedDocuments: { select: { documentId: true }, orderBy: { createdAt: "asc" } },
+    },
+    orderBy: [{ createdAt: "asc" }],
+  });
+
+  const content = buildProjectTasksXlsxExport(tasks);
+
+  await logAudit({
+    actorId: session.user.id,
+    action: "EXPORT",
+    entityType: "Task",
+    projectId,
+    metadata: { mode: "project_task_list_offline_edit_xlsx", taskCount: tasks.length },
+  });
+
+  return {
+    success: `Đã chuẩn bị file XLSX gồm ${tasks.length} task.`,
+    fileName: `project-${project.code || project.id}-tasks.xlsx`,
+    content,
+    encoding: "base64",
+    mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  };
+}
+
+export async function importProjectTasksFromFileAction(
+  projectId: string,
+  rawContent: string,
+): Promise<ActionState> {
+  const session = await auth();
+  if (!session?.user) return { error: "Bạn cần đăng nhập." };
+
+  if (!(await requireTaskEditAccess(session.user.id, session.user.systemRole, projectId))) {
+    return { error: "Bạn không có quyền chỉnh sửa task dự án này." };
+  }
+
+  if (!rawContent.startsWith("UEsDB")) {
+    return { error: "File import không đúng định dạng XLSX task PMS." };
+  }
+  const parsedRows = parseProjectTasksXlsxExport(rawContent);
+  if (!parsedRows || parsedRows.length === 0) {
+    return { error: "File import không có dòng task hợp lệ." };
+  }
+  const invalidRow = parsedRows.find((row) => !row.success);
+  if (invalidRow && !invalidRow.success) {
+    return { error: `Dòng ${invalidRow.rowNumber}: ${invalidRow.error}` };
+  }
+
+  let updated = 0;
+  let skipped = 0;
+  const changedTaskIds: { taskId: string; moduleId: string | null }[] = [];
+
+  for (const parsed of parsedRows) {
+    if (!parsed.success) continue;
+    const values = parsed.data;
+    const before = await prisma.task.findFirst({
+      where: { id: values.taskId, projectId, deletedAt: null },
+    });
+    if (!before) {
+      skipped += 1;
+      continue;
+    }
+    if (
+      before.moduleId &&
+      !(await canUseProjectModule({
+        userId: session.user.id,
+        systemRole: session.user.systemRole,
+        projectId,
+        moduleId: before.moduleId,
+      }))
+    ) {
+      skipped += 1;
+      continue;
+    }
+
+    const plannedStartAt = parseOptionalDate(values.plannedStartAt);
+    const startDate = parseOptionalDate(values.startDate);
+    const dueDate = parseOptionalDate(values.dueDate);
+    const devDueAt = parseOptionalDate(values.devDueAt) ?? dueDate;
+    const testDueAt = parseOptionalDate(values.testDueAt);
+    const externalLinks = values.externalLinks.map((url) => ({ url }));
+    const validRelatedDocumentIds = await replaceTaskRelatedDocuments(values.taskId, projectId, values.relatedDocumentIds);
+    const derived = deriveTaskEffortFields({
+      status: values.status,
+      devEstimateHours: values.devEstimateHours,
+      testEstimateHours: values.testEstimateHours,
+      testEstimateSource: values.testEstimateSource,
+      standardEstimateMandays: values.standardEstimateMandays,
+      actualDevHours: Number(before.actualDevHours),
+      actualTestHours: Number(before.actualTestHours),
+      devDueAt,
+      testDueAt,
+      isBlocked: before.isBlocked,
+    });
+
+    await prisma.task.update({
+      where: { id: values.taskId },
+      data: {
+        title: values.title,
+        description: values.description || null,
+        acceptanceCriteria: values.acceptanceCriteria || null,
+        status: values.status,
+        type: values.type,
+        priority: values.priority,
+        plannedStartAt,
+        startDate,
+        dueDate,
+        devDueAt,
+        testDueAt,
+        storyPoint: values.storyPoint,
+        relatedDocumentId: validRelatedDocumentIds[0] ?? null,
+        externalLinks,
+        completedAt:
+          values.status === "DONE"
+            ? (before.completedAt ?? new Date())
+            : values.status !== before.status
+              ? null
+              : before.completedAt,
+        ...derived,
+      },
+    });
+
+    const historyEntries: {
+      taskId: string;
+      changedById: string;
+      field: string;
+      oldValue: string | null;
+      newValue: string | null;
+    }[] = [];
+    const historyBase = { taskId: values.taskId, changedById: session.user.id };
+    addHistoryIfChanged(historyEntries, { ...historyBase, field: "title", oldValue: before.title, newValue: values.title });
+    addHistoryIfChanged(historyEntries, { ...historyBase, field: "description", oldValue: before.description, newValue: values.description || null });
+    addHistoryIfChanged(historyEntries, { ...historyBase, field: "acceptanceCriteria", oldValue: before.acceptanceCriteria, newValue: values.acceptanceCriteria || null });
+    addHistoryIfChanged(historyEntries, { ...historyBase, field: "status", oldValue: before.status, newValue: values.status });
+    addHistoryIfChanged(historyEntries, { ...historyBase, field: "type", oldValue: before.type, newValue: values.type });
+    addHistoryIfChanged(historyEntries, { ...historyBase, field: "priority", oldValue: before.priority, newValue: values.priority });
+    addHistoryIfChanged(historyEntries, { ...historyBase, field: "plannedStartAt", oldValue: before.plannedStartAt, newValue: plannedStartAt });
+    addHistoryIfChanged(historyEntries, { ...historyBase, field: "startDate", oldValue: before.startDate, newValue: startDate });
+    addHistoryIfChanged(historyEntries, { ...historyBase, field: "dueDate", oldValue: before.dueDate, newValue: dueDate });
+    addHistoryIfChanged(historyEntries, { ...historyBase, field: "devDueAt", oldValue: before.devDueAt, newValue: devDueAt });
+    addHistoryIfChanged(historyEntries, { ...historyBase, field: "testDueAt", oldValue: before.testDueAt, newValue: testDueAt });
+    addHistoryIfChanged(historyEntries, { ...historyBase, field: "devEstimateHours", oldValue: before.devEstimateHours, newValue: values.devEstimateHours });
+    addHistoryIfChanged(historyEntries, { ...historyBase, field: "testEstimateHours", oldValue: before.testEstimateHours, newValue: values.testEstimateHours });
+    addHistoryIfChanged(historyEntries, { ...historyBase, field: "standardEstimateMandays", oldValue: before.standardEstimateMandays, newValue: values.standardEstimateMandays });
+    addHistoryIfChanged(historyEntries, { ...historyBase, field: "storyPoint", oldValue: before.storyPoint, newValue: values.storyPoint });
+    if (historyEntries.length > 0) {
+      await prisma.taskHistory.createMany({ data: historyEntries });
+    }
+    if (values.description) {
+      await notifyTaskMentions({
+        projectId,
+        taskId: values.taskId,
+        taskCode: before.taskCode,
+        title: values.title,
+        content: values.description,
+      });
+    }
+    changedTaskIds.push({ taskId: values.taskId, moduleId: before.moduleId });
+    updated += 1;
+  }
+
+  await logAudit({
+    actorId: session.user.id,
+    action: "UPDATE",
+    entityType: "Task",
+    projectId,
+    metadata: { mode: "project_task_list_offline_import_xlsx", updated, skipped },
+  });
+
+  revalidateTaskPaths(projectId, null);
+  for (const changed of changedTaskIds.slice(0, 50)) {
+    revalidateTaskPaths(projectId, changed.moduleId, changed.taskId);
+  }
+
+  return { success: `Đã import ${updated} task từ file XLSX.${skipped ? ` Bỏ qua ${skipped} dòng.` : ""}` };
 }
 
 async function findExistingAutoTaskKeys(

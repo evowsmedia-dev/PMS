@@ -13,6 +13,7 @@ import { TaskViewTabs } from "@/components/task-view-tabs";
 import { BugStatusSelect } from "@/components/qa-forms";
 import { AutoTaskFromDocumentsDialog } from "@/components/auto-task-from-documents-dialog";
 import { DeleteTaskButton } from "@/components/delete-task-button";
+import { ProjectTasksOfflineActions } from "@/components/offline-edit-actions";
 import { taskHref } from "@/lib/task-href";
 import {
   TASK_STATUS_LABEL,
@@ -197,6 +198,7 @@ export default async function ProjectTasksPage({
               </Button>
             </>
           ) : null}
+          <ProjectTasksOfflineActions projectId={projectId} canImport={canDeleteTask} />
         </div>
       </div>
       <p className="text-xs text-muted-foreground">

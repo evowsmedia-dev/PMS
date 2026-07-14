@@ -6,6 +6,7 @@ import { getProjectRole } from "@/lib/project-role";
 import { computeProjectBiMetrics } from "@/lib/reports/bi-dashboard";
 import type { ProjectBiSummary } from "@/lib/reports/bi-dashboard";
 import { ProjectBiDashboardSection } from "@/components/bi-dashboard-section";
+import { BiDashboardSyncButton } from "@/components/bi-dashboard-sync-button";
 import { PageSection, PageToolbar } from "@/components/page-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { projectCodeRouteSegment, projectRouteWhere } from "@/lib/route-slug";
@@ -45,6 +46,7 @@ export default async function ProjectBiDashboardPage({
       <PageToolbar
         title="BI Dashboard"
         description={`${project.code} - ${project.name}`}
+        actions={<BiDashboardSyncButton projectId={projectId} />}
       />
       <Card>
         <CardHeader>

@@ -76,6 +76,7 @@ Ghi chú:
 │   ├── Module BI Dashboard riêng dưới menu sidebar của Dashboard dự án.
 │   ├── Chỉ hiển thị cho user có quyền `report.view`; user thiếu quyền bị chuyển về `/overview`.
 │   ├── Dùng `docs/BI_dashboard_rule.md` làm source công thức, nhưng chỉ tự động hóa KPI có dữ liệu live từ task/bug/time log/snapshot/member.
+│   ├── Button "Đồng bộ" cập nhật snapshot hôm nay, revalidate dữ liệu BI và refresh view hiện tại.
 │   └── Các KPI thiếu dữ liệu như AC/CPI/CV/EAC tài chính, risk exposure, thay đổi phạm vi, overtime hiển thị "Chưa cấu hình dữ liệu".
 │
 ├── /projects/:projectId/tasks
@@ -83,6 +84,8 @@ Ghi chú:
 │   ├── Hiển thị cây task cha, subtask và bug liên quan.
 │   ├── Filter nhanh theo status, type và nhóm có cảnh báo.
 │   ├── Mỗi dòng task hiển thị Dev/Test estimate, Actual Dev/Test, Standard mandays, HTC Dev/Test, warning/blocked nếu có.
+│   ├── Button "Export task XLSX" xuất toàn bộ task active của dự án thành workbook Excel chỉnh sửa được.
+│   ├── Button "Import task XLSX" cho user có quyền `task.edit`, chỉ cập nhật các task id đã tồn tại trong dự án và ghi TaskHistory/AuditLog.
 │   ├── Button "Tự động tạo task từ tài liệu" theo quyền `task.create`.
 │   ├── Auto task dùng AI đọc logic tài liệu active user có quyền xem.
 │   ├── Flow auto task: tạo preview proposal -> user chọn task -> tạo task Backlog chưa assign.
