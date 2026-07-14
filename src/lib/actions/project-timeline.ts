@@ -9,6 +9,7 @@ import { canAccess } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { logAudit } from "@/lib/audit";
 import { projectCodeRouteSegment } from "@/lib/route-slug";
+import { deriveTaskEffortFields } from "@/lib/task-rules";
 import type { ActionState } from "@/lib/actions/profile";
 
 const MANDAY_RATE_VND = 3_600_000;
@@ -154,6 +155,181 @@ function timelinePaths(projectId: string, projectCode?: string | null) {
   return paths;
 }
 
+function taskPaths(projectId: string, projectCode?: string | null, moduleId?: string | null, taskId?: string) {
+  const projectSegments = [projectId];
+  if (projectCode) projectSegments.push(projectCodeRouteSegment({ code: projectCode }));
+
+  const paths = ["/dashboard/my-tasks"];
+  for (const projectSegment of projectSegments) {
+    paths.push(`/projects/${projectSegment}/tasks`);
+    paths.push(`/projects/${projectSegment}/kanban`);
+    paths.push(`/projects/${projectSegment}/gantt`);
+    paths.push(`/projects/${projectSegment}/overview`);
+    if (taskId) paths.push(`/projects/${projectSegment}/tasks/${taskId}`);
+    if (moduleId) {
+      paths.push(`/projects/${projectSegment}/modules/${moduleId}/tasks`);
+      if (taskId) paths.push(`/projects/${projectSegment}/modules/${moduleId}/tasks/${taskId}`);
+    }
+  }
+  return paths;
+}
+
+function fieldValue(value: unknown) {
+  if (value instanceof Date) return dateToKey(value);
+  if (value === null || value === undefined) return null;
+  return String(value);
+}
+
+function addTaskHistoryIfChanged(
+  entries: {
+    taskId: string;
+    changedById: string;
+    field: string;
+    oldValue: string | null;
+    newValue: string | null;
+  }[],
+  input: {
+    taskId: string;
+    changedById: string;
+    field: string;
+    oldValue: unknown;
+    newValue: unknown;
+  },
+) {
+  const oldValue = fieldValue(input.oldValue);
+  const newValue = fieldValue(input.newValue);
+  if (oldValue === newValue) return;
+  entries.push({
+    taskId: input.taskId,
+    changedById: input.changedById,
+    field: input.field,
+    oldValue,
+    newValue,
+  });
+}
+
+async function syncTimelineItemToTask(itemId: string, actorId: string) {
+  const item = await prisma.projectEstimatedTimelineItem.findFirst({
+    where: { id: itemId, deletedAt: null, taskId: { not: null } },
+    include: { project: { select: { code: true } } },
+  });
+  if (!item?.taskId) return false;
+
+  const task = await prisma.task.findFirst({
+    where: { id: item.taskId, projectId: item.projectId, deletedAt: null },
+    select: {
+      id: true,
+      projectId: true,
+      moduleId: true,
+      taskCode: true,
+      title: true,
+      status: true,
+      startDate: true,
+      plannedStartAt: true,
+      dueDate: true,
+      devDueAt: true,
+      testDueAt: true,
+      estimateHours: true,
+      devEstimateHours: true,
+      testEstimateHours: true,
+      testEstimateSource: true,
+      standardEstimateMandays: true,
+      actualDevHours: true,
+      actualTestHours: true,
+      assigneeId: true,
+      isBlocked: true,
+    },
+  });
+  if (!task) return false;
+
+  const estimateMandays = decimalToNumber(item.estimateMandays) ?? 0;
+  const devEstimateHours = estimateMandays * 8;
+  const testEstimateSource = task.testEstimateSource;
+  const derived = deriveTaskEffortFields({
+    status: task.status,
+    devEstimateHours,
+    testEstimateHours: testEstimateSource === "MANUAL" ? decimalToNumber(task.testEstimateHours) : null,
+    testEstimateSource,
+    standardEstimateMandays: estimateMandays,
+    actualDevHours: decimalToNumber(task.actualDevHours) ?? 0,
+    actualTestHours: decimalToNumber(task.actualTestHours) ?? 0,
+    devDueAt: item.endDate,
+    testDueAt: task.testDueAt,
+    isBlocked: task.isBlocked,
+  });
+
+  const historyEntries: {
+    taskId: string;
+    changedById: string;
+    field: string;
+    oldValue: string | null;
+    newValue: string | null;
+  }[] = [];
+  const historyBase = { taskId: task.id, changedById: actorId };
+  addTaskHistoryIfChanged(historyEntries, { ...historyBase, field: "title", oldValue: task.title, newValue: item.title });
+  addTaskHistoryIfChanged(historyEntries, {
+    ...historyBase,
+    field: "plannedStartAt",
+    oldValue: task.plannedStartAt,
+    newValue: item.startDate,
+  });
+  addTaskHistoryIfChanged(historyEntries, { ...historyBase, field: "startDate", oldValue: task.startDate, newValue: item.startDate });
+  addTaskHistoryIfChanged(historyEntries, { ...historyBase, field: "dueDate", oldValue: task.dueDate, newValue: item.endDate });
+  addTaskHistoryIfChanged(historyEntries, { ...historyBase, field: "devDueAt", oldValue: task.devDueAt, newValue: item.endDate });
+  addTaskHistoryIfChanged(historyEntries, {
+    ...historyBase,
+    field: "devEstimateHours",
+    oldValue: task.devEstimateHours,
+    newValue: derived.devEstimateHours,
+  });
+  addTaskHistoryIfChanged(historyEntries, {
+    ...historyBase,
+    field: "testEstimateHours",
+    oldValue: task.testEstimateHours,
+    newValue: derived.testEstimateHours,
+  });
+  addTaskHistoryIfChanged(historyEntries, {
+    ...historyBase,
+    field: "standardEstimateMandays",
+    oldValue: task.standardEstimateMandays,
+    newValue: derived.standardEstimateMandays,
+  });
+  addTaskHistoryIfChanged(historyEntries, { ...historyBase, field: "assignee", oldValue: task.assigneeId, newValue: item.assigneeId });
+
+  await prisma.$transaction(async (tx) => {
+    await tx.task.update({
+      where: { id: task.id },
+      data: {
+        title: item.title,
+        startDate: item.startDate,
+        plannedStartAt: item.startDate,
+        dueDate: item.endDate,
+        devDueAt: item.endDate,
+        assigneeId: item.assigneeId,
+        ...derived,
+      },
+    });
+    if (historyEntries.length > 0) {
+      await tx.taskHistory.createMany({ data: historyEntries });
+    }
+  });
+
+  await logAudit({
+    actorId,
+    action: "UPDATE",
+    entityType: "Task",
+    entityId: task.id,
+    projectId: task.projectId,
+    metadata: {
+      source: "estimated_timeline",
+      timelineItemId: item.id,
+      changedFields: historyEntries.map((entry) => entry.field),
+    },
+  });
+  for (const path of taskPaths(task.projectId, item.project.code, task.moduleId, task.id)) revalidatePath(path);
+  return true;
+}
+
 function parseRows(formData: FormData) {
   const ids = formData.getAll("itemId").map(String);
   return ids.map((id, index) => {
@@ -201,6 +377,7 @@ export async function saveProjectEstimatedTimelineAction(
   });
   const existingById = new Map(existing.map((item) => [item.id, item]));
   let changedCount = 0;
+  const taskLinkedTimelineItemIds = new Set<string>();
 
   await prisma.$transaction(async (tx) => {
     for (const row of rows) {
@@ -249,6 +426,7 @@ export async function saveProjectEstimatedTimelineAction(
               editedById: authorized.session.user.id,
             },
           });
+          if (item.taskId) taskLinkedTimelineItemIds.add(row.id);
         }
         changedCount += 1;
         continue;
@@ -290,6 +468,9 @@ export async function saveProjectEstimatedTimelineAction(
     projectId,
     metadata: { mode: "manual_save", changedCount },
   });
+  for (const itemId of taskLinkedTimelineItemIds) {
+    await syncTimelineItemToTask(itemId, authorized.session.user.id);
+  }
   for (const path of timelinePaths(projectId, authorized.project.code)) revalidatePath(path);
   return { success: `Đã lưu timeline dự toán (${changedCount} dòng thay đổi).` };
 }
@@ -645,6 +826,7 @@ export async function importProjectEstimatedTimelineAction(projectId: string, ba
   const memberByEmail = new Map(members.map((member) => [member.user.email.toLowerCase(), member.user.id]));
   let created = 0;
   let updated = 0;
+  const taskLinkedTimelineItemIds = new Set<string>();
 
   await prisma.$transaction(async (tx) => {
     for (const [index, row] of rows.entries()) {
@@ -683,6 +865,7 @@ export async function importProjectEstimatedTimelineAction(projectId: string, ba
               editedById: authorized.session.user.id,
             },
           });
+          if (item.taskId) taskLinkedTimelineItemIds.add(item.id);
         }
         updated += 1;
         continue;
@@ -712,6 +895,9 @@ export async function importProjectEstimatedTimelineAction(projectId: string, ba
     projectId,
     metadata: { mode: "xlsx_import", created, updated },
   });
+  for (const itemId of taskLinkedTimelineItemIds) {
+    await syncTimelineItemToTask(itemId, authorized.session.user.id);
+  }
   for (const path of timelinePaths(projectId, authorized.project.code)) revalidatePath(path);
   return { success: `Đã import timeline: tạo ${created}, cập nhật ${updated}.` };
 }
