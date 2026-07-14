@@ -128,7 +128,7 @@ Ghi chú:
 │   ├── Header timeline hiển thị tháng/năm và từng ngày; chỉ vùng bảng thời gian scroll ngang.
 │   ├── Phần thông tin task và các cột metadata luôn fixed bên trái.
 │   ├── Mặc định scroll tới đoạn 7 ngày quanh ngày hiện tại.
-│   └── Cho tùy bật/tắt và chỉnh độ rộng vùng task/ngày cho các cột: status, planned time, effort time, duration, start, end date.
+│   └── Cho tùy bật/tắt và kéo border header để chỉnh độ rộng từng cột fixed: status, planned time, effort time, duration, start, end date.
 │
 ├── /projects/:projectId/epics
 │   └── Danh sách epic, tạo inline, task counts.

@@ -8,6 +8,9 @@ import { taskHref } from "@/lib/task-href";
 import { TASK_STATUS_LABEL } from "@/lib/validation/task";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const DAY_WIDTH = 32;
+const TASK_COLUMN_KEY = "task";
+const TASK_COLUMN_DEFAULT_WIDTH = 280;
 
 const GANTT_COLUMNS = [
   { key: "status", label: "Status", width: 104 },
@@ -19,6 +22,8 @@ const GANTT_COLUMNS = [
 ] as const;
 
 type GanttColumnKey = (typeof GANTT_COLUMNS)[number]["key"];
+type FixedColumnKey = typeof TASK_COLUMN_KEY | GanttColumnKey;
+type ColumnWidths = Record<FixedColumnKey, number>;
 
 export interface GanttTask {
   id: string;
@@ -51,28 +56,52 @@ export function GanttChart({
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [visibleColumns, setVisibleColumns] = useState<GanttColumnKey[]>(GANTT_COLUMNS.map((column) => column.key));
-  const [taskColumnWidth, setTaskColumnWidth] = useState(280);
-  const [dayWidth, setDayWidth] = useState(32);
+  const [columnWidths, setColumnWidths] = useState<ColumnWidths>(() => defaultColumnWidths());
 
   const today = useMemo(() => startOfDay(new Date()), []);
   const timeline = useMemo(() => buildTimeline(tasks, today), [tasks, today]);
   const monthGroups = useMemo(() => buildMonthGroups(timeline.days), [timeline.days]);
   const groups = useMemo(() => groupTasks(tasks), [tasks]);
-  const leftWidth = taskColumnWidth + visibleColumns.reduce((sum, key) => sum + columnWidth(key), 0);
-  const timelineWidth = timeline.days.length * dayWidth;
+  const leftWidth = columnWidths.task + visibleColumns.reduce((sum, key) => sum + columnWidths[key], 0);
+  const timelineWidth = timeline.days.length * DAY_WIDTH;
 
   useEffect(() => {
     const element = scrollRef.current;
     if (!element) return;
     const scrollToDay = Math.max(0, timeline.todayIndex - 7);
-    element.scrollLeft = scrollToDay * dayWidth;
-  }, [dayWidth, timeline.todayIndex]);
+    element.scrollLeft = scrollToDay * DAY_WIDTH;
+  }, [timeline.todayIndex]);
 
   function toggleColumn(key: GanttColumnKey) {
     setVisibleColumns((current) => {
       if (current.includes(key)) return current.filter((column) => column !== key);
       return [...current, key];
     });
+  }
+
+  function startColumnResize(key: FixedColumnKey, event: React.PointerEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = columnWidths[key];
+    const minWidth = key === TASK_COLUMN_KEY ? 200 : 72;
+    const maxWidth = key === TASK_COLUMN_KEY ? 460 : 220;
+
+    function onPointerMove(moveEvent: PointerEvent) {
+      const nextWidth = Math.min(maxWidth, Math.max(minWidth, startWidth + moveEvent.clientX - startX));
+      setColumnWidths((current) => ({ ...current, [key]: nextWidth }));
+    }
+
+    function onPointerUp() {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    }
+
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp, { once: true });
   }
 
   return (
@@ -106,43 +135,15 @@ export function GanttChart({
             })}
           </div>
         </div>
-        <div className="grid gap-3 md:grid-cols-2">
-          <label className="space-y-1 text-xs font-medium text-muted-foreground">
-            Độ rộng cột task: {taskColumnWidth}px
-            <input
-              type="range"
-              min={220}
-              max={380}
-              step={10}
-              value={taskColumnWidth}
-              onChange={(event) => setTaskColumnWidth(Number(event.target.value))}
-              className="w-full accent-foreground"
-            />
-          </label>
-          <label className="space-y-1 text-xs font-medium text-muted-foreground">
-            Độ rộng cột ngày: {dayWidth}px
-            <input
-              type="range"
-              min={22}
-              max={48}
-              step={2}
-              value={dayWidth}
-              onChange={(event) => setDayWidth(Number(event.target.value))}
-              className="w-full accent-foreground"
-            />
-          </label>
-        </div>
       </div>
 
       <div className="overflow-hidden rounded-lg border">
         <div className="flex min-w-0">
           <div className="shrink-0 border-r bg-background" style={{ width: leftWidth }}>
-            <div className="grid h-[58px] border-b bg-muted/40" style={{ gridTemplateColumns: leftGridTemplate(taskColumnWidth, visibleColumns) }}>
-              <div className="border-r px-3 py-2 text-xs font-semibold uppercase text-muted-foreground">Task</div>
+            <div className="grid h-[58px] border-b bg-muted/40" style={{ gridTemplateColumns: leftGridTemplate(columnWidths, visibleColumns) }}>
+              <ResizableHeaderCell label="Task" columnKey="task" onResizeStart={startColumnResize} />
               {visibleColumns.map((key) => (
-                <div key={key} className="border-r px-2 py-2 text-xs font-semibold uppercase text-muted-foreground last:border-r-0">
-                  {columnLabel(key)}
-                </div>
+                <ResizableHeaderCell key={key} label={columnLabel(key)} columnKey={key} onResizeStart={startColumnResize} />
               ))}
             </div>
             {groups.map((group) => (
@@ -156,7 +157,7 @@ export function GanttChart({
                     <div
                       key={task.id}
                       className="grid h-14 border-b last:border-b-0"
-                      style={{ gridTemplateColumns: leftGridTemplate(taskColumnWidth, visibleColumns) }}
+                      style={{ gridTemplateColumns: leftGridTemplate(columnWidths, visibleColumns) }}
                     >
                       <div className="min-w-0 border-r px-3 py-2 text-sm">
                         <Link
@@ -191,7 +192,7 @@ export function GanttChart({
           <div ref={scrollRef} className="min-w-0 flex-1 overflow-x-auto">
             <div style={{ width: timelineWidth }}>
               <div className="h-[58px] border-b bg-background">
-                <div className="grid border-b" style={{ gridTemplateColumns: `repeat(${timeline.days.length}, ${dayWidth}px)` }}>
+                <div className="grid border-b" style={{ gridTemplateColumns: `repeat(${timeline.days.length}, ${DAY_WIDTH}px)` }}>
                   {monthGroups.map((group) => (
                     <div
                       key={`${group.label}-${group.start}`}
@@ -202,7 +203,7 @@ export function GanttChart({
                     </div>
                   ))}
                 </div>
-                <div className="grid" style={{ gridTemplateColumns: `repeat(${timeline.days.length}, ${dayWidth}px)` }}>
+                <div className="grid" style={{ gridTemplateColumns: `repeat(${timeline.days.length}, ${DAY_WIDTH}px)` }}>
                   {timeline.days.map((day) => (
                     <div
                       key={day.toISOString()}
@@ -221,8 +222,8 @@ export function GanttChart({
                     const range = getTaskRange(task);
                     const startIndex = Math.max(0, diffDays(timeline.start, range.start));
                     const endIndex = Math.min(timeline.days.length - 1, diffDays(timeline.start, range.end));
-                    const barLeft = startIndex * dayWidth;
-                    const barWidth = Math.max((endIndex - startIndex + 1) * dayWidth, dayWidth);
+                    const barLeft = startIndex * DAY_WIDTH;
+                    const barWidth = Math.max((endIndex - startIndex + 1) * DAY_WIDTH, DAY_WIDTH);
                     const overdue = range.end.getTime() < today.getTime() && task.status !== "DONE";
                     const progress = Math.min(Math.max(task.progressPercent, 0), 100);
 
@@ -233,13 +234,13 @@ export function GanttChart({
                         style={{
                           backgroundImage:
                             "linear-gradient(to right, hsl(var(--border)) 1px, transparent 1px)",
-                          backgroundSize: `${dayWidth}px 100%`,
+                          backgroundSize: `${DAY_WIDTH}px 100%`,
                         }}
                       >
                         {timeline.showToday ? (
                           <div
                             className="absolute bottom-0 top-0 z-10 w-px bg-foreground"
-                            style={{ left: timeline.todayIndex * dayWidth + dayWidth / 2 }}
+                            style={{ left: timeline.todayIndex * DAY_WIDTH + DAY_WIDTH / 2 }}
                           />
                         ) : null}
                         <div
@@ -297,12 +298,42 @@ function buildTimeline(tasks: GanttTask[], today: Date) {
   };
 }
 
-function leftGridTemplate(taskColumnWidth: number, columns: GanttColumnKey[]) {
-  return [`${taskColumnWidth}px`, ...columns.map((key) => `${columnWidth(key)}px`)].join(" ");
+function ResizableHeaderCell({
+  label,
+  columnKey,
+  onResizeStart,
+}: {
+  label: string;
+  columnKey: FixedColumnKey;
+  onResizeStart: (key: FixedColumnKey, event: React.PointerEvent<HTMLButtonElement>) => void;
+}) {
+  return (
+    <div className="relative min-w-0 border-r px-3 py-2 text-xs font-semibold uppercase text-muted-foreground last:border-r-0">
+      <span className="block truncate">{label}</span>
+      <button
+        type="button"
+        aria-label={`Kéo để đổi độ rộng cột ${label}`}
+        className="absolute bottom-0 right-[-3px] top-0 z-20 w-1.5 cursor-col-resize hover:bg-foreground/20"
+        onPointerDown={(event) => onResizeStart(columnKey, event)}
+      />
+    </div>
+  );
 }
 
-function columnWidth(key: GanttColumnKey) {
-  return GANTT_COLUMNS.find((column) => column.key === key)?.width ?? 96;
+function defaultColumnWidths(): ColumnWidths {
+  return {
+    task: TASK_COLUMN_DEFAULT_WIDTH,
+    status: 104,
+    planned: 112,
+    effort: 104,
+    duration: 92,
+    start: 96,
+    end: 96,
+  };
+}
+
+function leftGridTemplate(columnWidths: ColumnWidths, columns: GanttColumnKey[]) {
+  return [`${columnWidths.task}px`, ...columns.map((key) => `${columnWidths[key]}px`)].join(" ");
 }
 
 function columnLabel(key: GanttColumnKey) {

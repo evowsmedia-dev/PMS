@@ -90,7 +90,7 @@ as-is.
 | `tasks/new` | Create task/bug with full planning, parent task, Dev/Test/Standard estimates, related documents, external links, and dependency fields |
 | `tasks/[taskId]` | Task detail: unified parent/sub-task layout with planning meta, related documents/external links, effort/deadline warnings, QA links, offline XLSX export/import, editable own time logs, concise field-change history + comments |
 | `kanban` | 12-column drag-and-drop board (filter assignee / priority / sprint) |
-| `gantt` | CSS timeline grouped by epic with fixed task metadata columns, month/day timeline header, 14-day buffer, selectable metadata columns, resize controls, progress bars, overdue markers, today line |
+| `gantt` | CSS timeline grouped by epic with fixed task metadata columns, month/day timeline header, 14-day buffer, selectable metadata columns, draggable column borders, progress bars, overdue markers, today line |
 | `epics` / `sprints` / `milestones` | List + inline create + task counts |
 | `bugs` | Bug list + filter + create + status change |
 | `test-cases` | Test-case list + create + inline execute (pass/fail) |
@@ -226,9 +226,9 @@ of the AI request.
 columns remain fixed on the left; only the timeline grid scrolls horizontally.
 The top timeline has month/year grouping and daily columns, and the page scrolls
 to the 7-day window around today by default. Users can toggle metadata columns
-inside the Gantt table and adjust task/day column widths to fit more timeline in
-the viewport. Supported metadata columns: status, planned time, effort time,
-duration, start, and end date. Inner fill = `progressPercent`, strong border =
+inside the Gantt table and drag the right border of each fixed-column header to
+resize it, freeing more viewport width for the timeline. Supported metadata
+columns: status, planned time, effort time, duration, start, and end date. Inner fill = `progressPercent`, strong border =
 overdue, vertical line = today, grouped by epic. Schedule, parent task, related
 documents, external links, and effort fields are edited from the unified task
 detail edit form.
