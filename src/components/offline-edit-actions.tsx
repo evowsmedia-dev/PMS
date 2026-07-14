@@ -33,9 +33,7 @@ function downloadFile(
     options?.mimeType ??
     (lowerName.endsWith(".xlsx")
       ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-      : lowerName.endsWith(".docx")
-        ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        : "text/plain;charset=utf-8");
+      : "text/plain;charset=utf-8");
   const blob = new Blob([options?.encoding === "base64" ? base64ToBytes(content) : content], { type });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
@@ -55,7 +53,7 @@ async function readFileForImport(file: File, allowedExtensions: string[]) {
   if (file.size > 8 * 1024 * 1024) {
     throw new Error("File import tối đa 8MB.");
   }
-  if (lowerName.endsWith(".docx") || lowerName.endsWith(".xlsx")) {
+  if (lowerName.endsWith(".xlsx")) {
     const buffer = await file.arrayBuffer();
     const bytes = new Uint8Array(buffer);
     let binary = "";
@@ -100,7 +98,7 @@ export function DocumentOfflineEditActions({
   async function importFile(file: File | undefined) {
     if (!file) return;
     try {
-      const content = await readFileForImport(file, [".docx"]);
+      const content = await readFileForImport(file, [".xlsx"]);
       startTransition(async () => {
         const result = await importDocumentFromFileAction(projectId, moduleId, docId, content);
         if (result.error) {
@@ -121,7 +119,7 @@ export function DocumentOfflineEditActions({
     <div className="flex flex-wrap justify-end gap-2">
       <Button type="button" size="sm" variant="outline" disabled={pending} onClick={exportFile}>
         <Download className="size-4" />
-        Export DOCX
+        Export XLSX
       </Button>
       <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => inputRef.current?.click()}>
         <Upload className="size-4" />
@@ -130,7 +128,7 @@ export function DocumentOfflineEditActions({
       <input
         ref={inputRef}
         type="file"
-        accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         className="hidden"
         onChange={(event) => importFile(event.target.files?.[0])}
       />

@@ -3,19 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import mammoth from "mammoth";
-import {
-  AlignmentType,
-  Document as DocxDocument,
-  HeadingLevel,
-  Packer,
-  Paragraph,
-  Table,
-  TableCell,
-  TableRow,
-  TextRun,
-  WidthType,
-} from "docx";
+import * as XLSX from "xlsx";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canAccess } from "@/lib/rbac";
@@ -280,7 +268,7 @@ function safeExportFileName(prefix: string, title: string) {
     .replace(/[^a-zA-Z0-9._-]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 80);
-  return `${prefix}-${slug || "export"}.docx`;
+  return `${prefix}-${slug || "export"}.xlsx`;
 }
 
 function normalizeImportedDocumentContent(content: string, contentFormat: "MARKDOWN" | "HTML") {
@@ -297,6 +285,15 @@ function decodeHtmlEntities(value: string) {
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&amp;/g, "&");
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 function stripHtml(value: string) {
@@ -335,31 +332,66 @@ function parseLegacyHtmlDocumentExport(rawContent: string) {
   });
 }
 
-function docxTextParagraphs(value: string) {
-  const lines = value.split(/\r?\n/);
-  return (lines.length ? lines : [""]).map((line) => new Paragraph({ text: line || " " }));
+function htmlFragmentToTextRows(fragment: string) {
+  return decodeHtmlEntities(
+    fragment
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/(p|div|h[1-6]|li|blockquote)>/gi, "\n")
+      .replace(/<[^>]+>/g, " "),
+  )
+    .split(/\n+/)
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
 }
 
-function docxFieldRow(label: string, value: string, help: string) {
-  return new TableRow({
-    children: [
-      new TableCell({
-        width: { size: 22, type: WidthType.PERCENTAGE },
-        children: [new Paragraph({ children: [new TextRun({ text: label, bold: true })] })],
-      }),
-      new TableCell({
-        width: { size: 58, type: WidthType.PERCENTAGE },
-        children: docxTextParagraphs(value),
-      }),
-      new TableCell({
-        width: { size: 20, type: WidthType.PERCENTAGE },
-        children: [new Paragraph({ text: help })],
-      }),
-    ],
-  });
+function htmlTableToRows(tableHtml: string, tableIndex: number) {
+  const rows = Array.from(tableHtml.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi));
+  return rows
+    .map((row) => {
+      const cells = Array.from(row[1].matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi)).map((cell) => stripHtml(cell[1]));
+      return cells.length > 0 ? [`TABLE ${tableIndex}`, ...cells] : null;
+    })
+    .filter((row): row is string[] => Boolean(row));
 }
 
-async function buildDocxDocumentExport({
+function documentContentToSheetRows(content: string, contentFormat: string) {
+  if (contentFormat === "MARKDOWN") {
+    return content
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => ["TEXT", line]);
+  }
+
+  const html = sanitizeDocumentHtml(content).replace(/<style[\s\S]*?<\/style>/gi, "");
+  const tableMatches = Array.from(html.matchAll(/<table[\s\S]*?<\/table>/gi));
+  const rows: string[][] = [];
+  let cursor = 0;
+  let tableIndex = 1;
+
+  for (const match of tableMatches) {
+    const index = match.index ?? 0;
+    for (const text of htmlFragmentToTextRows(html.slice(cursor, index))) {
+      rows.push(["TEXT", text]);
+    }
+    const tableRows = htmlTableToRows(match[0], tableIndex);
+    if (tableRows.length > 0) {
+      if (rows.length > 0) rows.push([]);
+      rows.push(...tableRows);
+      rows.push([]);
+      tableIndex += 1;
+    }
+    cursor = index + match[0].length;
+  }
+
+  for (const text of htmlFragmentToTextRows(html.slice(cursor))) {
+    rows.push(["TEXT", text]);
+  }
+
+  return rows.length > 0 ? rows : [["TEXT", stripHtml(html)]];
+}
+
+function buildDocumentXlsxExport({
   title,
   category,
   role,
@@ -378,83 +410,99 @@ async function buildDocxDocumentExport({
   diagramUrl: string;
   diagramTitle: string;
 }) {
-  const editableContent = contentFormat === "HTML" ? stripHtml(sanitizeDocumentHtml(content)) : content;
-  const document = new DocxDocument({
-    sections: [
-      {
-        children: [
-          new Paragraph({
-            text: "PMS Document Offline Edit",
-            heading: HeadingLevel.HEADING_1,
-          }),
-          new Paragraph({
-            text: "Hướng dẫn: sửa nội dung trong cột Value. Không đổi tên các dòng ở cột Field.",
-          }),
-          new Table({
-            width: { size: 100, type: WidthType.PERCENTAGE },
-            rows: [
-              new TableRow({
-                tableHeader: true,
-                children: [
-                  new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Field", bold: true })] })] }),
-                  new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Value", bold: true })] })] }),
-                  new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Help", bold: true })] })] }),
-                ],
-              }),
-              docxFieldRow("title", title, "Tiêu đề tài liệu"),
-              docxFieldRow("category", category, "Giữ nguyên nếu không chắc"),
-              docxFieldRow("role", role, "PO, BA, DEV, TESTER hoặc ALL"),
-              docxFieldRow("description", description, "Mô tả ngắn"),
-              docxFieldRow("content", editableContent, "Nội dung tài liệu"),
-              docxFieldRow("diagramUrl", diagramUrl, "URL sơ đồ/mockup nếu có"),
-              docxFieldRow("diagramTitle", diagramTitle, "Tên sơ đồ/mockup nếu có"),
-            ],
-          }),
-          new Paragraph({
-            alignment: AlignmentType.LEFT,
-            text: "Khi hoàn tất, lưu file .docx này rồi import lại vào PMS.",
-          }),
-        ],
-      },
-    ],
-  });
+  const workbook = XLSX.utils.book_new();
+  const metadataRows = [
+    ["Field", "Value", "Help"],
+    ["title", title, "Tiêu đề tài liệu"],
+    ["category", category, "Giữ nguyên nếu không chắc"],
+    ["role", role, "PO, BA, DEV, TESTER hoặc ALL"],
+    ["description", description, "Mô tả ngắn"],
+    ["diagramUrl", diagramUrl, "URL sơ đồ/mockup nếu có"],
+    ["diagramTitle", diagramTitle, "Tên sơ đồ/mockup nếu có"],
+  ];
+  const contentRows = [
+    ["Type", "Column 1", "Column 2", "Column 3", "Column 4", "Column 5", "Column 6", "Column 7", "Column 8"],
+    ...documentContentToSheetRows(content, contentFormat),
+  ];
 
-  const buffer = await Packer.toBuffer(document);
+  const metadataSheet = XLSX.utils.aoa_to_sheet(metadataRows);
+  metadataSheet["!cols"] = [{ wch: 24 }, { wch: 64 }, { wch: 48 }];
+  const contentSheet = XLSX.utils.aoa_to_sheet(contentRows);
+  contentSheet["!cols"] = [{ wch: 14 }, ...Array.from({ length: 8 }, () => ({ wch: 28 }))];
+  XLSX.utils.book_append_sheet(workbook, metadataSheet, "Metadata");
+  XLSX.utils.book_append_sheet(workbook, contentSheet, "Content");
+
+  const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
   return buffer.toString("base64");
 }
 
-function extractTableCells(html: string) {
-  const rows = Array.from(html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi));
-  const result = new Map<string, string>();
-  for (const row of rows) {
-    const cells = Array.from(row[1].matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi)).map((cell) => cell[1].trim());
-    if (cells.length < 2) continue;
-    const field = stripHtml(cells[0]);
-    if (!field || field === "Field") continue;
-    result.set(field, cells[1]);
+function sheetRowsToDocumentHtml(rows: unknown[][]) {
+  const htmlParts: string[] = [];
+  let activeTableId = "";
+  let activeTableRows: string[][] = [];
+
+  function flushTable() {
+    if (!activeTableRows.length) return;
+    htmlParts.push(
+      `<table><tbody>${activeTableRows
+        .map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`)
+        .join("")}</tbody></table>`,
+    );
+    activeTableId = "";
+    activeTableRows = [];
   }
-  return result;
+
+  for (const row of rows) {
+    const type = String(row[0] ?? "").trim();
+    if (!type || type === "Type") continue;
+    if (type === "TEXT") {
+      flushTable();
+      const text = String(row[1] ?? "").trim();
+      if (text) htmlParts.push(`<p>${escapeHtml(text)}</p>`);
+      continue;
+    }
+    if (/^TABLE\s+\d+$/i.test(type)) {
+      if (activeTableId && activeTableId !== type) flushTable();
+      activeTableId = type;
+      const cells = row.slice(1).map((cell) => String(cell ?? "").trim());
+      const lastValueIndex = cells.findLastIndex((cell) => cell.length > 0);
+      cells.length = lastValueIndex + 1;
+      if (cells.length > 0) activeTableRows.push(cells);
+    }
+  }
+  flushTable();
+
+  return htmlParts.join("\n");
 }
 
-async function parseDocxDocumentExport(rawBase64: string) {
-  const buffer = Buffer.from(rawBase64, "base64");
-  const converted = await mammoth.convertToHtml({ buffer });
-  const cells = extractTableCells(converted.value);
-  if (cells.size === 0) return null;
+function parseDocumentXlsxExport(rawBase64: string) {
+  const workbook = XLSX.read(Buffer.from(rawBase64, "base64"), { type: "buffer" });
+  const metadataSheet = workbook.Sheets.Metadata ?? workbook.Sheets[workbook.SheetNames[0] ?? ""];
+  const contentSheet = workbook.Sheets.Content;
+  if (!metadataSheet || !contentSheet) return null;
 
-  const contentCell = cells.get("content") ?? "";
+  const metadataRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(metadataSheet, { defval: "" });
+  const metadata = new Map<string, string>();
+  for (const row of metadataRows) {
+    const field = String(row.Field ?? "").trim();
+    if (!field) continue;
+    metadata.set(field, String(row.Value ?? ""));
+  }
+  const contentRows = XLSX.utils.sheet_to_json<unknown[]>(contentSheet, { header: 1, defval: "" });
+  const content = sheetRowsToDocumentHtml(contentRows);
+
   return documentImportSchema.safeParse({
     kind: "PMS_DOCUMENT_EXPORT",
     version: 1,
     document: {
-      title: stripHtml(cells.get("title") ?? ""),
-      category: stripHtml(cells.get("category") ?? ""),
-      role: stripHtml(cells.get("role") ?? ""),
-      description: stripHtml(cells.get("description") ?? ""),
-      content: contentCell,
+      title: metadata.get("title") ?? "",
+      category: metadata.get("category") ?? "",
+      role: metadata.get("role") ?? "",
+      description: metadata.get("description") ?? "",
+      content,
       contentFormat: "HTML",
-      diagramUrl: stripHtml(cells.get("diagramUrl") ?? "") || null,
-      diagramTitle: stripHtml(cells.get("diagramTitle") ?? "") || null,
+      diagramUrl: metadata.get("diagramUrl") || null,
+      diagramTitle: metadata.get("diagramTitle") || null,
     },
   });
 }
@@ -485,7 +533,7 @@ export async function exportDocumentForEditingAction(
   const doc = await getRouteDocument(projectId, moduleId, docId);
   if (!doc) return { error: "Không tìm thấy tài liệu." };
 
-  const content = await buildDocxDocumentExport({
+  const content = buildDocumentXlsxExport({
     title: doc.title,
     category: doc.category,
     role: doc.role,
@@ -502,15 +550,15 @@ export async function exportDocumentForEditingAction(
     entityType: "Document",
     entityId: docId,
     projectId,
-    metadata: { mode: "offline_edit_docx" },
+    metadata: { mode: "offline_edit_xlsx" },
   });
 
   return {
-    success: "Đã chuẩn bị file DOCX để chỉnh sửa tài liệu.",
+    success: "Đã chuẩn bị file XLSX để chỉnh sửa tài liệu.",
     fileName: safeExportFileName("document", doc.title),
     content,
     encoding: "base64",
-    mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   };
 }
 
@@ -538,13 +586,13 @@ export async function importDocumentFromFileAction(
   }
 
   let parsed = rawContent.startsWith("UEsDB")
-    ? await parseDocxDocumentExport(rawContent)
+    ? await parseDocumentXlsxExport(rawContent)
     : parseLegacyHtmlDocumentExport(rawContent);
   if (!parsed?.success) {
     try {
       parsed = documentImportSchema.safeParse(JSON.parse(rawContent));
     } catch {
-      return { error: "File import không đúng định dạng DOCX tài liệu PMS." };
+      return { error: "File import không đúng định dạng XLSX tài liệu PMS." };
     }
   }
   if (!parsed.success) {
@@ -596,7 +644,7 @@ export async function importDocumentFromFileAction(
     entityType: "Document",
     entityId: docId,
     projectId,
-    metadata: { mode: "offline_import_docx", versionNo: nextVersionNo },
+    metadata: { mode: "offline_import_xlsx", versionNo: nextVersionNo },
   });
 
   revalidatePath(`/projects/${projectId}`, "layout");

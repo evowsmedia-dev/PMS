@@ -106,9 +106,10 @@ file opens cleanly in Excel using a Field/Value/Help table. Import validates the
 XLSX payload server-side, updates the current task, refreshes derived
 effort/deadline fields, writes `TaskHistory` entries for changed fields, and
 records an audit log. Document detail mirrors the same offline flow for
-`document.edit` using a real `.docx` file that can be opened, edited, saved,
-and imported back from Word-compatible editors; document import creates a new
-`DocumentVersion` instead of autosaving over history.
+`document.edit` using a real `.xlsx` workbook: metadata is edited on the
+`Metadata` sheet and document content/tables are edited on the `Content` sheet
+so table columns remain visible in Excel/Google Sheets. Document import creates
+a new `DocumentVersion` instead of autosaving over history.
 
 The project BI dashboard now lives in `/projects/:projectId/bi-dashboard` as a
 separate project-sidebar module under **Dashboard dự án**, rather than inside the
