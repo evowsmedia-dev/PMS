@@ -8,6 +8,7 @@ import { contentToSafeHtml } from "@/lib/document-content";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DocumentEditForm } from "@/components/document-edit-form";
 import { PageShell } from "@/components/page-shell";
+import { projectRouteWhere } from "@/lib/route-slug";
 
 export default async function EditDocumentPage({
   params,
@@ -16,7 +17,10 @@ export default async function EditDocumentPage({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  const { projectId, moduleId, docId } = await params;
+  const { projectId: projectSegment, moduleId, docId } = await params;
+  const project = await prisma.project.findFirst({ where: projectRouteWhere(projectSegment), select: { id: true } });
+  if (!project) notFound();
+  const projectId = project.id;
 
   const projectRole = await getProjectRole(session.user.id, projectId);
   const assignedModuleIds = await getAssignedModuleIdsForUser({

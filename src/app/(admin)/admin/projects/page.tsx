@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { PageShell, PageSection, ResponsiveTableFrame } from "@/components/page-shell";
 import { ProjectSubsystemsAdmin } from "@/components/project-subsystems-admin";
 import { AdminProjectAccessManager } from "@/components/admin-project-access-manager";
+import { projectCodeRouteSegment } from "@/lib/route-slug";
 
 export default async function AdminProjectsPage() {
   const [projects, subsystems, users] = await Promise.all([
@@ -85,7 +86,7 @@ export default async function AdminProjectsPage() {
             {projects.map((p) => (
               <tr key={p.id} className="border-t">
                 <td className="px-4 py-2">
-                  <Link href={`/projects/${p.id}/overview`} className="font-medium hover:underline">
+                  <Link href={`/projects/${projectCodeRouteSegment(p)}/overview`} className="font-medium hover:underline">
                     {p.name}
                   </Link>
                   <p className="text-xs text-muted-foreground">{p.code}</p>

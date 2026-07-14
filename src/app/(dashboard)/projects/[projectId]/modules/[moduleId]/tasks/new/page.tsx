@@ -7,6 +7,7 @@ import { canAccessModule, getAssignedModuleIdsForUser } from "@/lib/document-typ
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TaskCreateForm } from "@/components/task-create-form";
 import { PageShell } from "@/components/page-shell";
+import { projectRouteWhere } from "@/lib/route-slug";
 
 export default async function NewTaskPage({
   params,
@@ -17,8 +18,12 @@ export default async function NewTaskPage({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  const { projectId, moduleId } = await params;
+  const { projectId: projectSegment, moduleId } = await params;
   const sp = await searchParams;
+
+  const project = await prisma.project.findFirst({ where: projectRouteWhere(projectSegment), select: { id: true } });
+  if (!project) redirect("/projects");
+  const projectId = project.id;
 
   const projectRole = await getProjectRole(session.user.id, projectId);
   const assignedModuleIds = await getAssignedModuleIdsForUser({

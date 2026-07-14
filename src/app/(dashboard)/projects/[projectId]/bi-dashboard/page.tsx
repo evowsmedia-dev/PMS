@@ -8,6 +8,7 @@ import type { ProjectBiSummary } from "@/lib/reports/bi-dashboard";
 import { ProjectBiDashboardSection } from "@/components/bi-dashboard-section";
 import { PageSection, PageToolbar } from "@/components/page-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { projectCodeRouteSegment, projectRouteWhere } from "@/lib/route-slug";
 
 export default async function ProjectBiDashboardPage({
   params,
@@ -17,12 +18,15 @@ export default async function ProjectBiDashboardPage({
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const { projectId } = await params;
+  const { projectId: projectSegment } = await params;
   const project = await prisma.project.findFirst({
-    where: { id: projectId, deletedAt: null },
+    where: projectRouteWhere(projectSegment),
     select: { id: true, name: true, code: true },
   });
   if (!project) notFound();
+  const projectId = project.id;
+  const projectRouteSegment = projectCodeRouteSegment(project);
+  if (projectSegment !== projectRouteSegment) redirect(`/projects/${projectRouteSegment}/bi-dashboard`);
 
   const projectRole = await getProjectRole(session.user.id, projectId);
   const canViewReports = await canAccess(

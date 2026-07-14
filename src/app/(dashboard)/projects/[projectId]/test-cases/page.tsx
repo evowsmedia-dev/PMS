@@ -10,6 +10,7 @@ import { PageSection } from "@/components/page-shell";
 import { TestCaseCreateForm, TestCaseExecutePanel } from "@/components/qa-forms";
 import { taskHref } from "@/lib/task-href";
 import { TASK_PRIORITY_LABEL, TEST_RESULT_LABEL } from "@/lib/validation/task";
+import { projectCodeRouteSegment, projectRouteWhere } from "@/lib/route-slug";
 
 export default async function TestCasesPage({
   params,
@@ -18,13 +19,16 @@ export default async function TestCasesPage({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  const { projectId } = await params;
+  const { projectId: projectSegment } = await params;
 
   const project = await prisma.project.findFirst({
-    where: { id: projectId, deletedAt: null },
-    select: { id: true },
+    where: projectRouteWhere(projectSegment),
+    select: { id: true, code: true },
   });
   if (!project) notFound();
+  const projectId = project.id;
+  const projectRouteSegment = projectCodeRouteSegment(project);
+  if (projectSegment !== projectRouteSegment) redirect(`/projects/${projectRouteSegment}/test-cases`);
 
   const projectRole = await getProjectRole(session.user.id, projectId);
   const isAdmin = session.user.systemRole === "ADMIN";

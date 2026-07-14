@@ -6,6 +6,7 @@ import { getProjectRole } from "@/lib/project-role";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DeleteProjectButton } from "@/components/project-danger-actions";
 import { PageShell } from "@/components/page-shell";
+import { projectCodeRouteSegment, projectRouteWhere } from "@/lib/route-slug";
 
 export default async function ProjectDeleteSettingsPage({
   params,
@@ -14,15 +15,18 @@ export default async function ProjectDeleteSettingsPage({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  const { projectId } = await params;
+  const { projectId: projectSegment } = await params;
+
+  const project = await prisma.project.findFirst({ where: projectRouteWhere(projectSegment) });
+  if (!project) notFound();
+  const projectId = project.id;
+  const projectRouteSegment = projectCodeRouteSegment(project);
+  if (projectSegment !== projectRouteSegment) redirect(`/projects/${projectRouteSegment}/settings/delete`);
 
   const projectRole = await getProjectRole(session.user.id, projectId);
   if (!(await canAccess({ systemRole: session.user.systemRole }, "project.editSettings", projectRole))) {
     redirect(`/projects/${projectId}/overview`);
   }
-
-  const project = await prisma.project.findFirst({ where: { id: projectId, deletedAt: null } });
-  if (!project) notFound();
 
   return (
     <PageShell size="compact">

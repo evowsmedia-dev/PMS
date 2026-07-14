@@ -63,7 +63,7 @@ export function ProjectMobileNav({
           <nav className="space-y-0.5 text-sm">
             <SheetClose asChild>
               <Link
-                href={`/projects/${projectId}/overview`}
+                href={`/projects/${projectRouteSegment}/overview`}
                 className="block rounded-lg px-2 py-1.5 hover:bg-muted"
               >
                 Dashboard dự án
@@ -71,7 +71,7 @@ export function ProjectMobileNav({
             </SheetClose>
             <SheetClose asChild>
               <Link
-                href={`/projects/${projectId}/bi-dashboard`}
+                href={`/projects/${projectRouteSegment}/bi-dashboard`}
                 className="block rounded-lg px-2 py-1.5 hover:bg-muted"
               >
                 BI Dashboard

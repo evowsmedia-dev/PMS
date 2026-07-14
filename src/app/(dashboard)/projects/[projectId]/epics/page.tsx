@@ -9,6 +9,7 @@ import { PageSection } from "@/components/page-shell";
 import { TaskViewTabs } from "@/components/task-view-tabs";
 import { EpicCreateForm, DeletePlanningButton } from "@/components/planning-forms";
 import { EPIC_STATUS_LABEL } from "@/lib/validation/task";
+import { projectCodeRouteSegment, projectRouteWhere } from "@/lib/route-slug";
 
 export default async function EpicsPage({
   params,
@@ -17,13 +18,16 @@ export default async function EpicsPage({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  const { projectId } = await params;
+  const { projectId: projectSegment } = await params;
 
   const project = await prisma.project.findFirst({
-    where: { id: projectId, deletedAt: null },
-    select: { id: true },
+    where: projectRouteWhere(projectSegment),
+    select: { id: true, code: true },
   });
   if (!project) notFound();
+  const projectId = project.id;
+  const projectRouteSegment = projectCodeRouteSegment(project);
+  if (projectSegment !== projectRouteSegment) redirect(`/projects/${projectRouteSegment}/epics`);
 
   const projectRole = await getProjectRole(session.user.id, projectId);
   const isAdmin = session.user.systemRole === "ADMIN";
@@ -38,7 +42,7 @@ export default async function EpicsPage({
 
   return (
     <PageSection>
-      <TaskViewTabs projectId={projectId} active="epics" />
+      <TaskViewTabs projectId={projectId} projectRouteSegment={projectRouteSegment} active="epics" />
       <h1 className="text-lg font-semibold">Epic ({epics.length})</h1>
       {canManage ? <EpicCreateForm projectId={projectId} /> : null}
 

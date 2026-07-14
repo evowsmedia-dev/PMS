@@ -11,6 +11,7 @@ import { BugCreateForm, BugStatusSelect } from "@/components/qa-forms";
 import { taskHref } from "@/lib/task-href";
 import { BUG_SEVERITY_LABEL, BUG_STATUS_ORDER, BUG_STATUS_LABEL } from "@/lib/validation/task";
 import type { Prisma, BugStatus } from "@/generated/prisma/client";
+import { projectCodeRouteSegment, projectRouteWhere } from "@/lib/route-slug";
 
 export default async function BugsPage({
   params,
@@ -21,14 +22,17 @@ export default async function BugsPage({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  const { projectId } = await params;
+  const { projectId: projectSegment } = await params;
   const sp = await searchParams;
 
   const project = await prisma.project.findFirst({
-    where: { id: projectId, deletedAt: null },
-    select: { id: true },
+    where: projectRouteWhere(projectSegment),
+    select: { id: true, code: true },
   });
   if (!project) notFound();
+  const projectId = project.id;
+  const projectRouteSegment = projectCodeRouteSegment(project);
+  if (projectSegment !== projectRouteSegment) redirect(`/projects/${projectRouteSegment}/bugs`);
 
   const projectRole = await getProjectRole(session.user.id, projectId);
   const isAdmin = session.user.systemRole === "ADMIN";

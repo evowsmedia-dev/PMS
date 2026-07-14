@@ -13,6 +13,7 @@ import { TaskViewTabs } from "@/components/task-view-tabs";
 import { TASK_PRIORITY_ORDER, TASK_PRIORITY_LABEL } from "@/lib/validation/task";
 import { normalizeKanbanStatusColumns } from "@/lib/kanban-status-config";
 import type { Prisma, TaskPriority } from "@/generated/prisma/client";
+import { projectCodeRouteSegment, projectRouteWhere } from "@/lib/route-slug";
 
 export default async function ProjectKanbanPage({
   params,
@@ -23,14 +24,17 @@ export default async function ProjectKanbanPage({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  const { projectId } = await params;
+  const { projectId: projectSegment } = await params;
   const sp = await searchParams;
 
   const project = await prisma.project.findFirst({
-    where: { id: projectId, deletedAt: null },
-    select: { id: true, kanbanStatusOrder: true },
+    where: projectRouteWhere(projectSegment),
+    select: { id: true, code: true, kanbanStatusOrder: true },
   });
   if (!project) notFound();
+  const projectId = project.id;
+  const projectRouteSegment = projectCodeRouteSegment(project);
+  if (projectSegment !== projectRouteSegment) redirect(`/projects/${projectRouteSegment}/kanban`);
 
   const projectRole = await getProjectRole(session.user.id, projectId);
   const isAdmin = session.user.systemRole === "ADMIN";
@@ -81,12 +85,12 @@ export default async function ProjectKanbanPage({
 
   return (
     <PageSection>
-      <TaskViewTabs projectId={projectId} active="kanban" />
+      <TaskViewTabs projectId={projectId} projectRouteSegment={projectRouteSegment} active="kanban" />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-lg font-semibold">Kanban Board</h1>
         {canCreate ? (
           <Button asChild size="sm">
-            <Link href={`/projects/${projectId}/tasks/new`}>
+            <Link href={`/projects/${projectRouteSegment}/tasks/new`}>
               <Plus className="size-4" />
               Tạo task
             </Link>

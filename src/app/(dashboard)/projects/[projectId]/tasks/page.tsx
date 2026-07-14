@@ -24,6 +24,7 @@ import {
   BUG_SEVERITY_LABEL,
   BUG_STATUS_LABEL,
 } from "@/lib/validation/task";
+import { projectCodeRouteSegment, projectRouteWhere } from "@/lib/route-slug";
 
 export default async function ProjectTasksPage({
   params,
@@ -34,13 +35,16 @@ export default async function ProjectTasksPage({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  const { projectId } = await params;
+  const { projectId: projectSegment } = await params;
 
   const project = await prisma.project.findFirst({
-    where: { id: projectId, deletedAt: null },
-    select: { id: true },
+    where: projectRouteWhere(projectSegment),
+    select: { id: true, code: true },
   });
   if (!project) notFound();
+  const projectId = project.id;
+  const projectRouteSegment = projectCodeRouteSegment(project);
+  if (projectSegment !== projectRouteSegment) redirect(`/projects/${projectRouteSegment}/tasks`);
 
   const projectRole = await getProjectRole(session.user.id, projectId);
   const isAdmin = session.user.systemRole === "ADMIN";
@@ -175,7 +179,7 @@ export default async function ProjectTasksPage({
 
   return (
     <PageSection>
-      <TaskViewTabs projectId={projectId} active="list" />
+      <TaskViewTabs projectId={projectId} projectRouteSegment={projectRouteSegment} active="list" />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-lg font-semibold">Task ({tasks.length})</h1>
         <div className="flex flex-wrap items-center gap-2">
@@ -186,7 +190,7 @@ export default async function ProjectTasksPage({
                 documentCount={autoTaskDocs.length}
               />
               <Button asChild size="sm" variant="outline">
-                <Link href={`/projects/${projectId}/tasks/new`}>
+                <Link href={`/projects/${projectRouteSegment}/tasks/new`}>
                   <Plus className="size-4" />
                   Tạo mới
                 </Link>
@@ -200,20 +204,20 @@ export default async function ProjectTasksPage({
       </p>
       <div className="flex flex-wrap gap-2">
         <Badge variant={!statusFilter && !typeFilter && !warningFilter ? "default" : "outline"} asChild>
-          <Link href={`/projects/${projectId}/tasks`}>Tất cả</Link>
+          <Link href={`/projects/${projectRouteSegment}/tasks`}>Tất cả</Link>
         </Badge>
         {["BACKLOG", "TODO", "IN_PROGRESS", "TESTING", "DONE"].map((s) => (
           <Badge key={s} variant={statusFilter === s ? "default" : "outline"} asChild>
-            <Link href={`/projects/${projectId}/tasks?status=${s}`}>{TASK_STATUS_LABEL[s]}</Link>
+            <Link href={`/projects/${projectRouteSegment}/tasks?status=${s}`}>{TASK_STATUS_LABEL[s]}</Link>
           </Badge>
         ))}
         {["STORY", "TASK", "BUG", "TEST", "SUBTASK"].map((t) => (
           <Badge key={t} variant={typeFilter === t ? "default" : "outline"} asChild>
-            <Link href={`/projects/${projectId}/tasks?type=${t}`}>{TASK_TYPE_LABEL[t]}</Link>
+            <Link href={`/projects/${projectRouteSegment}/tasks?type=${t}`}>{TASK_TYPE_LABEL[t]}</Link>
           </Badge>
         ))}
         <Badge variant={warningFilter ? "default" : "outline"} asChild>
-          <Link href={`/projects/${projectId}/tasks?warning=warning`}>Có cảnh báo</Link>
+          <Link href={`/projects/${projectRouteSegment}/tasks?warning=warning`}>Có cảnh báo</Link>
         </Badge>
       </div>
 

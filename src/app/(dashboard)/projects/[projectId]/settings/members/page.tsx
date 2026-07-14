@@ -6,6 +6,7 @@ import { getProjectRole } from "@/lib/project-role";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AddMemberForm, MemberList } from "@/components/project-members";
 import { PageShell, PageSection } from "@/components/page-shell";
+import { projectCodeRouteSegment, projectRouteWhere } from "@/lib/route-slug";
 
 export default async function ProjectMembersPage({
   params,
@@ -14,18 +15,10 @@ export default async function ProjectMembersPage({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  const { projectId } = await params;
-
-  const projectRole = await getProjectRole(session.user.id, projectId);
-  const canManage = await canAccess(
-    { systemRole: session.user.systemRole },
-    "project.manageMembers",
-    projectRole,
-  );
-  if (!canManage) redirect(`/projects/${projectId}/overview`);
+  const { projectId: projectSegment } = await params;
 
   const project = await prisma.project.findFirst({
-    where: { id: projectId, deletedAt: null },
+    where: projectRouteWhere(projectSegment),
     include: {
       members: {
         include: {
@@ -42,6 +35,17 @@ export default async function ProjectMembersPage({
     },
   });
   if (!project) notFound();
+  const projectId = project.id;
+  const projectRouteSegment = projectCodeRouteSegment(project);
+  if (projectSegment !== projectRouteSegment) redirect(`/projects/${projectRouteSegment}/settings/members`);
+
+  const projectRole = await getProjectRole(session.user.id, projectId);
+  const canManage = await canAccess(
+    { systemRole: session.user.systemRole },
+    "project.manageMembers",
+    projectRole,
+  );
+  if (!canManage) redirect(`/projects/${projectId}/overview`);
 
   return (
     <PageShell size="compact">

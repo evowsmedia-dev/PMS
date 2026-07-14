@@ -9,6 +9,7 @@ import { PageSection } from "@/components/page-shell";
 import { TaskViewTabs } from "@/components/task-view-tabs";
 import { SprintCreateForm, DeletePlanningButton } from "@/components/planning-forms";
 import { SPRINT_STATUS_LABEL } from "@/lib/validation/task";
+import { projectCodeRouteSegment, projectRouteWhere } from "@/lib/route-slug";
 
 export default async function SprintsPage({
   params,
@@ -17,13 +18,16 @@ export default async function SprintsPage({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  const { projectId } = await params;
+  const { projectId: projectSegment } = await params;
 
   const project = await prisma.project.findFirst({
-    where: { id: projectId, deletedAt: null },
-    select: { id: true },
+    where: projectRouteWhere(projectSegment),
+    select: { id: true, code: true },
   });
   if (!project) notFound();
+  const projectId = project.id;
+  const projectRouteSegment = projectCodeRouteSegment(project);
+  if (projectSegment !== projectRouteSegment) redirect(`/projects/${projectRouteSegment}/sprints`);
 
   const projectRole = await getProjectRole(session.user.id, projectId);
   const isAdmin = session.user.systemRole === "ADMIN";
@@ -38,7 +42,7 @@ export default async function SprintsPage({
 
   return (
     <PageSection>
-      <TaskViewTabs projectId={projectId} active="sprints" />
+      <TaskViewTabs projectId={projectId} projectRouteSegment={projectRouteSegment} active="sprints" />
       <h1 className="text-lg font-semibold">Sprint ({sprints.length})</h1>
       {canManage ? <SprintCreateForm projectId={projectId} /> : null}
 

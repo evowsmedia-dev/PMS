@@ -5,6 +5,7 @@ import { canAccess } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { PageSection } from "@/components/page-shell";
 import { CreateTaskOrBug } from "@/components/create-task-or-bug";
+import { projectCodeRouteSegment, projectRouteWhere } from "@/lib/route-slug";
 
 export default async function NewProjectTaskPage({
   params,
@@ -15,14 +16,17 @@ export default async function NewProjectTaskPage({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  const { projectId } = await params;
+  const { projectId: projectSegment } = await params;
   const sp = await searchParams;
 
   const project = await prisma.project.findFirst({
-    where: { id: projectId, deletedAt: null },
-    select: { id: true },
+    where: projectRouteWhere(projectSegment),
+    select: { id: true, code: true },
   });
   if (!project) notFound();
+  const projectId = project.id;
+  const projectRouteSegment = projectCodeRouteSegment(project);
+  if (projectSegment !== projectRouteSegment) redirect(`/projects/${projectRouteSegment}/tasks/new`);
 
   const projectRole = await getProjectRole(session.user.id, projectId);
   if (!(await canAccess({ systemRole: session.user.systemRole }, "task.create", projectRole))) {

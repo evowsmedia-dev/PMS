@@ -3,9 +3,11 @@ import { auth } from "@/lib/auth";
 import { canAccess } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { canAccessModule, getAssignedModuleIdsForUser } from "@/lib/document-type-access";
+import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DocumentCreateForm } from "@/components/document-create-form";
 import { PageShell } from "@/components/page-shell";
+import { projectRouteWhere } from "@/lib/route-slug";
 
 export default async function NewDocumentPage({
   params,
@@ -14,7 +16,10 @@ export default async function NewDocumentPage({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  const { projectId, moduleId } = await params;
+  const { projectId: projectSegment, moduleId } = await params;
+  const project = await prisma.project.findFirst({ where: projectRouteWhere(projectSegment), select: { id: true } });
+  if (!project) redirect("/projects");
+  const projectId = project.id;
 
   const projectRole = await getProjectRole(session.user.id, projectId);
   const assignedModuleIds = await getAssignedModuleIdsForUser({

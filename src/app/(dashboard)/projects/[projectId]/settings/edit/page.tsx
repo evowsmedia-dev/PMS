@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProjectEditForm } from "@/components/project-settings-forms";
 import { ArchiveProjectButton } from "@/components/project-danger-actions";
 import { PageShell, PageSection } from "@/components/page-shell";
+import { projectCodeRouteSegment, projectRouteWhere } from "@/lib/route-slug";
 
 export default async function ProjectEditSettingsPage({
   params,
@@ -15,21 +16,23 @@ export default async function ProjectEditSettingsPage({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  const { projectId } = await params;
+  const { projectId: projectSegment } = await params;
+
+  const project = await prisma.project.findFirst({ where: projectRouteWhere(projectSegment) });
+  if (!project) notFound();
+  const projectId = project.id;
+  const projectRouteSegment = projectCodeRouteSegment(project);
+  if (projectSegment !== projectRouteSegment) redirect(`/projects/${projectRouteSegment}/settings/edit`);
 
   const projectRole = await getProjectRole(session.user.id, projectId);
   if (!(await canAccess({ systemRole: session.user.systemRole }, "project.editSettings", projectRole))) {
     redirect(`/projects/${projectId}/overview`);
   }
 
-  const [project, subsystems] = await Promise.all([
-    prisma.project.findFirst({ where: { id: projectId, deletedAt: null } }),
-    prisma.projectSubsystem.findMany({
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
-  ]);
-  if (!project) notFound();
+  const subsystems = await prisma.projectSubsystem.findMany({
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
+  });
 
   return (
     <PageShell size="compact">

@@ -13,6 +13,7 @@ import { TASK_STATUS_ORDER } from "@/lib/validation/task";
 import { makeKanbanStatusColumn } from "@/lib/kanban-status-config";
 import { Plus } from "lucide-react";
 import type { Prisma, TaskPriority } from "@/generated/prisma/client";
+import { projectRouteWhere } from "@/lib/route-slug";
 
 export default async function ModuleTasksPage({
   params,
@@ -23,8 +24,12 @@ export default async function ModuleTasksPage({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  const { projectId, moduleId } = await params;
+  const { projectId: projectSegment, moduleId } = await params;
   const sp = await searchParams;
+
+  const project = await prisma.project.findFirst({ where: projectRouteWhere(projectSegment), select: { id: true } });
+  if (!project) notFound();
+  const projectId = project.id;
 
   const module_ = await prisma.module.findFirst({ where: { id: moduleId, projectId } });
   if (!module_) notFound();

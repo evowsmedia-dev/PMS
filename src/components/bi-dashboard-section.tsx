@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ResponsiveTableFrame } from "@/components/page-shell";
 import type { BiDashboardMetrics, ProjectBiSummary } from "@/lib/reports/bi-dashboard";
+import { routeSlug } from "@/lib/route-slug";
 
 export function ProjectBiDashboardSection({ metrics }: { metrics: ProjectBiSummary }) {
   return (
@@ -59,7 +60,7 @@ export function AttentionProjectsTable({ projects }: { projects: ProjectBiSummar
                 {projects.map((project) => (
                   <tr key={project.projectId} className="border-t">
                     <td className="px-4 py-2">
-                      <Link href={`/projects/${project.projectId}/overview`} className="font-medium hover:underline">
+                      <Link href={`/projects/${routeSlug(project.projectCode)}/overview`} className="font-medium hover:underline">
                         {project.projectCode} - {project.projectName}
                       </Link>
                     </td>

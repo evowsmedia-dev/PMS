@@ -9,6 +9,7 @@ import { PageSection } from "@/components/page-shell";
 import { TaskViewTabs } from "@/components/task-view-tabs";
 import { MilestoneCreateForm, DeletePlanningButton } from "@/components/planning-forms";
 import { MILESTONE_STATUS_LABEL } from "@/lib/validation/task";
+import { projectCodeRouteSegment, projectRouteWhere } from "@/lib/route-slug";
 
 export default async function MilestonesPage({
   params,
@@ -17,13 +18,16 @@ export default async function MilestonesPage({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  const { projectId } = await params;
+  const { projectId: projectSegment } = await params;
 
   const project = await prisma.project.findFirst({
-    where: { id: projectId, deletedAt: null },
-    select: { id: true },
+    where: projectRouteWhere(projectSegment),
+    select: { id: true, code: true },
   });
   if (!project) notFound();
+  const projectId = project.id;
+  const projectRouteSegment = projectCodeRouteSegment(project);
+  if (projectSegment !== projectRouteSegment) redirect(`/projects/${projectRouteSegment}/milestones`);
 
   const projectRole = await getProjectRole(session.user.id, projectId);
   const isAdmin = session.user.systemRole === "ADMIN";
@@ -40,7 +44,7 @@ export default async function MilestonesPage({
 
   return (
     <PageSection>
-      <TaskViewTabs projectId={projectId} active="milestones" />
+      <TaskViewTabs projectId={projectId} projectRouteSegment={projectRouteSegment} active="milestones" />
       <h1 className="text-lg font-semibold">Milestone ({milestones.length})</h1>
       {canManage ? <MilestoneCreateForm projectId={projectId} /> : null}
 

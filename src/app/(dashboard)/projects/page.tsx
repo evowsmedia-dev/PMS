@@ -9,6 +9,7 @@ import { PageShell, PageSection, PageToolbar } from "@/components/page-shell";
 import { DeleteProjectButton } from "@/components/delete-project-button";
 import { ProjectIcon } from "@/lib/validation/icons";
 import { Plus, Search } from "lucide-react";
+import { projectCodeRouteSegment } from "@/lib/route-slug";
 
 const PRIORITY_LABEL: Record<string, string> = {
   LOW: "Thấp",
@@ -122,7 +123,7 @@ export default async function ProjectsPage({
                   <DeleteProjectButton projectId={project.id} projectName={project.name} />
                 </div>
               ) : null}
-              <Link href={`/projects/${project.id}/overview`} className="block">
+              <Link href={`/projects/${projectCodeRouteSegment(project)}/overview`} className="block">
                 <CardHeader className="flex flex-row items-start gap-3 space-y-0 pr-14">
                   <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-foreground">
                     <ProjectIcon name={project.icon} className="size-5" />

@@ -14,7 +14,15 @@ const TABS: { key: TaskView; label: string; segment: string }[] = [
 /** Segmented view switcher for the project task workspace. Rendered at the top of
  * the tasks / kanban / gantt / epics / sprints / milestones pages so those views
  * are modes within one workspace instead of separate sidebar entries. */
-export function TaskViewTabs({ projectId, active }: { projectId: string; active: TaskView }) {
+export function TaskViewTabs({
+  projectId,
+  projectRouteSegment = projectId,
+  active,
+}: {
+  projectId: string;
+  projectRouteSegment?: string;
+  active: TaskView;
+}) {
   return (
     <nav className="-mx-1 flex flex-wrap gap-1 overflow-x-auto px-1">
       {TABS.map((t) => {
@@ -22,7 +30,7 @@ export function TaskViewTabs({ projectId, active }: { projectId: string; active:
         return (
           <Link
             key={t.key}
-            href={`/projects/${projectId}/${t.segment}`}
+            href={`/projects/${projectRouteSegment}/${t.segment}`}
             className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
               isActive
                 ? "bg-primary text-primary-foreground"

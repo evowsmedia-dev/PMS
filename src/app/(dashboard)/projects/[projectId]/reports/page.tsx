@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
+import { projectCodeRouteSegment, projectRouteWhere } from "@/lib/route-slug";
 
 /**
  * The BI/report content now lives in its own project dashboard module.
@@ -10,5 +12,9 @@ export default async function ReportsPage({
   params: Promise<{ projectId: string }>;
 }) {
   const { projectId } = await params;
-  redirect(`/projects/${projectId}/bi-dashboard`);
+  const project = await prisma.project.findFirst({
+    where: projectRouteWhere(projectId),
+    select: { code: true },
+  });
+  redirect(`/projects/${project ? projectCodeRouteSegment(project) : projectId}/bi-dashboard`);
 }

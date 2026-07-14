@@ -139,16 +139,16 @@ export default async function ProjectLayout({
       <div className="grid min-w-0 gap-6 lg:grid-cols-[20%_minmax(0,80%)]">
         <aside className="hidden min-w-0 shrink-0 space-y-4 lg:block">
           <nav className="space-y-0.5 text-[1.15rem]">
-            <Link href={`/projects/${project.id}/overview`} className="block rounded-lg px-2 py-1.5 hover:bg-accent">
+            <Link href={`/projects/${projectRouteSegment}/overview`} className="block rounded-lg px-2 py-1.5 hover:bg-accent">
               Dashboard dự án
             </Link>
             <Link
-              href={`/projects/${project.id}/bi-dashboard`}
+              href={`/projects/${projectRouteSegment}/bi-dashboard`}
               className="block rounded-lg px-2 py-1.5 hover:bg-accent"
             >
               BI Dashboard
             </Link>
-            <Link href={`/projects/${project.id}/tasks`} className="block rounded-lg px-2 py-1.5 hover:bg-accent">
+            <Link href={`/projects/${projectRouteSegment}/tasks`} className="block rounded-lg px-2 py-1.5 hover:bg-accent">
               Task
             </Link>
           </nav>

@@ -1,3 +1,5 @@
+import type { Prisma } from "@/generated/prisma/client";
+
 export function extractRouteId(segment: string) {
   const parts = segment.split("--");
   return parts[parts.length - 1] || segment;
@@ -24,6 +26,14 @@ export function projectRouteId(project: { id: string; code?: string | null; name
 
 export function projectCodeRouteSegment(project: { code: string }) {
   return routeSlug(project.code);
+}
+
+export function projectRouteWhere(segment: string): Prisma.ProjectWhereInput {
+  const lookup = extractRouteId(segment);
+  return {
+    deletedAt: null,
+    OR: [{ id: lookup }, { code: { equals: lookup, mode: "insensitive" } }],
+  };
 }
 
 export function moduleNameRouteSegment(module_: { name: string }) {
