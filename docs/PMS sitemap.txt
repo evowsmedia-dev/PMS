@@ -125,8 +125,10 @@ Ghi chú:
 ├── /projects/:projectId/gantt
 │   ├── Timeline/Gantt project-level theo epic/schedule/progress.
 │   ├── Phạm vi timeline tự mở rộng 14 ngày trước/sau hoạt động task.
-│   ├── Header timeline hiển thị tháng/năm và từng ngày, scroll ngang theo phạm vi.
-│   └── Cho tùy bật/tắt các cột cạnh tên task: status, planned time, effort time, duration, start, end date.
+│   ├── Header timeline hiển thị tháng/năm và từng ngày; chỉ vùng bảng thời gian scroll ngang.
+│   ├── Phần thông tin task và các cột metadata luôn fixed bên trái.
+│   ├── Mặc định scroll tới đoạn 7 ngày quanh ngày hiện tại.
+│   └── Cho tùy bật/tắt và chỉnh độ rộng vùng task/ngày cho các cột: status, planned time, effort time, duration, start, end date.
 │
 ├── /projects/:projectId/epics
 │   └── Danh sách epic, tạo inline, task counts.
