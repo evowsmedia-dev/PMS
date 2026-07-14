@@ -66,7 +66,6 @@ export default async function ProjectEstimatedTimelinePage({
         assignee: { select: { id: true, fullName: true } },
         versions: {
           orderBy: { versionNo: "desc" },
-          take: 1,
           include: { editedBy: { select: { fullName: true } } },
         },
       },
@@ -100,8 +99,6 @@ export default async function ProjectEstimatedTimelinePage({
             email: member.user.email,
           }))}
         rows={items.map((item) => {
-          const latestVersion = item.versions[0];
-          const changedFields = changedFieldsFromVersion(latestVersion);
           return {
             id: item.id,
             title: item.title,
@@ -113,17 +110,16 @@ export default async function ProjectEstimatedTimelinePage({
             assigneeId: item.assigneeId ?? "",
             assigneeName: item.assignee?.fullName ?? "",
             note: item.note ?? "",
-            changedFields,
-            latestVersion: latestVersion
-              ? {
-                  versionNo: latestVersion.versionNo,
-                  changeNote: latestVersion.changeNote ?? "",
-                  createdAt: latestVersion.createdAt.toISOString(),
-                  editedByName: latestVersion.editedBy.fullName,
-                  changedFields,
-                  snapshot: snapshotFromVersion(latestVersion),
-                }
-              : null,
+            versions: item.versions.map((version) => ({
+              id: version.id,
+              itemTitle: item.title,
+              versionNo: version.versionNo,
+              changeNote: version.changeNote ?? "",
+              createdAt: version.createdAt.toISOString(),
+              editedByName: version.editedBy.fullName,
+              changedFields: changedFieldsFromVersion(version),
+              snapshot: snapshotFromVersion(version),
+            })),
             versionNo: item.currentVersionNo,
           };
         })}

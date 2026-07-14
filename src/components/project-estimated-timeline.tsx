@@ -15,6 +15,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ResponsiveTableFrame } from "@/components/page-shell";
 import { ProjectEstimatedTimelineOfflineActions } from "@/components/offline-edit-actions";
 import {
@@ -49,19 +56,20 @@ interface TimelineRow {
   assigneeId: string;
   assigneeName: string;
   note: string;
-  changedFields: string[];
-  latestVersion?: TimelineVersionSummary | null;
+  versions: TimelineVersionSummary[];
   versionNo: number;
   deleted?: boolean;
 }
 
 interface TimelineVersionSummary {
+  id: string;
+  itemTitle: string;
   versionNo: number;
   changeNote: string;
   createdAt: string;
   editedByName: string;
   changedFields: string[];
-  snapshot: Partial<Record<keyof typeof FIELD_LABELS, string | number | null>>;
+  snapshot: Partial<Record<string, string | number | null>>;
 }
 
 interface MemberOption {
@@ -106,9 +114,18 @@ function blankRow(): TimelineRow {
     assigneeId: "",
     assigneeName: "",
     note: "",
-    changedFields: Object.keys(FIELD_LABELS),
+    versions: [],
     versionNo: 1,
   };
+}
+
+function versionType(version: TimelineVersionSummary) {
+  const note = version.changeNote.toLowerCase();
+  if (note.includes("đồng bộ")) return "Đồng bộ";
+  if (note.includes("import")) return "Import";
+  if (note.includes("tạo")) return "Tạo mới";
+  if (note.includes("xóa")) return "Xóa";
+  return "Cập nhật";
 }
 
 export function ProjectEstimatedTimeline({
@@ -128,6 +145,7 @@ export function ProjectEstimatedTimeline({
 }) {
   const [editing, setEditing] = useState(false);
   const [rows, setRows] = useState<TimelineRow[]>(initialRows.length ? initialRows : [blankRow()]);
+  const [selectedVersion, setSelectedVersion] = useState<TimelineVersionSummary | null>(null);
   const [saveState, saveAction, saving] = useActionState(
     saveProjectEstimatedTimelineAction.bind(null, projectId),
     initialState,
@@ -157,6 +175,17 @@ export function ProjectEstimatedTimeline({
   }, [commentState, router]);
 
   const visibleRows = useMemo(() => rows.filter((row) => !row.deleted), [rows]);
+  const historyVersions = useMemo(
+    () =>
+      initialRows
+        .flatMap((row) => row.versions)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    [initialRows],
+  );
+  const latestTimelineVersion = historyVersions.reduce(
+    (max, version) => Math.max(max, version.versionNo),
+    0,
+  );
 
   function updateRow(index: number, patch: Partial<TimelineRow>) {
     setRows((current) =>
@@ -390,38 +419,48 @@ export function ProjectEstimatedTimeline({
         </form>
 
         <div className="rounded-lg border p-3">
-          <p className="text-sm font-semibold">Lịch sử thay đổi gần nhất</p>
-          <div className="mt-2 space-y-2 text-xs">
-            {initialRows
-              .filter((row) => row.latestVersion && row.latestVersion.changedFields.length > 0)
-              .map((row) => (
-                <div key={`${row.id}-history`} className="rounded-lg border bg-muted/20 p-2">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="font-medium">{row.title}</p>
-                    <span className="text-muted-foreground">
-                      v{row.latestVersion?.versionNo} · {row.latestVersion?.editedByName} ·{" "}
-                      {row.latestVersion
-                        ? new Date(row.latestVersion.createdAt).toLocaleString("vi-VN")
-                        : ""}
-                    </span>
-                  </div>
-                  {row.latestVersion?.changeNote ? (
-                    <p className="mt-1 text-muted-foreground">{row.latestVersion.changeNote}</p>
-                  ) : null}
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {row.latestVersion?.changedFields.map((field) => (
-                      <span key={`${row.id}-${field}`} className="rounded-md border bg-yellow-100 px-2 py-1 text-foreground">
-                        <span className="font-medium">{FIELD_LABELS[field] ?? field}:</span>{" "}
-                        {formatHistoryValue(field, row.latestVersion?.snapshot[field as keyof typeof FIELD_LABELS])}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            {initialRows.every((row) => !row.latestVersion || row.latestVersion.changedFields.length === 0) ? (
-              <p className="text-muted-foreground">Chưa có thay đổi mới.</p>
-            ) : null}
-          </div>
+          <p className="text-sm font-semibold">Lịch sử thay đổi (v{latestTimelineVersion || 0})</p>
+          <ResponsiveTableFrame minWidth="min-w-[760px]" className="mt-2">
+            <table className="w-full border-collapse text-xs">
+              <thead className="border-b bg-muted/50 text-left text-xs text-muted-foreground">
+                <tr>
+                  <th className="border-r px-2 py-2">Phiên bản</th>
+                  <th className="border-r px-2 py-2">Ngày</th>
+                  <th className="border-r px-2 py-2">Người thực hiện</th>
+                  <th className="border-r px-2 py-2">Ghi chú</th>
+                  <th className="px-2 py-2">Loại</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {historyVersions.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-3 py-6 text-center text-muted-foreground">
+                      Chưa có lịch sử thay đổi.
+                    </td>
+                  </tr>
+                ) : (
+                  historyVersions.map((version) => (
+                    <tr
+                      key={version.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => setSelectedVersion(version)}
+                    >
+                      <td className="border-r px-2 py-2 font-medium">v{version.versionNo}</td>
+                      <td className="border-r px-2 py-2">
+                        {new Date(version.createdAt).toLocaleString("vi-VN")}
+                      </td>
+                      <td className="border-r px-2 py-2">{version.editedByName}</td>
+                      <td className="border-r px-2 py-2">
+                        <span className="font-medium">{version.itemTitle}</span>
+                        {version.changeNote ? ` · ${version.changeNote}` : ""}
+                      </td>
+                      <td className="px-2 py-2">{versionType(version)}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </ResponsiveTableFrame>
         </div>
       </div>
 
@@ -458,6 +497,63 @@ export function ProjectEstimatedTimeline({
           </form>
         ) : null}
       </aside>
+
+      <Dialog open={Boolean(selectedVersion)} onOpenChange={(open) => !open && setSelectedVersion(null)}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              Chi tiết thay đổi {selectedVersion ? `v${selectedVersion.versionNo}` : ""}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedVersion
+                ? `${selectedVersion.itemTitle} · ${selectedVersion.editedByName} · ${new Date(
+                    selectedVersion.createdAt,
+                  ).toLocaleString("vi-VN")}`
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedVersion ? (
+            <div className="space-y-3 text-xs">
+              <div className="rounded-lg border bg-muted/20 p-2">
+                <p className="font-medium">Ghi chú</p>
+                <p className="mt-1 text-muted-foreground">{selectedVersion.changeNote || "Không có ghi chú."}</p>
+              </div>
+              <ResponsiveTableFrame minWidth="min-w-[520px]">
+                <table className="w-full border-collapse text-xs">
+                  <thead className="border-b bg-muted/50 text-left text-muted-foreground">
+                    <tr>
+                      <th className="border-r px-2 py-2">Trường dữ liệu</th>
+                      <th className="px-2 py-2">Nội dung thay đổi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {selectedVersion.changedFields.length === 0 ? (
+                      <tr>
+                        <td colSpan={2} className="px-3 py-6 text-center text-muted-foreground">
+                          Version này không có field thay đổi.
+                        </td>
+                      </tr>
+                    ) : (
+                      selectedVersion.changedFields.map((field) => (
+                        <tr key={`${selectedVersion.id}-${field}`}>
+                          <td className="w-44 border-r px-2 py-2 font-medium">
+                            {FIELD_LABELS[field] ?? field}
+                          </td>
+                          <td className="px-2 py-2">
+                            <span className="inline-block rounded-md border bg-yellow-100 px-2 py-1 text-foreground">
+                              {formatHistoryValue(field, selectedVersion.snapshot[field])}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </ResponsiveTableFrame>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
