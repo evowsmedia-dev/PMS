@@ -14,8 +14,14 @@ import {
   importTaskFromFileAction,
 } from "@/lib/actions/tasks";
 
-function downloadJsonFile(fileName: string, content: string) {
-  const blob = new Blob([content], { type: "application/json;charset=utf-8" });
+function downloadTextFile(fileName: string, content: string) {
+  const lowerName = fileName.toLowerCase();
+  const type = lowerName.endsWith(".csv")
+    ? "text/csv;charset=utf-8"
+    : lowerName.endsWith(".doc") || lowerName.endsWith(".html")
+      ? "application/msword;charset=utf-8"
+      : "text/plain;charset=utf-8";
+  const blob = new Blob([content], { type });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
@@ -26,12 +32,13 @@ function downloadJsonFile(fileName: string, content: string) {
   URL.revokeObjectURL(url);
 }
 
-async function readTextFile(file: File) {
-  if (!file.name.toLowerCase().endsWith(".json")) {
-    throw new Error("Vui lòng chọn file JSON đã export từ PMS.");
+async function readTextFile(file: File, allowedExtensions: string[]) {
+  const lowerName = file.name.toLowerCase();
+  if (!allowedExtensions.some((extension) => lowerName.endsWith(extension))) {
+    throw new Error(`Vui lòng chọn file ${allowedExtensions.join(", ")} đã export từ PMS.`);
   }
-  if (file.size > 2 * 1024 * 1024) {
-    throw new Error("File import tối đa 2MB.");
+  if (file.size > 5 * 1024 * 1024) {
+    throw new Error("File import tối đa 5MB.");
   }
   return file.text();
 }
@@ -60,7 +67,7 @@ export function DocumentOfflineEditActions({
         toast.error(result.error ?? "Không export được tài liệu.");
         return;
       }
-      downloadJsonFile(result.fileName, result.content);
+      downloadTextFile(result.fileName, result.content);
       toast.success(result.success ?? "Đã export tài liệu.");
     });
   }
@@ -68,7 +75,7 @@ export function DocumentOfflineEditActions({
   async function importFile(file: File | undefined) {
     if (!file) return;
     try {
-      const content = await readTextFile(file);
+      const content = await readTextFile(file, [".doc", ".html", ".htm", ".json"]);
       startTransition(async () => {
         const result = await importDocumentFromFileAction(projectId, moduleId, docId, content);
         if (result.error) {
@@ -89,7 +96,7 @@ export function DocumentOfflineEditActions({
     <div className="flex flex-wrap justify-end gap-2">
       <Button type="button" size="sm" variant="outline" disabled={pending} onClick={exportFile}>
         <Download className="size-4" />
-        Export để sửa
+        Export Word
       </Button>
       <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => inputRef.current?.click()}>
         <Upload className="size-4" />
@@ -98,7 +105,7 @@ export function DocumentOfflineEditActions({
       <input
         ref={inputRef}
         type="file"
-        accept="application/json,.json"
+        accept=".doc,.html,.htm,application/msword,text/html,application/json,.json"
         className="hidden"
         onChange={(event) => importFile(event.target.files?.[0])}
       />
@@ -130,7 +137,7 @@ export function TaskOfflineEditActions({
         toast.error(result.error ?? "Không export được task.");
         return;
       }
-      downloadJsonFile(result.fileName, result.content);
+      downloadTextFile(result.fileName, result.content);
       toast.success(result.success ?? "Đã export task.");
     });
   }
@@ -138,7 +145,7 @@ export function TaskOfflineEditActions({
   async function importFile(file: File | undefined) {
     if (!file) return;
     try {
-      const content = await readTextFile(file);
+      const content = await readTextFile(file, [".csv", ".json"]);
       startTransition(async () => {
         const result = await importTaskFromFileAction(projectId, moduleId, taskId, content);
         if (result.error) {
@@ -159,7 +166,7 @@ export function TaskOfflineEditActions({
     <div className="flex flex-wrap gap-2">
       <Button type="button" size="sm" variant="outline" disabled={pending} onClick={exportFile}>
         <Download className="size-4" />
-        Export để sửa
+        Export Excel
       </Button>
       <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => inputRef.current?.click()}>
         <Upload className="size-4" />
@@ -168,7 +175,7 @@ export function TaskOfflineEditActions({
       <input
         ref={inputRef}
         type="file"
-        accept="application/json,.json"
+        accept=".csv,text/csv,application/json,.json"
         className="hidden"
         onChange={(event) => importFile(event.target.files?.[0])}
       />

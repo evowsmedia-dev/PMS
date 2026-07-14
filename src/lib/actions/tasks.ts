@@ -1393,7 +1393,106 @@ function safeTaskExportFileName(title: string, taskCode?: string | null) {
     .replace(/[^a-zA-Z0-9._-]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 90);
-  return `task-${slug || "export"}.json`;
+  return `task-${slug || "export"}.csv`;
+}
+
+function csvEscape(value: unknown) {
+  const text = value === null || value === undefined ? "" : String(value);
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function buildCsvExport(rows: { field: string; value: string | number | null; help: string }[]) {
+  return [
+    ["Field", "Value", "Help"].map(csvEscape).join(","),
+    ...rows.map((row) => [row.field, row.value, row.help].map(csvEscape).join(",")),
+  ].join("\r\n");
+}
+
+function parseCsvRows(content: string) {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let quoted = false;
+
+  for (let index = 0; index < content.length; index += 1) {
+    const char = content[index];
+    const next = content[index + 1];
+    if (quoted) {
+      if (char === '"' && next === '"') {
+        cell += '"';
+        index += 1;
+      } else if (char === '"') {
+        quoted = false;
+      } else {
+        cell += char;
+      }
+      continue;
+    }
+    if (char === '"') {
+      quoted = true;
+    } else if (char === ",") {
+      row.push(cell);
+      cell = "";
+    } else if (char === "\n") {
+      row.push(cell);
+      rows.push(row);
+      row = [];
+      cell = "";
+    } else if (char !== "\r") {
+      cell += char;
+    }
+  }
+
+  row.push(cell);
+  if (row.some((value) => value.length > 0)) rows.push(row);
+  return rows;
+}
+
+function parseTaskCsvExport(rawContent: string) {
+  const rows = parseCsvRows(rawContent);
+  const header = rows[0]?.map((cell) => cell.trim().toLowerCase()) ?? [];
+  const fieldIndex = header.indexOf("field");
+  const valueIndex = header.indexOf("value");
+  if (fieldIndex < 0 || valueIndex < 0) return null;
+
+  const values = new Map<string, string>();
+  for (const row of rows.slice(1)) {
+    const field = row[fieldIndex]?.trim();
+    if (!field) continue;
+    values.set(field, row[valueIndex] ?? "");
+  }
+
+  return taskImportSchema.safeParse({
+    kind: "PMS_TASK_EXPORT",
+    version: 1,
+    task: {
+      title: values.get("title") ?? "",
+      description: values.get("description") ?? "",
+      acceptanceCriteria: values.get("acceptanceCriteria") ?? "",
+      status: values.get("status") || "BACKLOG",
+      type: values.get("type") || "TASK",
+      priority: values.get("priority") || "MEDIUM",
+      plannedStartAt: values.get("plannedStartAt") ?? "",
+      startDate: values.get("startDate") ?? "",
+      dueDate: values.get("dueDate") ?? "",
+      devDueAt: values.get("devDueAt") ?? "",
+      testDueAt: values.get("testDueAt") ?? "",
+      devEstimateHours: values.get("devEstimateHours") || 0,
+      testEstimateHours: values.get("testEstimateHours") || 0,
+      testEstimateSource: values.get("testEstimateSource") || "MANUAL",
+      standardEstimateMandays: values.get("standardEstimateMandays") || 0,
+      storyPoint: values.get("storyPoint") || 0,
+      relatedDocumentIds: splitCsvList(values.get("relatedDocumentIds") ?? ""),
+      externalLinks: splitCsvList(values.get("externalLinks") ?? ""),
+    },
+  });
+}
+
+function splitCsvList(value: string) {
+  return value
+    .split(/[\n;]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 function parseOptionalDate(value?: string | null) {
@@ -1472,43 +1571,34 @@ export async function exportTaskForEditingAction(
   });
   if (!task) return { error: "Không tìm thấy task." };
 
-  const payload = {
-    kind: "PMS_TASK_EXPORT",
-    version: 1,
-    exportedAt: new Date().toISOString(),
-    instructions: [
-      "Có thể chỉnh sửa các trường trong object task.",
-      "Không đổi kind/version. Import sẽ cập nhật task hiện tại và ghi lịch sử thay đổi.",
-      "relatedDocumentIds phải là id tài liệu đang thuộc cùng dự án.",
-      "externalLinks là danh sách URL hợp lệ.",
-    ],
-    identity: {
-      projectId,
-      moduleId,
-      taskId,
-      taskCode: task.taskCode,
+  const content = buildCsvExport([
+    { field: "title", value: task.title, help: "Tiêu đề task" },
+    { field: "description", value: task.description ?? "", help: "Mô tả task; có thể xuống dòng trong Excel" },
+    { field: "acceptanceCriteria", value: task.acceptanceCriteria ?? "", help: "Tiêu chí nghiệm thu" },
+    { field: "status", value: task.status, help: `Một trong: ${TASK_STATUS_ORDER.join(", ")}` },
+    { field: "type", value: task.type, help: `Một trong: ${TASK_TYPE_ORDER.join(", ")}` },
+    { field: "priority", value: task.priority, help: `Một trong: ${TASK_PRIORITY_ORDER.join(", ")}` },
+    { field: "plannedStartAt", value: dateToInputValue(task.plannedStartAt), help: "YYYY-MM-DD" },
+    { field: "startDate", value: dateToInputValue(task.startDate), help: "YYYY-MM-DD" },
+    { field: "dueDate", value: dateToInputValue(task.dueDate), help: "YYYY-MM-DD" },
+    { field: "devDueAt", value: dateToInputValue(task.devDueAt), help: "YYYY-MM-DD" },
+    { field: "testDueAt", value: dateToInputValue(task.testDueAt), help: "YYYY-MM-DD" },
+    { field: "devEstimateHours", value: Number(task.devEstimateHours), help: "Số giờ Dev estimate" },
+    { field: "testEstimateHours", value: Number(task.testEstimateHours), help: "Số giờ Test estimate" },
+    { field: "testEstimateSource", value: task.testEstimateSource, help: "AUTO hoặc MANUAL" },
+    { field: "standardEstimateMandays", value: Number(task.standardEstimateMandays), help: "Ngày công chuẩn" },
+    { field: "storyPoint", value: Number(task.storyPoint), help: "Story point" },
+    {
+      field: "relatedDocumentIds",
+      value: task.relatedDocuments.map((relation) => relation.documentId).join("\n"),
+      help: "Mỗi id tài liệu một dòng hoặc ngăn cách bằng dấu ;",
     },
-    task: {
-      title: task.title,
-      description: task.description ?? "",
-      acceptanceCriteria: task.acceptanceCriteria ?? "",
-      status: task.status,
-      type: task.type,
-      priority: task.priority,
-      plannedStartAt: dateToInputValue(task.plannedStartAt),
-      startDate: dateToInputValue(task.startDate),
-      dueDate: dateToInputValue(task.dueDate),
-      devDueAt: dateToInputValue(task.devDueAt),
-      testDueAt: dateToInputValue(task.testDueAt),
-      devEstimateHours: Number(task.devEstimateHours),
-      testEstimateHours: Number(task.testEstimateHours),
-      testEstimateSource: task.testEstimateSource,
-      standardEstimateMandays: Number(task.standardEstimateMandays),
-      storyPoint: Number(task.storyPoint),
-      relatedDocumentIds: task.relatedDocuments.map((relation) => relation.documentId),
-      externalLinks: normalizeStoredExternalLinks(task.externalLinks),
+    {
+      field: "externalLinks",
+      value: normalizeStoredExternalLinks(task.externalLinks).join("\n"),
+      help: "Mỗi link một dòng hoặc ngăn cách bằng dấu ;",
     },
-  };
+  ]);
 
   await logAudit({
     actorId: session.user.id,
@@ -1516,13 +1606,13 @@ export async function exportTaskForEditingAction(
     entityType: "Task",
     entityId: taskId,
     projectId,
-    metadata: { mode: "offline_edit_json" },
+    metadata: { mode: "offline_edit_csv" },
   });
 
   return {
-    success: "Đã chuẩn bị file export task.",
+    success: "Đã chuẩn bị file Excel/CSV để chỉnh sửa task.",
     fileName: safeTaskExportFileName(task.title, task.taskCode),
-    content: JSON.stringify(payload, null, 2),
+    content,
   };
 }
 
@@ -1550,14 +1640,14 @@ export async function importTaskFromFileAction(
     return { error: "Bạn không có quyền truy cập phân hệ này." };
   }
 
-  let parsedJson: unknown;
-  try {
-    parsedJson = JSON.parse(rawContent);
-  } catch {
-    return { error: "File import không phải JSON hợp lệ." };
+  let parsed = parseTaskCsvExport(rawContent);
+  if (!parsed?.success) {
+    try {
+      parsed = taskImportSchema.safeParse(JSON.parse(rawContent));
+    } catch {
+      return { error: "File import không đúng định dạng CSV task PMS." };
+    }
   }
-
-  const parsed = taskImportSchema.safeParse(parsedJson);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "File import không đúng định dạng task PMS." };
   }
@@ -1651,7 +1741,7 @@ export async function importTaskFromFileAction(
     entityId: taskId,
     projectId,
     metadata: {
-      mode: "offline_import_json",
+      mode: "offline_import_csv",
       relatedDocumentIds: validRelatedDocumentIds.length,
       externalLinks: externalLinks.length,
     },

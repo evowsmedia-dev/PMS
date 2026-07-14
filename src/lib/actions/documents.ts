@@ -265,13 +265,136 @@ function safeExportFileName(prefix: string, title: string) {
     .replace(/[^a-zA-Z0-9._-]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 80);
-  return `${prefix}-${slug || "export"}.json`;
+  return `${prefix}-${slug || "export"}.doc`;
 }
 
 function normalizeImportedDocumentContent(content: string, contentFormat: "MARKDOWN" | "HTML") {
   if (contentFormat === "MARKDOWN") return content;
   if (content.trimStart().startsWith(HTML_MOCKUP_MARKER)) return content;
   return sanitizeDocumentHtml(content);
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function decodeHtmlEntities(value: string) {
+  return value
+    .replace(/&nbsp;/g, " ")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
+}
+
+function stripHtml(value: string) {
+  return decodeHtmlEntities(value.replace(/<style[\s\S]*?<\/style>/gi, "").replace(/<[^>]+>/g, " "))
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function documentField(field: string, label: string, value: string, multiline = false) {
+  const body = multiline
+    ? `<div class="pms-value">${escapeHtml(value).replace(/\n/g, "<br>") || "&nbsp;"}</div>`
+    : `<div class="pms-value">${escapeHtml(value) || "&nbsp;"}</div>`;
+  return `
+    <section class="pms-field">
+      <h2>${escapeHtml(label)}</h2>
+      <!-- PMS_FIELD:${field} -->
+      ${body}
+      <!-- /PMS_FIELD:${field} -->
+    </section>`;
+}
+
+function extractDocumentField(rawContent: string, field: string) {
+  const pattern = new RegExp(`<!--\\s*PMS_FIELD:${field}\\s*-->([\\s\\S]*?)<!--\\s*/PMS_FIELD:${field}\\s*-->`, "i");
+  const match = rawContent.match(pattern);
+  return match?.[1]?.trim() ?? "";
+}
+
+function parseWordDocumentExport(rawContent: string) {
+  const contentFormat = stripHtml(extractDocumentField(rawContent, "contentFormat")) === "MARKDOWN" ? "MARKDOWN" : "HTML";
+  const diagramUrl = stripHtml(extractDocumentField(rawContent, "diagramUrl"));
+  const diagramTitle = stripHtml(extractDocumentField(rawContent, "diagramTitle"));
+  const content = extractDocumentField(rawContent, "content");
+
+  const values = {
+    title: stripHtml(extractDocumentField(rawContent, "title")),
+    category: stripHtml(extractDocumentField(rawContent, "category")),
+    role: stripHtml(extractDocumentField(rawContent, "role")),
+    description: stripHtml(extractDocumentField(rawContent, "description")),
+    content: contentFormat === "MARKDOWN" ? stripHtml(content) : content,
+    contentFormat,
+    diagramUrl: diagramUrl || null,
+    diagramTitle: diagramTitle || null,
+  };
+
+  return documentImportSchema.safeParse({
+    kind: "PMS_DOCUMENT_EXPORT",
+    version: 1,
+    document: values,
+  });
+}
+
+function buildWordDocumentExport({
+  title,
+  category,
+  role,
+  description,
+  content,
+  contentFormat,
+  diagramUrl,
+  diagramTitle,
+}: {
+  title: string;
+  category: string;
+  role: string;
+  description: string;
+  content: string;
+  contentFormat: string;
+  diagramUrl: string;
+  diagramTitle: string;
+}) {
+  return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${escapeHtml(title)}</title>
+  <style>
+    body { font-family: Arial, sans-serif; color: #111; line-height: 1.45; }
+    .pms-note { border: 1px solid #ddd; padding: 10px; margin-bottom: 16px; background: #f7f7f7; }
+    .pms-field { border: 1px solid #ddd; padding: 12px; margin: 12px 0; }
+    .pms-field h2 { font-size: 14px; margin: 0 0 8px; color: #555; }
+    .pms-value { min-height: 20px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #bbb; padding: 4px 6px; }
+  </style>
+</head>
+<body>
+  <div class="pms-note">
+    <strong>Hướng dẫn:</strong> Có thể mở file này bằng Microsoft Word hoặc Google Docs để chỉnh sửa.
+    Khi import lại PMS, hãy giữ các tiêu đề trường bên dưới và chỉ sửa nội dung trong từng box.
+  </div>
+  ${documentField("title", "Tiêu đề", title)}
+  ${documentField("category", "Danh mục PMS (không đổi nếu không chắc)", category)}
+  ${documentField("role", "Vai trò phụ trách PMS (không đổi nếu không chắc)", role)}
+  ${documentField("description", "Mô tả", description, true)}
+  ${documentField("contentFormat", "Định dạng nội dung PMS (MARKDOWN hoặc HTML)", contentFormat)}
+  ${documentField("diagramUrl", "URL sơ đồ / mockup", diagramUrl)}
+  ${documentField("diagramTitle", "Tên sơ đồ / mockup", diagramTitle)}
+  <section class="pms-field">
+    <h2>Nội dung tài liệu</h2>
+    <!-- PMS_FIELD:content -->
+    <div class="pms-value">${contentFormat === "HTML" ? content : escapeHtml(content).replace(/\n/g, "<br>")}</div>
+    <!-- /PMS_FIELD:content -->
+  </section>
+</body>
+</html>`;
 }
 
 export async function exportDocumentForEditingAction(
@@ -300,32 +423,16 @@ export async function exportDocumentForEditingAction(
   const doc = await getRouteDocument(projectId, moduleId, docId);
   if (!doc) return { error: "Không tìm thấy tài liệu." };
 
-  const payload = {
-    kind: "PMS_DOCUMENT_EXPORT",
-    version: 1,
-    exportedAt: new Date().toISOString(),
-    instructions: [
-      "Có thể chỉnh sửa các trường trong object document.",
-      "Không đổi kind/version. Import sẽ cập nhật tài liệu hiện tại và tạo version mới.",
-      "contentFormat nhận MARKDOWN hoặc HTML.",
-    ],
-    identity: {
-      projectId,
-      moduleId,
-      documentId: docId,
-      currentVersionNo: doc.currentVersionNo,
-    },
-    document: {
-      title: doc.title,
-      category: doc.category,
-      role: doc.role,
-      description: doc.description ?? "",
-      content: doc.currentContent,
-      contentFormat: doc.contentFormat,
-      diagramUrl: doc.diagramUrl,
-      diagramTitle: doc.diagramTitle,
-    },
-  };
+  const content = buildWordDocumentExport({
+    title: doc.title,
+    category: doc.category,
+    role: doc.role,
+    description: doc.description ?? "",
+    content: doc.currentContent,
+    contentFormat: doc.contentFormat,
+    diagramUrl: doc.diagramUrl ?? "",
+    diagramTitle: doc.diagramTitle ?? "",
+  });
 
   await logAudit({
     actorId: session.user.id,
@@ -333,13 +440,13 @@ export async function exportDocumentForEditingAction(
     entityType: "Document",
     entityId: docId,
     projectId,
-    metadata: { mode: "offline_edit_json" },
+    metadata: { mode: "offline_edit_word_doc" },
   });
 
   return {
-    success: "Đã chuẩn bị file export tài liệu.",
+    success: "Đã chuẩn bị file Word để chỉnh sửa tài liệu.",
     fileName: safeExportFileName("document", doc.title),
-    content: JSON.stringify(payload, null, 2),
+    content,
   };
 }
 
@@ -366,14 +473,14 @@ export async function importDocumentFromFileAction(
     return { error: "Bạn không có quyền truy cập phân hệ này." };
   }
 
-  let parsedJson: unknown;
-  try {
-    parsedJson = JSON.parse(rawContent);
-  } catch {
-    return { error: "File import không phải JSON hợp lệ." };
+  let parsed = parseWordDocumentExport(rawContent);
+  if (!parsed.success) {
+    try {
+      parsed = documentImportSchema.safeParse(JSON.parse(rawContent));
+    } catch {
+      return { error: "File import không đúng định dạng Word/HTML tài liệu PMS." };
+    }
   }
-
-  const parsed = documentImportSchema.safeParse(parsedJson);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "File import không đúng định dạng tài liệu PMS." };
   }
@@ -423,7 +530,7 @@ export async function importDocumentFromFileAction(
     entityType: "Document",
     entityId: docId,
     projectId,
-    metadata: { mode: "offline_import_json", versionNo: nextVersionNo },
+    metadata: { mode: "offline_import_word_doc", versionNo: nextVersionNo },
   });
 
   revalidatePath(`/projects/${projectId}`, "layout");
