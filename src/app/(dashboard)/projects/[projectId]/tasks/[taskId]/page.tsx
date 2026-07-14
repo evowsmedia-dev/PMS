@@ -22,7 +22,14 @@ import {
   TASK_WARNING_LABEL,
   TASK_STATUS_LABEL,
 } from "@/lib/validation/task";
-import { documentRouteId, extractRouteId, moduleRouteId, projectRouteId, taskRouteId } from "@/lib/route-slug";
+import {
+  documentTitleRouteSegment,
+  extractRouteId,
+  moduleNameRouteSegment,
+  projectCodeRouteSegment,
+  projectRouteId,
+  taskRouteId,
+} from "@/lib/route-slug";
 
 export const maxDuration = 60;
 
@@ -272,10 +279,7 @@ export default async function ProjectTaskDetailPage({
                 relatedReferences: {
                   documents: relatedDocuments.map((document) => ({
                     id: document.id,
-                    href: `/projects/${canonicalProjectSegment}/modules/${moduleRouteId({
-                      id: document.moduleId,
-                      name: document.module.name,
-                    })}/documents/${documentRouteId(document)}`,
+                    href: `/projects/${projectCodeRouteSegment(task.project)}/modules/${moduleNameRouteSegment(document.module)}/documents/${documentTitleRouteSegment(document)}`,
                     label: `${document.module.name} · ${document.title}`,
                   })),
                   externalLinks,

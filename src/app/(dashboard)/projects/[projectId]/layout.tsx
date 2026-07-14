@@ -9,7 +9,7 @@ import { getAssignedModuleIdsForUser } from "@/lib/document-type-access";
 import { ProjectDocumentsNav } from "@/components/project-documents-nav";
 import { ProjectMobileNav } from "@/components/project-mobile-nav";
 import { SetPageHeader } from "@/components/page-header-context";
-import { extractRouteId } from "@/lib/route-slug";
+import { extractRouteId, projectCodeRouteSegment } from "@/lib/route-slug";
 
 export default async function ProjectLayout({
   children,
@@ -22,11 +22,14 @@ export default async function ProjectLayout({
   if (!session?.user) redirect("/login");
 
   const { projectId: projectSegment } = await params;
-  const projectId = extractRouteId(projectSegment);
+  const projectLookup = extractRouteId(projectSegment);
   const isAdmin = session.user.systemRole === "ADMIN";
 
   const project = await prisma.project.findFirst({
-    where: { id: projectId, deletedAt: null },
+    where: {
+      deletedAt: null,
+      OR: [{ id: projectLookup }, { code: { equals: projectLookup, mode: "insensitive" } }],
+    },
     include: {
       modules: {
         where: { deletedAt: null },
@@ -36,6 +39,7 @@ export default async function ProjectLayout({
     },
   });
   if (!project) notFound();
+  const projectId = project.id;
 
   const projectRole = await getProjectRole(session.user.id, projectId);
   if (!isAdmin && !projectRole) redirect("/projects");
@@ -67,6 +71,7 @@ export default async function ProjectLayout({
 
   const mainModuleId =
     visibleModules.find((m) => m.name === "Tài liệu chung")?.id ?? visibleModules[0]?.id ?? null;
+  const projectRouteSegment = projectCodeRouteSegment(project);
 
   const allDocuments = await prisma.document.findMany({
     where: {
@@ -78,6 +83,7 @@ export default async function ProjectLayout({
       id: true,
       title: true,
       moduleId: true,
+      module: { select: { name: true } },
       parentDocumentId: true,
       templateId: true,
       createdAt: true,
@@ -90,6 +96,7 @@ export default async function ProjectLayout({
       id: string;
       title: string;
       moduleId: string;
+      moduleName: string;
       parentDocumentId: string | null;
       createdAt: number;
       templateId: string | null;
@@ -107,6 +114,7 @@ export default async function ProjectLayout({
       id: doc.id,
       title: doc.title,
       moduleId: doc.moduleId,
+      moduleName: doc.module.name,
       parentDocumentId: doc.parentDocumentId,
       createdAt: doc.createdAt.getTime(),
       templateId: doc.templateId,
@@ -119,6 +127,7 @@ export default async function ProjectLayout({
 
       <ProjectMobileNav
         projectId={project.id}
+        projectRouteSegment={projectRouteSegment}
         modules={visibleModules}
         canManage={canManageModules}
         canCreateDocuments={canCreateDocuments}
@@ -146,6 +155,7 @@ export default async function ProjectLayout({
 
           <ProjectDocumentsNav
             projectId={project.id}
+            projectRouteSegment={projectRouteSegment}
             modules={visibleModules}
             canManage={canManageModules}
             canCreateDocuments={canCreateDocuments}

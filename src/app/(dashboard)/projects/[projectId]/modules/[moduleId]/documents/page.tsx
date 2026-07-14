@@ -13,7 +13,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { PageSection, ResponsiveTableFrame } from "@/components/page-shell";
 import { Plus, Search } from "lucide-react";
 import type { DocCategory, DocRole, DocStatus, Prisma } from "@/generated/prisma/client";
-import { documentRouteId, extractRouteId, moduleRouteId } from "@/lib/route-slug";
+import {
+  documentTitleRouteSegment,
+  extractRouteId,
+  moduleNameRouteSegment,
+  projectCodeRouteSegment,
+  routeSlug,
+} from "@/lib/route-slug";
 
 const PAGE_SIZE = 20;
 
@@ -34,8 +40,17 @@ export default async function ModuleDocumentsPage({
   if (!session?.user) redirect("/login");
 
   const { projectId: projectSegment, moduleId: moduleSegment } = await params;
-  const projectId = extractRouteId(projectSegment);
-  const moduleId = extractRouteId(moduleSegment);
+  const projectLookup = extractRouteId(projectSegment);
+  const project = await prisma.project.findFirst({
+    where: {
+      deletedAt: null,
+      OR: [{ id: projectLookup }, { code: { equals: projectLookup, mode: "insensitive" } }],
+    },
+    select: { id: true, code: true, name: true },
+  });
+  if (!project) notFound();
+  const projectId = project.id;
+  const moduleLookup = extractRouteId(moduleSegment);
   const sp = await searchParams;
   const page = Math.max(1, Number(sp.page) || 1);
 
@@ -47,10 +62,22 @@ export default async function ModuleDocumentsPage({
     systemRole: session.user.systemRole,
     projectRole,
   });
-  if (!canAccessModule(assignedModuleIds, moduleId)) redirect(`/projects/${projectId}/overview`);
-
-  const module_ = await prisma.module.findFirst({ where: { id: moduleId, projectId } });
+  const moduleById = await prisma.module.findFirst({
+    where: { id: moduleLookup, projectId, deletedAt: null },
+    select: { id: true, name: true },
+  });
+  const module_ =
+    moduleById ??
+    (
+      await prisma.module.findMany({
+        where: { projectId, deletedAt: null },
+        select: { id: true, name: true },
+        orderBy: { sortOrder: "asc" },
+      })
+    ).find((item) => routeSlug(item.name) === routeSlug(moduleSegment));
   if (!module_) notFound();
+  const moduleId = module_.id;
+  if (!canAccessModule(assignedModuleIds, moduleId)) redirect(`/projects/${project.id}/overview`);
 
   const where: Prisma.DocumentWhereInput = {
     projectId,
@@ -174,7 +201,7 @@ export default async function ModuleDocumentsPage({
               <tr key={doc.id} className="border-t hover:bg-accent/50">
                 <td className="px-4 py-2">
                   <Link
-                    href={`/projects/${projectId}/modules/${moduleRouteId(module_)}/documents/${documentRouteId(doc)}`}
+                    href={`/projects/${projectCodeRouteSegment(project)}/modules/${moduleNameRouteSegment(module_)}/documents/${documentTitleRouteSegment(doc)}`}
                     className="font-medium underline-offset-4 hover:underline"
                   >
                     {doc.title}

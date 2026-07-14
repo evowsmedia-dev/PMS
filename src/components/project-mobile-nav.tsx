@@ -22,6 +22,7 @@ interface DocumentItem {
   id: string;
   title: string;
   moduleId: string;
+  moduleName: string;
   parentDocumentId: string | null;
   createdAt: number;
   templateId: string | null;
@@ -29,6 +30,7 @@ interface DocumentItem {
 
 export function ProjectMobileNav({
   projectId,
+  projectRouteSegment = projectId,
   modules,
   canManage,
   canCreateDocuments,
@@ -37,6 +39,7 @@ export function ProjectMobileNav({
   mainModuleId,
 }: {
   projectId: string;
+  projectRouteSegment?: string;
   modules: ModuleItem[];
   canManage: boolean;
   canCreateDocuments: boolean;
@@ -78,6 +81,7 @@ export function ProjectMobileNav({
 
           <ProjectDocumentsNav
             projectId={projectId}
+            projectRouteSegment={projectRouteSegment}
             modules={modules}
             canManage={canManage}
             canCreateDocuments={canCreateDocuments}

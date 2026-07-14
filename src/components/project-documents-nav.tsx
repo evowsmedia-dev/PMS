@@ -45,7 +45,7 @@ import {
 import { renameModuleAction, deleteModuleAction, reorderModulesAction } from "@/lib/actions/modules";
 import { deleteDocumentAction, createFlowDocumentAction } from "@/lib/actions/documents";
 import type { ActionState } from "@/lib/actions/profile";
-import { documentRouteId, moduleRouteId } from "@/lib/route-slug";
+import { documentTitleRouteSegment, moduleNameRouteSegment } from "@/lib/route-slug";
 
 const addFlowInitialState: ActionState = {};
 
@@ -58,6 +58,7 @@ interface DocumentItem {
   id: string;
   title: string;
   moduleId: string;
+  moduleName: string;
   parentDocumentId: string | null;
   createdAt: number;
   templateId: string | null;
@@ -112,6 +113,7 @@ function AddFlowTrigger({
 
 function DocumentRow({
   projectId,
+  projectRouteSegment,
   doc,
   moduleName,
   canDelete,
@@ -119,6 +121,7 @@ function DocumentRow({
   showAddFlow,
 }: {
   projectId: string;
+  projectRouteSegment: string;
   doc: DocumentItem;
   moduleName: string;
   canDelete: boolean;
@@ -127,11 +130,13 @@ function DocumentRow({
 }) {
   const pathname = usePathname();
   const [, startTransition] = useTransition();
-  const href = `/projects/${projectId}/modules/${moduleRouteId({
-    id: doc.moduleId,
-    name: moduleName,
-  })}/documents/${documentRouteId(doc)}`;
-  const active = pathname.includes(`/documents/${doc.id}`) || pathname.includes(`--${doc.id}`);
+  const href = `/projects/${projectRouteSegment}/modules/${moduleNameRouteSegment({
+    name: doc.moduleName || moduleName,
+  })}/documents/${documentTitleRouteSegment(doc)}`;
+  const active =
+    pathname.includes(`/documents/${documentTitleRouteSegment(doc)}`) ||
+    pathname.includes(`/documents/${doc.id}`) ||
+    pathname.includes(`--${doc.id}`);
 
   return (
     <div
@@ -203,12 +208,14 @@ function DocumentRow({
  * expand/collapse chevron sitting right next to the document name. */
 function DocumentGroup({
   projectId,
+  projectRouteSegment,
   doc,
   moduleName,
   flows,
   canDelete,
 }: {
   projectId: string;
+  projectRouteSegment: string;
   doc: DocumentItem;
   moduleName: string;
   flows: DocumentItem[];
@@ -221,6 +228,7 @@ function DocumentGroup({
     return (
       <DocumentRow
         projectId={projectId}
+        projectRouteSegment={projectRouteSegment}
         doc={doc}
         moduleName={moduleName}
         canDelete={canDelete}
@@ -235,6 +243,7 @@ function DocumentGroup({
     <div>
       <DocumentRow
         projectId={projectId}
+        projectRouteSegment={projectRouteSegment}
         doc={doc}
         moduleName={moduleName}
         canDelete={canDelete}
@@ -247,6 +256,7 @@ function DocumentGroup({
             <DocumentRow
               key={flow.id}
               projectId={projectId}
+              projectRouteSegment={projectRouteSegment}
               doc={flow}
               moduleName={moduleName}
               canDelete={canDelete}
@@ -260,11 +270,13 @@ function DocumentGroup({
 
 function DocumentList({
   projectId,
+  projectRouteSegment,
   documents,
   moduleName,
   canDelete,
 }: {
   projectId: string;
+  projectRouteSegment: string;
   documents: DocumentItem[];
   moduleName: string;
   canDelete: boolean;
@@ -291,6 +303,7 @@ function DocumentList({
         <DocumentGroup
           key={doc.id}
           projectId={projectId}
+          projectRouteSegment={projectRouteSegment}
           doc={doc}
           moduleName={moduleName}
           flows={flowsByParent.get(doc.id) ?? []}
@@ -304,6 +317,7 @@ function DocumentList({
 function SortableModuleRow({
   module,
   projectId,
+  projectRouteSegment,
   active,
   canManage,
   canCreateDocuments,
@@ -312,6 +326,7 @@ function SortableModuleRow({
 }: {
   module: ModuleItem;
   projectId: string;
+  projectRouteSegment: string;
   active: boolean;
   canManage: boolean;
   canCreateDocuments: boolean;
@@ -449,6 +464,7 @@ function SortableModuleRow({
       {expanded ? (
         <DocumentList
           projectId={projectId}
+          projectRouteSegment={projectRouteSegment}
           documents={documents}
           moduleName={module.name}
           canDelete={canDeleteDocuments}
@@ -460,6 +476,7 @@ function SortableModuleRow({
 
 export function ProjectDocumentsNav({
   projectId,
+  projectRouteSegment = projectId,
   modules,
   canManage,
   canCreateDocuments,
@@ -468,6 +485,7 @@ export function ProjectDocumentsNav({
   mainModuleId,
 }: {
   projectId: string;
+  projectRouteSegment?: string;
   modules: ModuleItem[];
   canManage: boolean;
   canCreateDocuments: boolean;
@@ -511,6 +529,7 @@ export function ProjectDocumentsNav({
       {mainModuleId ? (
         <DocumentList
           projectId={projectId}
+          projectRouteSegment={projectRouteSegment}
           documents={documentsByModule[mainModuleId] ?? []}
           moduleName="Tài liệu"
           canDelete={canDeleteDocuments}
@@ -525,6 +544,7 @@ export function ProjectDocumentsNav({
                 key={module.id}
                 module={module}
                 projectId={projectId}
+                projectRouteSegment={projectRouteSegment}
                 active={pathname.includes(`/modules/${module.id}/`)}
                 canManage={canManage}
                 canCreateDocuments={canCreateDocuments}

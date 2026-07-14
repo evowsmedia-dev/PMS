@@ -6,7 +6,13 @@ import { canAccessModule, getAssignedModuleIdsForUser } from "@/lib/document-typ
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DocumentDiffRenderer } from "@/components/document-diff-renderer";
-import { documentRouteId, extractRouteId, moduleRouteId, projectRouteId } from "@/lib/route-slug";
+import {
+  documentTitleRouteSegment,
+  extractRouteId,
+  moduleNameRouteSegment,
+  projectCodeRouteSegment,
+  routeSlug,
+} from "@/lib/route-slug";
 
 export default async function DocumentHistoryPage({
   params,
@@ -16,9 +22,33 @@ export default async function DocumentHistoryPage({
   const session = await auth();
   if (!session?.user) redirect("/login");
   const { projectId: projectSegment, moduleId: moduleSegment, docId: docSegment } = await params;
-  const projectId = extractRouteId(projectSegment);
-  const moduleId = extractRouteId(moduleSegment);
-  const docId = extractRouteId(docSegment);
+  const projectLookup = extractRouteId(projectSegment);
+  const project = await prisma.project.findFirst({
+    where: {
+      deletedAt: null,
+      OR: [{ id: projectLookup }, { code: { equals: projectLookup, mode: "insensitive" } }],
+    },
+    select: { id: true, code: true, name: true },
+  });
+  if (!project) notFound();
+  const projectId = project.id;
+  const moduleLookup = extractRouteId(moduleSegment);
+  const moduleById = await prisma.module.findFirst({
+    where: { id: moduleLookup, projectId, deletedAt: null },
+    select: { id: true, name: true },
+  });
+  const module_ =
+    moduleById ??
+    (
+      await prisma.module.findMany({
+        where: { projectId, deletedAt: null },
+        select: { id: true, name: true },
+        orderBy: { sortOrder: "asc" },
+      })
+    ).find((item) => routeSlug(item.name) === routeSlug(moduleSegment));
+  if (!module_) notFound();
+  const moduleId = module_.id;
+  const docLookup = extractRouteId(docSegment);
   const projectRole = await getProjectRole(session.user.id, projectId);
   const assignedModuleIds = await getAssignedModuleIdsForUser({
     projectId,
@@ -28,8 +58,8 @@ export default async function DocumentHistoryPage({
   });
   if (!canAccessModule(assignedModuleIds, moduleId)) redirect(`/projects/${projectId}/overview`);
 
-  const doc = await prisma.document.findFirst({
-    where: { id: docId, projectId, moduleId, deletedAt: null },
+  const docById = await prisma.document.findFirst({
+    where: { id: docLookup, projectId, moduleId, deletedAt: null },
     include: {
       project: { select: { id: true, code: true, name: true } },
       module: { select: { id: true, name: true } },
@@ -39,11 +69,27 @@ export default async function DocumentHistoryPage({
       },
     },
   });
+  const doc =
+    docById ??
+    (
+      await prisma.document.findMany({
+        where: { projectId, moduleId, deletedAt: null },
+        include: {
+          project: { select: { id: true, code: true, name: true } },
+          module: { select: { id: true, name: true } },
+          versions: {
+            orderBy: { versionNo: "desc" },
+            include: { editedBy: { select: { fullName: true } } },
+          },
+        },
+        orderBy: { updatedAt: "desc" },
+      })
+    ).find((item) => routeSlug(item.title) === routeSlug(docSegment));
   if (!doc) notFound();
 
-  const canonicalProjectSegment = projectRouteId(doc.project);
-  const canonicalModuleSegment = moduleRouteId(doc.module);
-  const canonicalDocSegment = documentRouteId(doc);
+  const canonicalProjectSegment = projectCodeRouteSegment(doc.project);
+  const canonicalModuleSegment = moduleNameRouteSegment(doc.module);
+  const canonicalDocSegment = documentTitleRouteSegment(doc);
   if (
     projectSegment !== canonicalProjectSegment ||
     moduleSegment !== canonicalModuleSegment ||

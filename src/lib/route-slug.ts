@@ -22,6 +22,18 @@ export function projectRouteId(project: { id: string; code?: string | null; name
   return decorateRouteId(project.id, [project.code, project.name].filter(Boolean).join(" "));
 }
 
+export function projectCodeRouteSegment(project: { code: string }) {
+  return routeSlug(project.code);
+}
+
+export function moduleNameRouteSegment(module_: { name: string }) {
+  return routeSlug(module_.name);
+}
+
+export function documentTitleRouteSegment(document: { title: string }) {
+  return routeSlug(document.title);
+}
+
 export function moduleRouteId(module_: { id: string; name: string }) {
   return decorateRouteId(module_.id, module_.name);
 }
