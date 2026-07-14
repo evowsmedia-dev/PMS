@@ -414,7 +414,8 @@ function formatDate(date: Date) {
 }
 
 function weekdayLabel(date: Date) {
-  return date.toLocaleDateString("vi-VN", { weekday: "short" }).replace("Th ", "T");
+  const day = date.getDay();
+  return day === 0 ? "CN" : String(day + 1);
 }
 
 function formatNumber(value: number) {
