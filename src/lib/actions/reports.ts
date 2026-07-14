@@ -8,6 +8,7 @@ import { canAccess } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { upsertDailySnapshot } from "@/lib/reports/snapshot";
 import { projectCodeRouteSegment } from "@/lib/route-slug";
+import { refreshTaskDerivedFields } from "@/lib/task-rules";
 import type { ActionState } from "@/lib/actions/profile";
 
 export async function syncProjectBiDashboardAction(projectId: string): Promise<ActionState> {
@@ -25,7 +26,17 @@ export async function syncProjectBiDashboardAction(projectId: string): Promise<A
     return { error: "Bạn không có quyền xem báo cáo dự án này." };
   }
 
-  await upsertDailySnapshot(projectId);
+  const tasks = await prisma.task.findMany({
+    where: { projectId, deletedAt: null },
+    select: { id: true },
+    orderBy: [{ parentTaskId: "desc" }, { createdAt: "asc" }],
+  });
+
+  for (const task of tasks) {
+    await refreshTaskDerivedFields(task.id);
+  }
+
+  const snapshot = await upsertDailySnapshot(projectId);
 
   const routeSegment = projectCodeRouteSegment(project);
   revalidatePath(`/projects/${projectId}/bi-dashboard`);
@@ -40,8 +51,16 @@ export async function syncProjectBiDashboardAction(projectId: string): Promise<A
     entityType: "Project",
     entityId: projectId,
     projectId,
-    metadata: { mode: "sync_bi_dashboard_snapshot" },
+    metadata: {
+      mode: "sync_bi_dashboard_snapshot",
+      refreshedTasks: tasks.length,
+      snapshotDate: snapshot.snapshotDate.toISOString(),
+      totalTasks: snapshot.totalTasks,
+      completedTasks: snapshot.completedTasks,
+      totalActualHours: String(snapshot.totalActualHours),
+      totalEstimateHours: String(snapshot.totalEstimateHours),
+    },
   });
 
-  return { success: "Đã đồng bộ dữ liệu BI Dashboard mới nhất." };
+  return { success: `Đã đồng bộ ${tasks.length} task và cập nhật dữ liệu BI Dashboard.` };
 }
