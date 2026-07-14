@@ -140,7 +140,7 @@ export function GanttChart({
       <div className="overflow-hidden rounded-lg border">
         <div className="flex min-w-0">
           <div className="shrink-0 border-r bg-background" style={{ width: leftWidth }}>
-            <div className="grid h-[58px] border-b bg-muted/40" style={{ gridTemplateColumns: leftGridTemplate(columnWidths, visibleColumns) }}>
+            <div className="grid h-[72px] border-b bg-muted/40" style={{ gridTemplateColumns: leftGridTemplate(columnWidths, visibleColumns) }}>
               <ResizableHeaderCell label="Task" columnKey="task" onResizeStart={startColumnResize} />
               {visibleColumns.map((key) => (
                 <ResizableHeaderCell key={key} label={columnLabel(key)} columnKey={key} onResizeStart={startColumnResize} />
@@ -191,7 +191,7 @@ export function GanttChart({
 
           <div ref={scrollRef} className="min-w-0 flex-1 overflow-x-auto">
             <div style={{ width: timelineWidth }}>
-              <div className="h-[58px] border-b bg-background">
+              <div className="h-[72px] border-b bg-background">
                 <div className="grid border-b" style={{ gridTemplateColumns: `repeat(${timeline.days.length}, ${DAY_WIDTH}px)` }}>
                   {monthGroups.map((group) => (
                     <div
@@ -308,8 +308,8 @@ function ResizableHeaderCell({
   onResizeStart: (key: FixedColumnKey, event: React.PointerEvent<HTMLButtonElement>) => void;
 }) {
   return (
-    <div className="relative min-w-0 border-r px-3 py-2 text-xs font-semibold uppercase text-muted-foreground last:border-r-0">
-      <span className="block truncate">{label}</span>
+    <div className="relative flex min-w-0 items-start border-r px-3 py-2 text-xs font-semibold uppercase leading-4 text-muted-foreground last:border-r-0">
+      <span className="block min-w-0 whitespace-normal break-words pr-1">{label}</span>
       <button
         type="button"
         aria-label={`Kéo để đổi độ rộng cột ${label}`}
