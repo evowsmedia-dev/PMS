@@ -13,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { PageSection, ResponsiveTableFrame } from "@/components/page-shell";
 import { Plus, Search } from "lucide-react";
 import type { DocCategory, DocRole, DocStatus, Prisma } from "@/generated/prisma/client";
+import { documentRouteId, extractRouteId, moduleRouteId } from "@/lib/route-slug";
 
 const PAGE_SIZE = 20;
 
@@ -32,7 +33,9 @@ export default async function ModuleDocumentsPage({
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const { projectId, moduleId } = await params;
+  const { projectId: projectSegment, moduleId: moduleSegment } = await params;
+  const projectId = extractRouteId(projectSegment);
+  const moduleId = extractRouteId(moduleSegment);
   const sp = await searchParams;
   const page = Math.max(1, Number(sp.page) || 1);
 
@@ -171,7 +174,7 @@ export default async function ModuleDocumentsPage({
               <tr key={doc.id} className="border-t hover:bg-accent/50">
                 <td className="px-4 py-2">
                   <Link
-                    href={`/projects/${projectId}/modules/${moduleId}/documents/${doc.id}`}
+                    href={`/projects/${projectId}/modules/${moduleRouteId(module_)}/documents/${documentRouteId(doc)}`}
                     className="font-medium underline-offset-4 hover:underline"
                   >
                     {doc.title}

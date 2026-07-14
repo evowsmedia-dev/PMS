@@ -5,6 +5,7 @@ Ghi chú:
 - `(auth)`, `(dashboard)`, `(admin)` là route group nội bộ của Next.js, không xuất hiện trên URL.
 - Các route dưới đây là những màn hình/API còn tồn tại trong `src/app` hiện tại.
 - Các chức năng filter, comment, approve, attachment, delete nằm trong màn hình tương ứng, không phải route riêng.
+- Detail URL của tài liệu/task có thể dùng segment mô tả dạng `ten-hien-thi--id` để hiển thị mã dự án, tên module và tên task/tài liệu; phần `id` sau `--` vẫn là khóa tra cứu ổn định.
 
 /
 │

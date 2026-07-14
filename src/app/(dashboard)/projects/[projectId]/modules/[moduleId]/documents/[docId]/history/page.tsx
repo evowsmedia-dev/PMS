@@ -6,6 +6,7 @@ import { canAccessModule, getAssignedModuleIdsForUser } from "@/lib/document-typ
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DocumentDiffRenderer } from "@/components/document-diff-renderer";
+import { documentRouteId, extractRouteId, moduleRouteId, projectRouteId } from "@/lib/route-slug";
 
 export default async function DocumentHistoryPage({
   params,
@@ -14,7 +15,10 @@ export default async function DocumentHistoryPage({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  const { projectId, moduleId, docId } = await params;
+  const { projectId: projectSegment, moduleId: moduleSegment, docId: docSegment } = await params;
+  const projectId = extractRouteId(projectSegment);
+  const moduleId = extractRouteId(moduleSegment);
+  const docId = extractRouteId(docSegment);
   const projectRole = await getProjectRole(session.user.id, projectId);
   const assignedModuleIds = await getAssignedModuleIdsForUser({
     projectId,
@@ -27,6 +31,8 @@ export default async function DocumentHistoryPage({
   const doc = await prisma.document.findFirst({
     where: { id: docId, projectId, moduleId, deletedAt: null },
     include: {
+      project: { select: { id: true, code: true, name: true } },
+      module: { select: { id: true, name: true } },
       versions: {
         orderBy: { versionNo: "desc" },
         include: { editedBy: { select: { fullName: true } } },
@@ -34,6 +40,19 @@ export default async function DocumentHistoryPage({
     },
   });
   if (!doc) notFound();
+
+  const canonicalProjectSegment = projectRouteId(doc.project);
+  const canonicalModuleSegment = moduleRouteId(doc.module);
+  const canonicalDocSegment = documentRouteId(doc);
+  if (
+    projectSegment !== canonicalProjectSegment ||
+    moduleSegment !== canonicalModuleSegment ||
+    docSegment !== canonicalDocSegment
+  ) {
+    redirect(
+      `/projects/${canonicalProjectSegment}/modules/${canonicalModuleSegment}/documents/${canonicalDocSegment}/history`,
+    );
+  }
 
   const previousVersionByNo = new Map(doc.versions.map((version) => [version.versionNo + 1, version]));
 

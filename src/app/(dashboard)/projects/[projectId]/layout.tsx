@@ -9,6 +9,7 @@ import { getAssignedModuleIdsForUser } from "@/lib/document-type-access";
 import { ProjectDocumentsNav } from "@/components/project-documents-nav";
 import { ProjectMobileNav } from "@/components/project-mobile-nav";
 import { SetPageHeader } from "@/components/page-header-context";
+import { extractRouteId } from "@/lib/route-slug";
 
 export default async function ProjectLayout({
   children,
@@ -20,7 +21,8 @@ export default async function ProjectLayout({
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const { projectId } = await params;
+  const { projectId: projectSegment } = await params;
+  const projectId = extractRouteId(projectSegment);
   const isAdmin = session.user.systemRole === "ADMIN";
 
   const project = await prisma.project.findFirst({

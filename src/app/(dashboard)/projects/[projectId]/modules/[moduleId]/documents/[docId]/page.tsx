@@ -18,6 +18,7 @@ import { DocumentTestCasePanel } from "@/components/document-test-cases";
 import { DocumentDetailShell } from "@/components/document-detail-shell";
 import { DocumentContentRenderer } from "@/components/document-content-renderer";
 import { DocumentOfflineEditActions } from "@/components/offline-edit-actions";
+import { documentRouteId, extractRouteId, moduleRouteId, projectRouteId } from "@/lib/route-slug";
 
 export default async function DocumentDetailPage({
   params,
@@ -26,7 +27,10 @@ export default async function DocumentDetailPage({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  const { projectId, moduleId, docId } = await params;
+  const { projectId: projectSegment, moduleId: moduleSegment, docId: docSegment } = await params;
+  const projectId = extractRouteId(projectSegment);
+  const moduleId = extractRouteId(moduleSegment);
+  const docId = extractRouteId(docSegment);
 
   const doc = await prisma.document.findFirst({
     where: { id: docId, projectId, moduleId, deletedAt: null },
@@ -40,9 +44,24 @@ export default async function DocumentDetailPage({
       },
       versions: { orderBy: { versionNo: "desc" }, take: 5, include: { editedBy: { select: { fullName: true } } } },
       tasks: { where: { deletedAt: null }, select: { id: true, title: true, status: true } },
+      project: { select: { id: true, code: true, name: true } },
+      module: { select: { id: true, name: true } },
     },
   });
   if (!doc) notFound();
+
+  const canonicalProjectSegment = projectRouteId(doc.project);
+  const canonicalModuleSegment = moduleRouteId(doc.module);
+  const canonicalDocSegment = documentRouteId(doc);
+  if (
+    projectSegment !== canonicalProjectSegment ||
+    moduleSegment !== canonicalModuleSegment ||
+    docSegment !== canonicalDocSegment
+  ) {
+    redirect(
+      `/projects/${canonicalProjectSegment}/modules/${canonicalModuleSegment}/documents/${canonicalDocSegment}`,
+    );
+  }
 
   const projectRole = await getProjectRole(session.user.id, projectId);
   const assignedModuleIds = await getAssignedModuleIdsForUser({
@@ -204,7 +223,7 @@ export default async function DocumentDetailPage({
               </div>
               <div className="px-3 py-2">
                 <Link
-                  href={`/projects/${projectId}/modules/${moduleId}/documents/${docId}/history`}
+                  href={`/projects/${canonicalProjectSegment}/modules/${canonicalModuleSegment}/documents/${canonicalDocSegment}/history`}
                   className="text-xs text-foreground underline-offset-4 hover:underline"
                 >
                   Xem toàn bộ lịch sử →

@@ -22,6 +22,7 @@ import {
   TASK_TYPE_LABEL,
   TASK_WARNING_LABEL,
 } from "@/lib/validation/task";
+import { documentRouteId, extractRouteId, moduleRouteId, projectRouteId, taskRouteId } from "@/lib/route-slug";
 
 export const maxDuration = 60;
 
@@ -39,7 +40,10 @@ export default async function TaskDetailPage({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  const { projectId, moduleId, taskId } = await params;
+  const { projectId: projectSegment, moduleId: moduleSegment, taskId: taskSegment } = await params;
+  const projectId = extractRouteId(projectSegment);
+  const moduleId = extractRouteId(moduleSegment);
+  const taskId = extractRouteId(taskSegment);
 
   const task = await prisma.task.findFirst({
     where: { id: taskId, projectId, moduleId, deletedAt: null },
@@ -76,9 +80,22 @@ export default async function TaskDetailPage({
         include: { user: { select: { fullName: true } } },
         orderBy: { workDate: "desc" },
       },
+      project: { select: { id: true, code: true, name: true } },
+      module: { select: { id: true, name: true } },
     },
   });
   if (!task) notFound();
+
+  const canonicalProjectSegment = projectRouteId(task.project);
+  const canonicalModuleSegment = moduleRouteId(task.module!);
+  const canonicalTaskSegment = taskRouteId(task);
+  if (
+    projectSegment !== canonicalProjectSegment ||
+    moduleSegment !== canonicalModuleSegment ||
+    taskSegment !== canonicalTaskSegment
+  ) {
+    redirect(`/projects/${canonicalProjectSegment}/modules/${canonicalModuleSegment}/tasks/${canonicalTaskSegment}`);
+  }
 
   const projectRole = await getProjectRole(session.user.id, projectId);
   const assignedModuleIds = await getAssignedModuleIdsForUser({
@@ -242,7 +259,10 @@ export default async function TaskDetailPage({
                 relatedReferences: {
                   documents: relatedDocuments.map((document) => ({
                     id: document.id,
-                    href: `/projects/${projectId}/modules/${document.moduleId}/documents/${document.id}`,
+                    href: `/projects/${canonicalProjectSegment}/modules/${moduleRouteId({
+                      id: document.moduleId,
+                      name: document.module.name,
+                    })}/documents/${documentRouteId(document)}`,
                     label: `${document.module.name} · ${document.title}`,
                   })),
                   externalLinks,

@@ -45,6 +45,7 @@ import {
 import { renameModuleAction, deleteModuleAction, reorderModulesAction } from "@/lib/actions/modules";
 import { deleteDocumentAction, createFlowDocumentAction } from "@/lib/actions/documents";
 import type { ActionState } from "@/lib/actions/profile";
+import { documentRouteId, moduleRouteId } from "@/lib/route-slug";
 
 const addFlowInitialState: ActionState = {};
 
@@ -112,20 +113,25 @@ function AddFlowTrigger({
 function DocumentRow({
   projectId,
   doc,
+  moduleName,
   canDelete,
   toggle,
   showAddFlow,
 }: {
   projectId: string;
   doc: DocumentItem;
+  moduleName: string;
   canDelete: boolean;
   toggle?: { expanded: boolean; onToggle: () => void };
   showAddFlow?: boolean;
 }) {
   const pathname = usePathname();
   const [, startTransition] = useTransition();
-  const href = `/projects/${projectId}/modules/${doc.moduleId}/documents/${doc.id}`;
-  const active = pathname === href;
+  const href = `/projects/${projectId}/modules/${moduleRouteId({
+    id: doc.moduleId,
+    name: moduleName,
+  })}/documents/${documentRouteId(doc)}`;
+  const active = pathname.includes(`/documents/${doc.id}`) || pathname.includes(`--${doc.id}`);
 
   return (
     <div
@@ -198,11 +204,13 @@ function DocumentRow({
 function DocumentGroup({
   projectId,
   doc,
+  moduleName,
   flows,
   canDelete,
 }: {
   projectId: string;
   doc: DocumentItem;
+  moduleName: string;
   flows: DocumentItem[];
   canDelete: boolean;
 }) {
@@ -211,7 +219,13 @@ function DocumentGroup({
 
   if (flows.length === 0) {
     return (
-      <DocumentRow projectId={projectId} doc={doc} canDelete={canDelete} showAddFlow={isFlowRoot} />
+      <DocumentRow
+        projectId={projectId}
+        doc={doc}
+        moduleName={moduleName}
+        canDelete={canDelete}
+        showAddFlow={isFlowRoot}
+      />
     );
   }
 
@@ -222,6 +236,7 @@ function DocumentGroup({
       <DocumentRow
         projectId={projectId}
         doc={doc}
+        moduleName={moduleName}
         canDelete={canDelete}
         toggle={{ expanded, onToggle: () => setExpanded((v) => !v) }}
         showAddFlow={isFlowRoot}
@@ -229,7 +244,13 @@ function DocumentGroup({
       {expanded ? (
         <div className="ml-4 space-y-0.5 border-l pl-2">
           {orderedFlows.map((flow) => (
-            <DocumentRow key={flow.id} projectId={projectId} doc={flow} canDelete={canDelete} />
+            <DocumentRow
+              key={flow.id}
+              projectId={projectId}
+              doc={flow}
+              moduleName={moduleName}
+              canDelete={canDelete}
+            />
           ))}
         </div>
       ) : null}
@@ -240,10 +261,12 @@ function DocumentGroup({
 function DocumentList({
   projectId,
   documents,
+  moduleName,
   canDelete,
 }: {
   projectId: string;
   documents: DocumentItem[];
+  moduleName: string;
   canDelete: boolean;
 }) {
   const roots = documents.filter((d) => !d.parentDocumentId);
@@ -269,6 +292,7 @@ function DocumentList({
           key={doc.id}
           projectId={projectId}
           doc={doc}
+          moduleName={moduleName}
           flows={flowsByParent.get(doc.id) ?? []}
           canDelete={canDelete}
         />
@@ -426,6 +450,7 @@ function SortableModuleRow({
         <DocumentList
           projectId={projectId}
           documents={documents}
+          moduleName={module.name}
           canDelete={canDeleteDocuments}
         />
       ) : null}
@@ -487,6 +512,7 @@ export function ProjectDocumentsNav({
         <DocumentList
           projectId={projectId}
           documents={documentsByModule[mainModuleId] ?? []}
+          moduleName="Tài liệu"
           canDelete={canDeleteDocuments}
         />
       ) : null}
