@@ -18,8 +18,8 @@ function downloadTextFile(fileName: string, content: string) {
   const lowerName = fileName.toLowerCase();
   const type = lowerName.endsWith(".csv")
     ? "text/csv;charset=utf-8"
-    : lowerName.endsWith(".doc") || lowerName.endsWith(".html")
-      ? "application/msword;charset=utf-8"
+    : lowerName.endsWith(".html") || lowerName.endsWith(".htm")
+      ? "text/html;charset=utf-8"
       : "text/plain;charset=utf-8";
   const blob = new Blob([content], { type });
   const url = URL.createObjectURL(blob);
@@ -75,7 +75,7 @@ export function DocumentOfflineEditActions({
   async function importFile(file: File | undefined) {
     if (!file) return;
     try {
-      const content = await readTextFile(file, [".doc", ".html", ".htm", ".json"]);
+      const content = await readTextFile(file, [".html", ".htm", ".doc", ".json"]);
       startTransition(async () => {
         const result = await importDocumentFromFileAction(projectId, moduleId, docId, content);
         if (result.error) {
@@ -96,7 +96,7 @@ export function DocumentOfflineEditActions({
     <div className="flex flex-wrap justify-end gap-2">
       <Button type="button" size="sm" variant="outline" disabled={pending} onClick={exportFile}>
         <Download className="size-4" />
-        Export Word
+        Export Word/Docs
       </Button>
       <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => inputRef.current?.click()}>
         <Upload className="size-4" />
@@ -105,7 +105,7 @@ export function DocumentOfflineEditActions({
       <input
         ref={inputRef}
         type="file"
-        accept=".doc,.html,.htm,application/msword,text/html,application/json,.json"
+        accept=".html,.htm,.doc,text/html,application/msword,application/json,.json"
         className="hidden"
         onChange={(event) => importFile(event.target.files?.[0])}
       />

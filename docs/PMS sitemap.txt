@@ -162,7 +162,7 @@ Ghi chú:
 │   ├── Chi tiết tài liệu.
 │   ├── Metadata, nội dung, diagram nếu có, file đính kèm.
 │   ├── Action trong màn hình: edit, đổi trạng thái, submit review, delete vĩnh viễn theo quyền.
-│   ├── Export tài liệu ra file Word-compatible `.doc` để chỉnh sửa offline và import ngược lại theo quyền `document.edit`; import tạo version mới + audit log.
+│   ├── Export tài liệu ra file `.html` mở được bằng Word/Google Docs để chỉnh sửa offline và import ngược lại theo quyền `document.edit`; import tạo version mới + audit log.
 │   ├── Comment nằm ở sidebar/phần chi tiết, không có route `/comments` riêng.
 │   └── Task liên quan nếu có.
 │

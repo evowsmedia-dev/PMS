@@ -106,8 +106,9 @@ file opens cleanly in Excel using a Field/Value/Help table. Import validates the
 CSV payload server-side, updates the current task, refreshes derived
 effort/deadline fields, writes `TaskHistory` entries for changed fields, and
 records an audit log. Document detail mirrors the same offline flow for
-`document.edit` using a Word-compatible `.doc` file; document import creates a
-new `DocumentVersion` instead of autosaving over history.
+`document.edit` using an `.html` file that can be opened and saved by Word or
+Google Docs; document import creates a new `DocumentVersion` instead of
+autosaving over history.
 
 The project BI dashboard now lives in `/projects/:projectId/bi-dashboard` as a
 separate project-sidebar module under **Dashboard dự án**, rather than inside the

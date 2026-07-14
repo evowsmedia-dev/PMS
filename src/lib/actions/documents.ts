@@ -265,7 +265,7 @@ function safeExportFileName(prefix: string, title: string) {
     .replace(/[^a-zA-Z0-9._-]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 80);
-  return `${prefix}-${slug || "export"}.doc`;
+  return `${prefix}-${slug || "export"}.html`;
 }
 
 function normalizeImportedDocumentContent(content: string, contentFormat: "MARKDOWN" | "HTML") {
@@ -360,6 +360,7 @@ function buildWordDocumentExport({
   diagramUrl: string;
   diagramTitle: string;
 }) {
+  const editableContent = contentFormat === "HTML" ? sanitizeDocumentHtml(content) : escapeHtml(content).replace(/\n/g, "<br>");
   return `<!doctype html>
 <html>
 <head>
@@ -377,8 +378,8 @@ function buildWordDocumentExport({
 </head>
 <body>
   <div class="pms-note">
-    <strong>Hướng dẫn:</strong> Có thể mở file này bằng Microsoft Word hoặc Google Docs để chỉnh sửa.
-    Khi import lại PMS, hãy giữ các tiêu đề trường bên dưới và chỉ sửa nội dung trong từng box.
+    <strong>Hướng dẫn:</strong> Có thể mở file HTML này bằng Microsoft Word hoặc Google Docs để chỉnh sửa như tài liệu thường.
+    Khi import lại PMS, hãy giữ nguyên các vùng PMS_FIELD và chỉ sửa nội dung trong từng box.
   </div>
   ${documentField("title", "Tiêu đề", title)}
   ${documentField("category", "Danh mục PMS (không đổi nếu không chắc)", category)}
@@ -390,7 +391,7 @@ function buildWordDocumentExport({
   <section class="pms-field">
     <h2>Nội dung tài liệu</h2>
     <!-- PMS_FIELD:content -->
-    <div class="pms-value">${contentFormat === "HTML" ? content : escapeHtml(content).replace(/\n/g, "<br>")}</div>
+    <div class="pms-value">${editableContent}</div>
     <!-- /PMS_FIELD:content -->
   </section>
 </body>
@@ -444,7 +445,7 @@ export async function exportDocumentForEditingAction(
   });
 
   return {
-    success: "Đã chuẩn bị file Word để chỉnh sửa tài liệu.",
+    success: "Đã chuẩn bị file HTML mở được bằng Word/Google Docs để chỉnh sửa tài liệu.",
     fileName: safeExportFileName("document", doc.title),
     content,
   };
