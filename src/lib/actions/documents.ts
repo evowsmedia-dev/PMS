@@ -3,6 +3,19 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import mammoth from "mammoth";
+import {
+  AlignmentType,
+  Document as DocxDocument,
+  HeadingLevel,
+  Packer,
+  Paragraph,
+  Table,
+  TableCell,
+  TableRow,
+  TextRun,
+  WidthType,
+} from "docx";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canAccess } from "@/lib/rbac";
@@ -256,6 +269,8 @@ const documentImportSchema = z.object({
 export interface ExportDocumentState extends ActionState {
   fileName?: string;
   content?: string;
+  encoding?: "text" | "base64";
+  mimeType?: string;
 }
 
 function safeExportFileName(prefix: string, title: string) {
@@ -265,21 +280,13 @@ function safeExportFileName(prefix: string, title: string) {
     .replace(/[^a-zA-Z0-9._-]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 80);
-  return `${prefix}-${slug || "export"}.html`;
+  return `${prefix}-${slug || "export"}.docx`;
 }
 
 function normalizeImportedDocumentContent(content: string, contentFormat: "MARKDOWN" | "HTML") {
   if (contentFormat === "MARKDOWN") return content;
   if (content.trimStart().startsWith(HTML_MOCKUP_MARKER)) return content;
   return sanitizeDocumentHtml(content);
-}
-
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }
 
 function decodeHtmlEntities(value: string) {
@@ -298,36 +305,23 @@ function stripHtml(value: string) {
     .trim();
 }
 
-function documentField(field: string, label: string, value: string, multiline = false) {
-  const body = multiline
-    ? `<div class="pms-value">${escapeHtml(value).replace(/\n/g, "<br>") || "&nbsp;"}</div>`
-    : `<div class="pms-value">${escapeHtml(value) || "&nbsp;"}</div>`;
-  return `
-    <section class="pms-field">
-      <h2>${escapeHtml(label)}</h2>
-      <!-- PMS_FIELD:${field} -->
-      ${body}
-      <!-- /PMS_FIELD:${field} -->
-    </section>`;
-}
-
-function extractDocumentField(rawContent: string, field: string) {
+function extractLegacyDocumentField(rawContent: string, field: string) {
   const pattern = new RegExp(`<!--\\s*PMS_FIELD:${field}\\s*-->([\\s\\S]*?)<!--\\s*/PMS_FIELD:${field}\\s*-->`, "i");
   const match = rawContent.match(pattern);
   return match?.[1]?.trim() ?? "";
 }
 
-function parseWordDocumentExport(rawContent: string) {
-  const contentFormat = stripHtml(extractDocumentField(rawContent, "contentFormat")) === "MARKDOWN" ? "MARKDOWN" : "HTML";
-  const diagramUrl = stripHtml(extractDocumentField(rawContent, "diagramUrl"));
-  const diagramTitle = stripHtml(extractDocumentField(rawContent, "diagramTitle"));
-  const content = extractDocumentField(rawContent, "content");
+function parseLegacyHtmlDocumentExport(rawContent: string) {
+  const contentFormat = stripHtml(extractLegacyDocumentField(rawContent, "contentFormat")) === "MARKDOWN" ? "MARKDOWN" : "HTML";
+  const diagramUrl = stripHtml(extractLegacyDocumentField(rawContent, "diagramUrl"));
+  const diagramTitle = stripHtml(extractLegacyDocumentField(rawContent, "diagramTitle"));
+  const content = extractLegacyDocumentField(rawContent, "content");
 
   const values = {
-    title: stripHtml(extractDocumentField(rawContent, "title")),
-    category: stripHtml(extractDocumentField(rawContent, "category")),
-    role: stripHtml(extractDocumentField(rawContent, "role")),
-    description: stripHtml(extractDocumentField(rawContent, "description")),
+    title: stripHtml(extractLegacyDocumentField(rawContent, "title")),
+    category: stripHtml(extractLegacyDocumentField(rawContent, "category")),
+    role: stripHtml(extractLegacyDocumentField(rawContent, "role")),
+    description: stripHtml(extractLegacyDocumentField(rawContent, "description")),
     content: contentFormat === "MARKDOWN" ? stripHtml(content) : content,
     contentFormat,
     diagramUrl: diagramUrl || null,
@@ -341,7 +335,31 @@ function parseWordDocumentExport(rawContent: string) {
   });
 }
 
-function buildWordDocumentExport({
+function docxTextParagraphs(value: string) {
+  const lines = value.split(/\r?\n/);
+  return (lines.length ? lines : [""]).map((line) => new Paragraph({ text: line || " " }));
+}
+
+function docxFieldRow(label: string, value: string, help: string) {
+  return new TableRow({
+    children: [
+      new TableCell({
+        width: { size: 22, type: WidthType.PERCENTAGE },
+        children: [new Paragraph({ children: [new TextRun({ text: label, bold: true })] })],
+      }),
+      new TableCell({
+        width: { size: 58, type: WidthType.PERCENTAGE },
+        children: docxTextParagraphs(value),
+      }),
+      new TableCell({
+        width: { size: 20, type: WidthType.PERCENTAGE },
+        children: [new Paragraph({ text: help })],
+      }),
+    ],
+  });
+}
+
+async function buildDocxDocumentExport({
   title,
   category,
   role,
@@ -360,42 +378,85 @@ function buildWordDocumentExport({
   diagramUrl: string;
   diagramTitle: string;
 }) {
-  const editableContent = contentFormat === "HTML" ? sanitizeDocumentHtml(content) : escapeHtml(content).replace(/\n/g, "<br>");
-  return `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>${escapeHtml(title)}</title>
-  <style>
-    body { font-family: Arial, sans-serif; color: #111; line-height: 1.45; }
-    .pms-note { border: 1px solid #ddd; padding: 10px; margin-bottom: 16px; background: #f7f7f7; }
-    .pms-field { border: 1px solid #ddd; padding: 12px; margin: 12px 0; }
-    .pms-field h2 { font-size: 14px; margin: 0 0 8px; color: #555; }
-    .pms-value { min-height: 20px; }
-    table { border-collapse: collapse; width: 100%; }
-    th, td { border: 1px solid #bbb; padding: 4px 6px; }
-  </style>
-</head>
-<body>
-  <div class="pms-note">
-    <strong>Hướng dẫn:</strong> Có thể mở file HTML này bằng Microsoft Word hoặc Google Docs để chỉnh sửa như tài liệu thường.
-    Khi import lại PMS, hãy giữ nguyên các vùng PMS_FIELD và chỉ sửa nội dung trong từng box.
-  </div>
-  ${documentField("title", "Tiêu đề", title)}
-  ${documentField("category", "Danh mục PMS (không đổi nếu không chắc)", category)}
-  ${documentField("role", "Vai trò phụ trách PMS (không đổi nếu không chắc)", role)}
-  ${documentField("description", "Mô tả", description, true)}
-  ${documentField("contentFormat", "Định dạng nội dung PMS (MARKDOWN hoặc HTML)", contentFormat)}
-  ${documentField("diagramUrl", "URL sơ đồ / mockup", diagramUrl)}
-  ${documentField("diagramTitle", "Tên sơ đồ / mockup", diagramTitle)}
-  <section class="pms-field">
-    <h2>Nội dung tài liệu</h2>
-    <!-- PMS_FIELD:content -->
-    <div class="pms-value">${editableContent}</div>
-    <!-- /PMS_FIELD:content -->
-  </section>
-</body>
-</html>`;
+  const editableContent = contentFormat === "HTML" ? stripHtml(sanitizeDocumentHtml(content)) : content;
+  const document = new DocxDocument({
+    sections: [
+      {
+        children: [
+          new Paragraph({
+            text: "PMS Document Offline Edit",
+            heading: HeadingLevel.HEADING_1,
+          }),
+          new Paragraph({
+            text: "Hướng dẫn: sửa nội dung trong cột Value. Không đổi tên các dòng ở cột Field.",
+          }),
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            rows: [
+              new TableRow({
+                tableHeader: true,
+                children: [
+                  new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Field", bold: true })] })] }),
+                  new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Value", bold: true })] })] }),
+                  new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Help", bold: true })] })] }),
+                ],
+              }),
+              docxFieldRow("title", title, "Tiêu đề tài liệu"),
+              docxFieldRow("category", category, "Giữ nguyên nếu không chắc"),
+              docxFieldRow("role", role, "PO, BA, DEV, TESTER hoặc ALL"),
+              docxFieldRow("description", description, "Mô tả ngắn"),
+              docxFieldRow("content", editableContent, "Nội dung tài liệu"),
+              docxFieldRow("diagramUrl", diagramUrl, "URL sơ đồ/mockup nếu có"),
+              docxFieldRow("diagramTitle", diagramTitle, "Tên sơ đồ/mockup nếu có"),
+            ],
+          }),
+          new Paragraph({
+            alignment: AlignmentType.LEFT,
+            text: "Khi hoàn tất, lưu file .docx này rồi import lại vào PMS.",
+          }),
+        ],
+      },
+    ],
+  });
+
+  const buffer = await Packer.toBuffer(document);
+  return buffer.toString("base64");
+}
+
+function extractTableCells(html: string) {
+  const rows = Array.from(html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi));
+  const result = new Map<string, string>();
+  for (const row of rows) {
+    const cells = Array.from(row[1].matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi)).map((cell) => cell[1].trim());
+    if (cells.length < 2) continue;
+    const field = stripHtml(cells[0]);
+    if (!field || field === "Field") continue;
+    result.set(field, cells[1]);
+  }
+  return result;
+}
+
+async function parseDocxDocumentExport(rawBase64: string) {
+  const buffer = Buffer.from(rawBase64, "base64");
+  const converted = await mammoth.convertToHtml({ buffer });
+  const cells = extractTableCells(converted.value);
+  if (cells.size === 0) return null;
+
+  const contentCell = cells.get("content") ?? "";
+  return documentImportSchema.safeParse({
+    kind: "PMS_DOCUMENT_EXPORT",
+    version: 1,
+    document: {
+      title: stripHtml(cells.get("title") ?? ""),
+      category: stripHtml(cells.get("category") ?? ""),
+      role: stripHtml(cells.get("role") ?? ""),
+      description: stripHtml(cells.get("description") ?? ""),
+      content: contentCell,
+      contentFormat: "HTML",
+      diagramUrl: stripHtml(cells.get("diagramUrl") ?? "") || null,
+      diagramTitle: stripHtml(cells.get("diagramTitle") ?? "") || null,
+    },
+  });
 }
 
 export async function exportDocumentForEditingAction(
@@ -424,7 +485,7 @@ export async function exportDocumentForEditingAction(
   const doc = await getRouteDocument(projectId, moduleId, docId);
   if (!doc) return { error: "Không tìm thấy tài liệu." };
 
-  const content = buildWordDocumentExport({
+  const content = await buildDocxDocumentExport({
     title: doc.title,
     category: doc.category,
     role: doc.role,
@@ -441,13 +502,15 @@ export async function exportDocumentForEditingAction(
     entityType: "Document",
     entityId: docId,
     projectId,
-    metadata: { mode: "offline_edit_word_doc" },
+    metadata: { mode: "offline_edit_docx" },
   });
 
   return {
-    success: "Đã chuẩn bị file HTML mở được bằng Word/Google Docs để chỉnh sửa tài liệu.",
+    success: "Đã chuẩn bị file DOCX để chỉnh sửa tài liệu.",
     fileName: safeExportFileName("document", doc.title),
     content,
+    encoding: "base64",
+    mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   };
 }
 
@@ -474,12 +537,14 @@ export async function importDocumentFromFileAction(
     return { error: "Bạn không có quyền truy cập phân hệ này." };
   }
 
-  let parsed = parseWordDocumentExport(rawContent);
-  if (!parsed.success) {
+  let parsed = rawContent.startsWith("UEsDB")
+    ? await parseDocxDocumentExport(rawContent)
+    : parseLegacyHtmlDocumentExport(rawContent);
+  if (!parsed?.success) {
     try {
       parsed = documentImportSchema.safeParse(JSON.parse(rawContent));
     } catch {
-      return { error: "File import không đúng định dạng Word/HTML tài liệu PMS." };
+      return { error: "File import không đúng định dạng DOCX tài liệu PMS." };
     }
   }
   if (!parsed.success) {
@@ -531,7 +596,7 @@ export async function importDocumentFromFileAction(
     entityType: "Document",
     entityId: docId,
     projectId,
-    metadata: { mode: "offline_import_word_doc", versionNo: nextVersionNo },
+    metadata: { mode: "offline_import_docx", versionNo: nextVersionNo },
   });
 
   revalidatePath(`/projects/${projectId}`, "layout");

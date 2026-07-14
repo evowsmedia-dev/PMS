@@ -14,14 +14,29 @@ import {
   importTaskFromFileAction,
 } from "@/lib/actions/tasks";
 
-function downloadTextFile(fileName: string, content: string) {
+function base64ToBytes(content: string) {
+  const binary = window.atob(content);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes;
+}
+
+function downloadFile(
+  fileName: string,
+  content: string,
+  options?: { encoding?: "text" | "base64"; mimeType?: string },
+) {
   const lowerName = fileName.toLowerCase();
-  const type = lowerName.endsWith(".csv")
-    ? "text/csv;charset=utf-8"
-    : lowerName.endsWith(".html") || lowerName.endsWith(".htm")
-      ? "text/html;charset=utf-8"
-      : "text/plain;charset=utf-8";
-  const blob = new Blob([content], { type });
+  const type =
+    options?.mimeType ??
+    (lowerName.endsWith(".xlsx")
+      ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      : lowerName.endsWith(".docx")
+        ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        : "text/plain;charset=utf-8");
+  const blob = new Blob([options?.encoding === "base64" ? base64ToBytes(content) : content], { type });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
@@ -32,13 +47,20 @@ function downloadTextFile(fileName: string, content: string) {
   URL.revokeObjectURL(url);
 }
 
-async function readTextFile(file: File, allowedExtensions: string[]) {
+async function readFileForImport(file: File, allowedExtensions: string[]) {
   const lowerName = file.name.toLowerCase();
   if (!allowedExtensions.some((extension) => lowerName.endsWith(extension))) {
     throw new Error(`Vui lòng chọn file ${allowedExtensions.join(", ")} đã export từ PMS.`);
   }
-  if (file.size > 5 * 1024 * 1024) {
-    throw new Error("File import tối đa 5MB.");
+  if (file.size > 8 * 1024 * 1024) {
+    throw new Error("File import tối đa 8MB.");
+  }
+  if (lowerName.endsWith(".docx") || lowerName.endsWith(".xlsx")) {
+    const buffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    let binary = "";
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    return window.btoa(binary);
   }
   return file.text();
 }
@@ -67,7 +89,10 @@ export function DocumentOfflineEditActions({
         toast.error(result.error ?? "Không export được tài liệu.");
         return;
       }
-      downloadTextFile(result.fileName, result.content);
+      downloadFile(result.fileName, result.content, {
+        encoding: result.encoding,
+        mimeType: result.mimeType,
+      });
       toast.success(result.success ?? "Đã export tài liệu.");
     });
   }
@@ -75,7 +100,7 @@ export function DocumentOfflineEditActions({
   async function importFile(file: File | undefined) {
     if (!file) return;
     try {
-      const content = await readTextFile(file, [".html", ".htm", ".doc", ".json"]);
+      const content = await readFileForImport(file, [".docx"]);
       startTransition(async () => {
         const result = await importDocumentFromFileAction(projectId, moduleId, docId, content);
         if (result.error) {
@@ -96,7 +121,7 @@ export function DocumentOfflineEditActions({
     <div className="flex flex-wrap justify-end gap-2">
       <Button type="button" size="sm" variant="outline" disabled={pending} onClick={exportFile}>
         <Download className="size-4" />
-        Export Word/Docs
+        Export DOCX
       </Button>
       <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => inputRef.current?.click()}>
         <Upload className="size-4" />
@@ -105,7 +130,7 @@ export function DocumentOfflineEditActions({
       <input
         ref={inputRef}
         type="file"
-        accept=".html,.htm,.doc,text/html,application/msword,application/json,.json"
+        accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         className="hidden"
         onChange={(event) => importFile(event.target.files?.[0])}
       />
@@ -137,7 +162,10 @@ export function TaskOfflineEditActions({
         toast.error(result.error ?? "Không export được task.");
         return;
       }
-      downloadTextFile(result.fileName, result.content);
+      downloadFile(result.fileName, result.content, {
+        encoding: result.encoding,
+        mimeType: result.mimeType,
+      });
       toast.success(result.success ?? "Đã export task.");
     });
   }
@@ -145,7 +173,7 @@ export function TaskOfflineEditActions({
   async function importFile(file: File | undefined) {
     if (!file) return;
     try {
-      const content = await readTextFile(file, [".csv", ".json"]);
+      const content = await readFileForImport(file, [".xlsx"]);
       startTransition(async () => {
         const result = await importTaskFromFileAction(projectId, moduleId, taskId, content);
         if (result.error) {
@@ -166,7 +194,7 @@ export function TaskOfflineEditActions({
     <div className="flex flex-wrap gap-2">
       <Button type="button" size="sm" variant="outline" disabled={pending} onClick={exportFile}>
         <Download className="size-4" />
-        Export Excel
+        Export XLSX
       </Button>
       <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => inputRef.current?.click()}>
         <Upload className="size-4" />
@@ -175,7 +203,7 @@ export function TaskOfflineEditActions({
       <input
         ref={inputRef}
         type="file"
-        accept=".csv,text/csv,application/json,.json"
+        accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         className="hidden"
         onChange={(event) => importFile(event.target.files?.[0])}
       />

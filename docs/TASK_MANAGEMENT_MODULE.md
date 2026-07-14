@@ -88,7 +88,7 @@ as-is.
 |---|---|
 | `tasks` | Task list with hierarchy, status/type/warning filters, effort/deadline/warning fields, AI auto-task action |
 | `tasks/new` | Create task/bug with full planning, parent task, Dev/Test/Standard estimates, related documents, external links, and dependency fields |
-| `tasks/[taskId]` | Task detail: unified parent/sub-task layout with planning meta, related documents/external links, effort/deadline warnings, QA links, offline CSV/Excel export/import, editable own time logs, concise field-change history + comments |
+| `tasks/[taskId]` | Task detail: unified parent/sub-task layout with planning meta, related documents/external links, effort/deadline warnings, QA links, offline XLSX export/import, editable own time logs, concise field-change history + comments |
 | `kanban` | 12-column drag-and-drop board (filter assignee / priority / sprint) |
 | `gantt` | CSS timeline grouped by epic, progress bars, overdue markers, today line |
 | `epics` / `sprints` / `milestones` | List + inline create + task counts |
@@ -101,14 +101,14 @@ Legacy module-scoped task routes (`…/modules/[moduleId]/tasks/…`) keep worki
 `taskHref()` (`src/lib/task-href.ts`) routes module-less tasks to the project-level
 URL and module tasks to their legacy URL.
 
-Task detail supports offline CSV export/import for users with `task.edit`; the
+Task detail supports offline XLSX export/import for users with `task.edit`; the
 file opens cleanly in Excel using a Field/Value/Help table. Import validates the
-CSV payload server-side, updates the current task, refreshes derived
+XLSX payload server-side, updates the current task, refreshes derived
 effort/deadline fields, writes `TaskHistory` entries for changed fields, and
 records an audit log. Document detail mirrors the same offline flow for
-`document.edit` using an `.html` file that can be opened and saved by Word or
-Google Docs; document import creates a new `DocumentVersion` instead of
-autosaving over history.
+`document.edit` using a real `.docx` file that can be opened, edited, saved,
+and imported back from Word-compatible editors; document import creates a new
+`DocumentVersion` instead of autosaving over history.
 
 The project BI dashboard now lives in `/projects/:projectId/bi-dashboard` as a
 separate project-sidebar module under **Dashboard dự án**, rather than inside the

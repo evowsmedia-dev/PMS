@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import * as XLSX from "xlsx";
 import type { Prisma } from "@/generated/prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -1382,6 +1383,8 @@ const taskImportSchema = z.object({
 export interface ExportTaskState extends ActionState {
   fileName?: string;
   content?: string;
+  encoding?: "text" | "base64";
+  mimeType?: string;
 }
 
 function safeTaskExportFileName(title: string, taskCode?: string | null) {
@@ -1393,19 +1396,7 @@ function safeTaskExportFileName(title: string, taskCode?: string | null) {
     .replace(/[^a-zA-Z0-9._-]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 90);
-  return `task-${slug || "export"}.csv`;
-}
-
-function csvEscape(value: unknown) {
-  const text = value === null || value === undefined ? "" : String(value);
-  return `"${text.replace(/"/g, '""')}"`;
-}
-
-function buildCsvExport(rows: { field: string; value: string | number | null; help: string }[]) {
-  return [
-    ["Field", "Value", "Help"].map(csvEscape).join(","),
-    ...rows.map((row) => [row.field, row.value, row.help].map(csvEscape).join(",")),
-  ].join("\r\n");
+  return `task-${slug || "export"}.xlsx`;
 }
 
 function parseCsvRows(content: string) {
@@ -1460,6 +1451,58 @@ function parseTaskCsvExport(rawContent: string) {
     const field = row[fieldIndex]?.trim();
     if (!field) continue;
     values.set(field, row[valueIndex] ?? "");
+  }
+
+  return taskImportSchema.safeParse({
+    kind: "PMS_TASK_EXPORT",
+    version: 1,
+    task: {
+      title: values.get("title") ?? "",
+      description: values.get("description") ?? "",
+      acceptanceCriteria: values.get("acceptanceCriteria") ?? "",
+      status: values.get("status") || "BACKLOG",
+      type: values.get("type") || "TASK",
+      priority: values.get("priority") || "MEDIUM",
+      plannedStartAt: values.get("plannedStartAt") ?? "",
+      startDate: values.get("startDate") ?? "",
+      dueDate: values.get("dueDate") ?? "",
+      devDueAt: values.get("devDueAt") ?? "",
+      testDueAt: values.get("testDueAt") ?? "",
+      devEstimateHours: values.get("devEstimateHours") || 0,
+      testEstimateHours: values.get("testEstimateHours") || 0,
+      testEstimateSource: values.get("testEstimateSource") || "MANUAL",
+      standardEstimateMandays: values.get("standardEstimateMandays") || 0,
+      storyPoint: values.get("storyPoint") || 0,
+      relatedDocumentIds: splitCsvList(values.get("relatedDocumentIds") ?? ""),
+      externalLinks: splitCsvList(values.get("externalLinks") ?? ""),
+    },
+  });
+}
+
+function buildTaskXlsxExport(rows: { field: string; value: string | number | null; help: string }[]) {
+  const workbook = XLSX.utils.book_new();
+  const worksheet = XLSX.utils.aoa_to_sheet([
+    ["Field", "Value", "Help"],
+    ...rows.map((row) => [row.field, row.value ?? "", row.help]),
+  ]);
+  worksheet["!cols"] = [{ wch: 26 }, { wch: 60 }, { wch: 48 }];
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Task");
+  const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
+  return buffer.toString("base64");
+}
+
+function parseTaskXlsxExport(rawBase64: string) {
+  const workbook = XLSX.read(Buffer.from(rawBase64, "base64"), { type: "buffer" });
+  const sheetName = workbook.SheetNames[0];
+  if (!sheetName) return null;
+  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets[sheetName], {
+    defval: "",
+  });
+  const values = new Map<string, string>();
+  for (const row of rows) {
+    const field = String(row.Field ?? "").trim();
+    if (!field) continue;
+    values.set(field, String(row.Value ?? ""));
   }
 
   return taskImportSchema.safeParse({
@@ -1571,7 +1614,7 @@ export async function exportTaskForEditingAction(
   });
   if (!task) return { error: "Không tìm thấy task." };
 
-  const content = buildCsvExport([
+  const rows = [
     { field: "title", value: task.title, help: "Tiêu đề task" },
     { field: "description", value: task.description ?? "", help: "Mô tả task; có thể xuống dòng trong Excel" },
     { field: "acceptanceCriteria", value: task.acceptanceCriteria ?? "", help: "Tiêu chí nghiệm thu" },
@@ -1598,7 +1641,8 @@ export async function exportTaskForEditingAction(
       value: normalizeStoredExternalLinks(task.externalLinks).join("\n"),
       help: "Mỗi link một dòng hoặc ngăn cách bằng dấu ;",
     },
-  ]);
+  ];
+  const content = buildTaskXlsxExport(rows);
 
   await logAudit({
     actorId: session.user.id,
@@ -1606,13 +1650,15 @@ export async function exportTaskForEditingAction(
     entityType: "Task",
     entityId: taskId,
     projectId,
-    metadata: { mode: "offline_edit_csv" },
+    metadata: { mode: "offline_edit_xlsx" },
   });
 
   return {
-    success: "Đã chuẩn bị file Excel/CSV để chỉnh sửa task.",
+    success: "Đã chuẩn bị file XLSX để chỉnh sửa task.",
     fileName: safeTaskExportFileName(task.title, task.taskCode),
     content,
+    encoding: "base64",
+    mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   };
 }
 
@@ -1640,12 +1686,12 @@ export async function importTaskFromFileAction(
     return { error: "Bạn không có quyền truy cập phân hệ này." };
   }
 
-  let parsed = parseTaskCsvExport(rawContent);
+  let parsed = rawContent.startsWith("UEsDB") ? parseTaskXlsxExport(rawContent) : parseTaskCsvExport(rawContent);
   if (!parsed?.success) {
     try {
       parsed = taskImportSchema.safeParse(JSON.parse(rawContent));
     } catch {
-      return { error: "File import không đúng định dạng CSV task PMS." };
+      return { error: "File import không đúng định dạng XLSX task PMS." };
     }
   }
   if (!parsed.success) {
@@ -1741,7 +1787,7 @@ export async function importTaskFromFileAction(
     entityId: taskId,
     projectId,
     metadata: {
-      mode: "offline_import_csv",
+      mode: "offline_import_xlsx",
       relatedDocumentIds: validRelatedDocumentIds.length,
       externalLinks: externalLinks.length,
     },
