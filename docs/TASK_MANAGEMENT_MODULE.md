@@ -78,8 +78,9 @@ snapshotDate`), `Notification`, `ProjectEstimatedTimelineItem`,
 tracks pending/seen/resolved mention state.
 
 `ProjectEstimatedTimelineItem` stores the project-level estimated timeline row:
-task/function name, start/end, duration, estimated mandays, calculated VND amount,
-assignee, note and optional source task. Versions store a JSON snapshot plus
+task/function name, start/end, duration, editable unit price, calculated VND amount,
+assignee, note and optional source task. Timeline amount is calculated as
+`durationDays * unitPriceVnd`; the default unit price is 3,600,000 VND. Versions store a JSON snapshot plus
 changed field names so the UI can highlight changed cells. Comments are scoped to
 the project timeline and can create notifications for mentioned project members.
 
@@ -144,15 +145,18 @@ bug-severity bar cards were removed.
 
 `/projects/:projectId/estimated-timeline` sits directly under the project
 Document menu in the sidebar. It tracks project-level forecast rows with columns
-for task/function name, start/end date, duration, estimated mandays, calculated
-amount (`estimateMandays * 3,600,000 VND`), assignee, and notes. Users with
-`task.managePlanning` can edit inline, sync all active tasks from any module in
-the project, or export/import an Excel workbook. Sync uses task title,
-planned/start/due dates, Dev/Test/Standard estimates and assignee where present;
-missing task fields remain blank for manual completion. Every create/update
-writes a row version snapshot and changed-field list; the UI highlights changed
-cells from the latest version. The right sidebar supports timeline comments and
-`@mention` notifications for project members.
+for task/function name, start/end date, duration, editable unit price, calculated
+amount (`durationDays * unitPriceVnd`), assignee, and notes. A total amount row
+is shown directly below the table header. Users with `task.managePlanning` can
+edit inline, sync all active tasks from any module into the timeline, sync linked
+timeline rows back into Task, or export/import an Excel workbook. Sync from Task
+uses task title, planned/start/due dates, Dev/Test/Standard estimates and assignee
+where present; sync back to Task maps timeline duration to Standard/Dev/Test
+estimate and updates linked task title/start/end/assignee. Missing task fields
+remain blank for manual completion. Every create/update writes a row version
+snapshot and changed-field list; selecting a history version shows highlighted
+changed values. The right sidebar supports timeline comments and `@mention`
+notifications for project members.
 
 Nav lives in the project sidebar under **"Quản lý công việc"**
 (`src/app/(dashboard)/projects/[projectId]/layout.tsx`).

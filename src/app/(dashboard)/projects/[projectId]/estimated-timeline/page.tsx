@@ -106,6 +106,7 @@ export default async function ProjectEstimatedTimelinePage({
             endDate: dateKey(item.endDate),
             durationDays: decimalText(item.durationDays),
             estimateMandays: decimalText(item.estimateMandays),
+            unitPriceVnd: decimalText(item.unitPriceVnd),
             amountVnd: decimalText(item.amountVnd),
             assigneeId: item.assigneeId ?? "",
             assigneeName: item.assignee?.fullName ?? "",

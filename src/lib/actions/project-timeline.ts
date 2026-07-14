@@ -19,7 +19,7 @@ const FIELD_LABELS: Record<string, string> = {
   startDate: "Ngày bắt đầu",
   endDate: "Ngày kết thúc",
   durationDays: "Duration",
-  estimateMandays: "Ngày công ước lượng",
+  unitPriceVnd: "Đơn giá",
   amountVnd: "Thành tiền",
   assigneeId: "Người phụ trách",
   note: "Ghi chú",
@@ -31,6 +31,7 @@ interface TimelineSnapshot {
   endDate: string | null;
   durationDays: number | null;
   estimateMandays: number | null;
+  unitPriceVnd: number | null;
   amountVnd: number | null;
   assigneeId: string | null;
   note: string | null;
@@ -77,8 +78,8 @@ function decimalToNumber(value: Prisma.Decimal | number | string | null | undefi
   return Number.isFinite(number) ? number : null;
 }
 
-function estimateToAmount(estimateMandays: number | null) {
-  return estimateMandays === null ? null : Math.round(estimateMandays * MANDAY_RATE_VND);
+function amountFromDuration(durationDays: number | null, unitPriceVnd: number | null) {
+  return durationDays === null ? null : Math.round(durationDays * (unitPriceVnd ?? MANDAY_RATE_VND));
 }
 
 function durationFromDates(startDate: Date | null, endDate: Date | null) {
@@ -93,6 +94,7 @@ function snapshotFromValues(values: {
   endDate?: Date | string | null;
   durationDays?: Prisma.Decimal | number | string | null;
   estimateMandays?: Prisma.Decimal | number | string | null;
+  unitPriceVnd?: Prisma.Decimal | number | string | null;
   amountVnd?: Prisma.Decimal | number | string | null;
   assigneeId?: string | null;
   note?: string | null;
@@ -103,6 +105,7 @@ function snapshotFromValues(values: {
     endDate: dateToKey(values.endDate),
     durationDays: decimalToNumber(values.durationDays),
     estimateMandays: decimalToNumber(values.estimateMandays),
+    unitPriceVnd: decimalToNumber(values.unitPriceVnd) ?? MANDAY_RATE_VND,
     amountVnd: decimalToNumber(values.amountVnd),
     assigneeId: values.assigneeId || null,
     note: values.note || null,
@@ -242,7 +245,7 @@ async function syncTimelineItemToTask(itemId: string, actorId: string) {
   });
   if (!task) return false;
 
-  const estimateMandays = decimalToNumber(item.estimateMandays) ?? 0;
+  const estimateMandays = decimalToNumber(item.durationDays) ?? 0;
   const devEstimateHours = estimateMandays * 8;
   const testEstimateSource = task.testEstimateSource;
   const derived = deriveTaskEffortFields({
@@ -338,7 +341,7 @@ function parseRows(formData: FormData) {
     const endDate = parseOptionalDate(formData.getAll("endDate")[index] ?? "");
     const manualDuration = parseOptionalNumber(formData.getAll("durationDays")[index] ?? "");
     const durationDays = manualDuration ?? durationFromDates(startDate, endDate);
-    const estimateMandays = parseOptionalNumber(formData.getAll("estimateMandays")[index] ?? "");
+    const unitPriceVnd = parseOptionalNumber(formData.getAll("unitPriceVnd")[index] ?? "") ?? MANDAY_RATE_VND;
     const assigneeValue = String(formData.getAll("assigneeId")[index] ?? "").trim();
     const note = String(formData.getAll("note")[index] ?? "").trim();
     const deleted = String(formData.getAll("deleteRow")[index] ?? "") === "1";
@@ -348,8 +351,9 @@ function parseRows(formData: FormData) {
       startDate,
       endDate,
       durationDays,
-      estimateMandays,
-      amountVnd: estimateToAmount(estimateMandays),
+      estimateMandays: durationDays,
+      unitPriceVnd,
+      amountVnd: amountFromDuration(durationDays, unitPriceVnd),
       assigneeId: assigneeValue && assigneeValue !== "__none" ? assigneeValue : null,
       note: note || null,
       sortOrder: index,
@@ -514,13 +518,16 @@ export async function syncProjectEstimatedTimelineFromTasksAction(projectId: str
       const estimateFromStandard = decimalToNumber(task.standardEstimateMandays);
       const effortHours = (decimalToNumber(task.devEstimateHours) ?? 0) + (decimalToNumber(task.testEstimateHours) ?? 0);
       const estimateMandays = estimateFromStandard && estimateFromStandard > 0 ? estimateFromStandard : effortHours > 0 ? effortHours / 8 : null;
+      const durationDays = durationFromDates(startDate, endDate);
+      const unitPriceVnd = decimalToNumber(existingByTask.get(task.id)?.unitPriceVnd) ?? MANDAY_RATE_VND;
       const next = {
         title: task.title,
         startDate,
         endDate,
-        durationDays: durationFromDates(startDate, endDate),
+        durationDays,
         estimateMandays,
-        amountVnd: estimateToAmount(estimateMandays),
+        unitPriceVnd,
+        amountVnd: amountFromDuration(durationDays, unitPriceVnd),
         assigneeId: task.assigneeId,
         sortOrder: index,
       };
@@ -580,6 +587,33 @@ export async function syncProjectEstimatedTimelineFromTasksAction(projectId: str
   return { success: `Đã đồng bộ timeline từ Task: tạo ${created}, cập nhật ${updated}.` };
 }
 
+export async function syncProjectTasksFromEstimatedTimelineAction(projectId: string): Promise<ActionState> {
+  const authorized = await authorizeProject(projectId, "edit");
+  if ("error" in authorized) return { error: authorized.error };
+
+  const items = await prisma.projectEstimatedTimelineItem.findMany({
+    where: { projectId, deletedAt: null, taskId: { not: null } },
+    select: { id: true },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+  });
+
+  let synced = 0;
+  for (const item of items) {
+    if (await syncTimelineItemToTask(item.id, authorized.session.user.id)) synced += 1;
+  }
+
+  await logAudit({
+    actorId: authorized.session.user.id,
+    action: "UPDATE",
+    entityType: "Task",
+    entityId: projectId,
+    projectId,
+    metadata: { mode: "sync_tasks_from_estimated_timeline", synced },
+  });
+  for (const path of timelinePaths(projectId, authorized.project.code)) revalidatePath(path);
+  return { success: `Đã đồng bộ sang Task: ${synced} dòng có liên kết task.` };
+}
+
 export async function syncProjectEstimatedTimelineTaskRow({
   projectId,
   taskId,
@@ -620,20 +654,23 @@ export async function syncProjectEstimatedTimelineTaskRow({
   const estimateFromStandard = decimalToNumber(task.standardEstimateMandays);
   const effortHours = (decimalToNumber(task.devEstimateHours) ?? 0) + (decimalToNumber(task.testEstimateHours) ?? 0);
   const estimateMandays = estimateFromStandard && estimateFromStandard > 0 ? estimateFromStandard : effortHours > 0 ? effortHours / 8 : null;
+  const item = await prisma.projectEstimatedTimelineItem.findFirst({
+    where: { projectId, taskId: task.id, deletedAt: null },
+  });
+  const durationDays = durationFromDates(startDate, endDate);
+  const unitPriceVnd = decimalToNumber(item?.unitPriceVnd) ?? MANDAY_RATE_VND;
   const next = {
     title: task.title,
     startDate,
     endDate,
-    durationDays: durationFromDates(startDate, endDate),
+    durationDays,
     estimateMandays,
-    amountVnd: estimateToAmount(estimateMandays),
+    unitPriceVnd,
+    amountVnd: amountFromDuration(durationDays, unitPriceVnd),
     assigneeId: task.assigneeId,
   };
   const snapshot = snapshotFromValues({ ...next, note: null });
 
-  const item = await prisma.projectEstimatedTimelineItem.findFirst({
-    where: { projectId, taskId: task.id, deletedAt: null },
-  });
   if (!item) {
     const maxSort = await prisma.projectEstimatedTimelineItem.aggregate({
       where: { projectId, deletedAt: null },
@@ -732,7 +769,7 @@ export async function exportProjectEstimatedTimelineAction(projectId: string) {
     "Ngày bắt đầu": dateToKey(row.startDate) ?? "",
     "Ngày kết thúc": dateToKey(row.endDate) ?? "",
     Duration: decimalToNumber(row.durationDays) ?? "",
-    "Ngày công ước lượng (Estimate)": decimalToNumber(row.estimateMandays) ?? "",
+    "Đơn giá (VND)": decimalToNumber(row.unitPriceVnd) ?? MANDAY_RATE_VND,
     "Thành tiền (VND)": decimalToNumber(row.amountVnd) ?? "",
     "Email người phụ trách": row.assignee?.email ?? "",
     "Người phụ trách": row.assignee?.fullName ?? "",
@@ -744,7 +781,7 @@ export async function exportProjectEstimatedTimelineAction(projectId: string) {
     "Ngày bắt đầu": "",
     "Ngày kết thúc": "",
     Duration: "",
-    "Ngày công ước lượng (Estimate)": "",
+    "Đơn giá (VND)": MANDAY_RATE_VND,
     "Thành tiền (VND)": "",
     "Email người phụ trách": "",
     "Người phụ trách": "",
@@ -768,7 +805,7 @@ export async function exportProjectEstimatedTimelineAction(projectId: string) {
     XLSX.utils.aoa_to_sheet([
       ["Hướng dẫn"],
       ["Giữ nguyên ID để cập nhật dòng có sẵn. Để trống ID để tạo dòng mới."],
-      ["Thành tiền được hệ thống tính lại = Estimate * 3,600,000 VND khi import."],
+      ["Thành tiền được hệ thống tính lại = Duration * Đơn giá khi import."],
       ["Người phụ trách nên nhập email thành viên dự án ở cột Email người phụ trách."],
     ]),
     "Help",
@@ -799,7 +836,7 @@ function normalizeHeaderRow(row: Record<string, unknown>) {
     startDate: parseOptionalDate(value("Ngày bắt đầu")),
     endDate: parseOptionalDate(value("Ngày kết thúc")),
     durationDays: parseOptionalNumber(value("Duration")),
-    estimateMandays: parseOptionalNumber(value("Ngày công ước lượng (Estimate)")),
+    unitPriceVnd: parseOptionalNumber(value("Đơn giá (VND)")) ?? MANDAY_RATE_VND,
     assigneeEmail: value("Email người phụ trách").toLowerCase(),
     note: value("Ghi chú") || null,
   };
@@ -832,13 +869,14 @@ export async function importProjectEstimatedTimelineAction(projectId: string, ba
     for (const [index, row] of rows.entries()) {
       const assigneeId = row.assigneeEmail ? memberByEmail.get(row.assigneeEmail) ?? null : null;
       const durationDays = row.durationDays ?? durationFromDates(row.startDate, row.endDate);
-      const amountVnd = estimateToAmount(row.estimateMandays);
+      const amountVnd = amountFromDuration(durationDays, row.unitPriceVnd);
       const next = {
         title: row.title,
         startDate: row.startDate,
         endDate: row.endDate,
         durationDays,
-        estimateMandays: row.estimateMandays,
+        estimateMandays: durationDays,
+        unitPriceVnd: row.unitPriceVnd,
         amountVnd,
         assigneeId,
         note: row.note,

@@ -14,7 +14,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -28,6 +27,7 @@ import {
   addProjectEstimatedTimelineCommentAction,
   saveProjectEstimatedTimelineAction,
   syncProjectEstimatedTimelineFromTasksAction,
+  syncProjectTasksFromEstimatedTimelineAction,
 } from "@/lib/actions/project-timeline";
 import type { ActionState } from "@/lib/actions/profile";
 
@@ -39,7 +39,7 @@ const FIELD_LABELS: Record<string, string> = {
   startDate: "Ngày bắt đầu",
   endDate: "Ngày kết thúc",
   durationDays: "Duration",
-  estimateMandays: "Estimate",
+  unitPriceVnd: "Đơn giá",
   amountVnd: "Thành tiền",
   assigneeId: "Người phụ trách",
   note: "Ghi chú",
@@ -52,6 +52,7 @@ interface TimelineRow {
   endDate: string;
   durationDays: string;
   estimateMandays: string;
+  unitPriceVnd: string;
   amountVnd: string;
   assigneeId: string;
   assigneeName: string;
@@ -97,9 +98,15 @@ function formatHistoryValue(field: string, value: string | number | null | undef
   return String(value);
 }
 
-function nextAmount(estimate: string) {
-  const number = Number(String(estimate).replaceAll(",", "."));
-  return Number.isFinite(number) && number > 0 ? String(Math.round(number * MANDAY_RATE_VND)) : "";
+function parsedNumber(value: string | number | null | undefined) {
+  const number = Number(String(value ?? "").replaceAll(",", "."));
+  return Number.isFinite(number) ? number : null;
+}
+
+function nextAmount(durationDays: string, unitPriceVnd: string) {
+  const duration = parsedNumber(durationDays);
+  const unitPrice = parsedNumber(unitPriceVnd) ?? MANDAY_RATE_VND;
+  return duration !== null && duration > 0 ? String(Math.round(duration * unitPrice)) : "";
 }
 
 function blankRow(): TimelineRow {
@@ -110,6 +117,7 @@ function blankRow(): TimelineRow {
     endDate: "",
     durationDays: "",
     estimateMandays: "",
+    unitPriceVnd: String(MANDAY_RATE_VND),
     amountVnd: "",
     assigneeId: "",
     assigneeName: "",
@@ -155,6 +163,7 @@ export function ProjectEstimatedTimeline({
     initialState,
   );
   const [syncPending, startSyncTransition] = useTransition();
+  const [reverseSyncPending, startReverseSyncTransition] = useTransition();
   const router = useRouter();
 
   useEffect(() => {
@@ -175,6 +184,10 @@ export function ProjectEstimatedTimeline({
   }, [commentState, router]);
 
   const visibleRows = useMemo(() => rows.filter((row) => !row.deleted), [rows]);
+  const totalAmountVnd = useMemo(
+    () => visibleRows.reduce((sum, row) => sum + (parsedNumber(row.amountVnd) ?? 0), 0),
+    [visibleRows],
+  );
   const historyVersions = useMemo(
     () =>
       initialRows
@@ -192,7 +205,10 @@ export function ProjectEstimatedTimeline({
       current.map((row, rowIndex) => {
         if (rowIndex !== index) return row;
         const next = { ...row, ...patch };
-        if (patch.estimateMandays !== undefined) next.amountVnd = nextAmount(patch.estimateMandays);
+        if (patch.durationDays !== undefined || patch.unitPriceVnd !== undefined) {
+          next.amountVnd = nextAmount(next.durationDays, next.unitPriceVnd);
+          next.estimateMandays = next.durationDays;
+        }
         return next;
       }),
     );
@@ -216,6 +232,18 @@ export function ProjectEstimatedTimeline({
     });
   }
 
+  function syncToTasks() {
+    startReverseSyncTransition(async () => {
+      const result = await syncProjectTasksFromEstimatedTimelineAction(projectId);
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(result.success ?? "Đã đồng bộ sang Task.");
+      router.refresh();
+    });
+  }
+
   return (
     <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
       <div className="min-w-0 space-y-4">
@@ -231,6 +259,16 @@ export function ProjectEstimatedTimeline({
               <RefreshCw className="size-4" />
               Đồng bộ từ Task
             </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={reverseSyncPending || !canEdit}
+              onClick={syncToTasks}
+            >
+              <RefreshCw className="size-4" />
+              Đồng bộ sang Task
+            </Button>
             <ProjectEstimatedTimelineOfflineActions projectId={projectId} canImport={canEdit} />
             {canEdit ? (
               <Button type="button" size="sm" onClick={() => setEditing((value) => !value)}>
@@ -241,7 +279,7 @@ export function ProjectEstimatedTimeline({
         </div>
 
         <form action={saveAction} className="space-y-3">
-          <ResponsiveTableFrame minWidth="min-w-[1180px]">
+          <ResponsiveTableFrame minWidth="min-w-[1120px]">
             <table className="w-full border-collapse text-xs">
               <thead className="border-b bg-muted/50 text-left text-xs text-muted-foreground">
                 <tr>
@@ -249,18 +287,24 @@ export function ProjectEstimatedTimeline({
                   <th className="border-r px-2 py-2">Ngày bắt đầu</th>
                   <th className="border-r px-2 py-2">Ngày kết thúc</th>
                   <th className="border-r px-2 py-2">Duration</th>
-                  <th className="border-r px-2 py-2">Estimate</th>
+                  <th className="border-r px-2 py-2">Đơn giá</th>
                   <th className="border-r px-2 py-2">Thành tiền</th>
                   <th className="border-r px-2 py-2">Assignee</th>
                   <th className="border-r px-2 py-2">Ghi chú</th>
-                  <th className="border-r px-2 py-2">Version</th>
                   {editing ? <th className="px-2 py-2" /> : null}
                 </tr>
               </thead>
               <tbody className="divide-y">
+                <tr className="bg-muted/20 font-semibold">
+                  <td colSpan={5} className="border-r px-2 py-2 text-right">
+                    Tổng tiền
+                  </td>
+                  <td className="border-r px-2 py-2">{formatVnd(totalAmountVnd)} VND</td>
+                  <td colSpan={editing ? 3 : 2} className="px-2 py-2" />
+                </tr>
                 {visibleRows.length === 0 ? (
                   <tr>
-                    <td colSpan={editing ? 10 : 9} className="px-3 py-8 text-center text-xs text-muted-foreground">
+                    <td colSpan={editing ? 9 : 8} className="px-3 py-8 text-center text-xs text-muted-foreground">
                       Chưa có timeline dự toán. Bấm đồng bộ từ Task hoặc thêm dòng thủ công.
                     </td>
                   </tr>
@@ -276,6 +320,7 @@ export function ProjectEstimatedTimeline({
                         <input type="hidden" name="endDate" value={row.endDate} />
                         <input type="hidden" name="durationDays" value={row.durationDays} />
                         <input type="hidden" name="estimateMandays" value={row.estimateMandays} />
+                        <input type="hidden" name="unitPriceVnd" value={row.unitPriceVnd} />
                         <input type="hidden" name="amountVnd" value={row.amountVnd} />
                         <input type="hidden" name="assigneeId" value={row.assigneeId} />
                         <input type="hidden" name="note" value={row.note} />
@@ -339,14 +384,15 @@ export function ProjectEstimatedTimeline({
                       <td className="border-r px-2 py-2">
                         {editing ? (
                           <Input
-                            name="estimateMandays"
-                            value={row.estimateMandays}
-                            onChange={(event) => updateRow(index, { estimateMandays: event.target.value })}
+                            name="unitPriceVnd"
+                            value={row.unitPriceVnd}
+                            onChange={(event) => updateRow(index, { unitPriceVnd: event.target.value })}
                             className="text-xs md:text-xs"
                           />
                         ) : (
-                          row.estimateMandays
+                          formatVnd(row.unitPriceVnd)
                         )}
+                        <input type="hidden" name="estimateMandays" value={row.durationDays} />
                       </td>
                       <td className="border-r px-2 py-2 font-medium">
                         <input type="hidden" name="amountVnd" value={row.amountVnd} />
@@ -387,9 +433,6 @@ export function ProjectEstimatedTimeline({
                         ) : (
                           <span className="whitespace-pre-wrap">{row.note}</span>
                         )}
-                      </td>
-                      <td className="border-r px-2 py-2">
-                        <Badge variant="outline">v{row.versionNo}</Badge>
                       </td>
                       {editing ? (
                         <td className="px-2 py-2">

@@ -623,6 +623,7 @@ model ProjectEstimatedTimelineItem {
   endDate         DateTime?
   durationDays    Decimal? @db.Decimal(10, 2)
   estimateMandays Decimal? @db.Decimal(10, 2)
+  unitPriceVnd    Decimal  @default(3600000) @db.Decimal(18, 2)
   amountVnd       Decimal? @db.Decimal(18, 2)
   assigneeId      String?
   note            String?
