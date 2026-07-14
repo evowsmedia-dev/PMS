@@ -263,6 +263,9 @@ model User {
   testResultsExecuted TestResult[]
   aiUsageLogs         AiUsageLog[]
   aiSubtaskGenerations AiSubtaskGeneration[]
+  projectEstimatedTimelineItems ProjectEstimatedTimelineItem[]
+  projectEstimatedTimelineVersions ProjectEstimatedTimelineVersion[]
+  projectEstimatedTimelineComments ProjectEstimatedTimelineComment[]
 
   @@index([systemRole, isActive])
 }
@@ -307,6 +310,8 @@ model Project {
   snapshots  DailyProjectSnapshot[]
   aiUsageLogs AiUsageLog[]
   aiSubtaskGenerations AiSubtaskGeneration[]
+  estimatedTimelineItems ProjectEstimatedTimelineItem[]
+  estimatedTimelineComments ProjectEstimatedTimelineComment[]
 
   @@index([status, deletedAt])
   @@index([subsystemId])
@@ -595,6 +600,7 @@ model Task {
   bugs         Bug[]
   testCases    TestCase[]
   testResults  TestResult[]
+  estimatedTimelineItems ProjectEstimatedTimelineItem[]
 
   @@index([projectId, moduleId, status])
   @@index([projectId, status])
@@ -606,6 +612,68 @@ model Task {
   @@index([dueDate])
   @@index([createdAt])
   @@index([aiSubtaskGenerationId])
+}
+
+model ProjectEstimatedTimelineItem {
+  id              String   @id @default(cuid())
+  projectId       String
+  taskId          String?
+  title           String
+  startDate       DateTime?
+  endDate         DateTime?
+  durationDays    Decimal? @db.Decimal(10, 2)
+  estimateMandays Decimal? @db.Decimal(10, 2)
+  amountVnd       Decimal? @db.Decimal(18, 2)
+  assigneeId      String?
+  note            String?
+  sortOrder       Int      @default(0)
+  currentVersionNo Int     @default(1)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
+
+  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task     Task?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  assignee User?   @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
+  versions ProjectEstimatedTimelineVersion[]
+
+  @@index([projectId, sortOrder])
+  @@index([projectId, taskId])
+  @@index([assigneeId])
+}
+
+model ProjectEstimatedTimelineVersion {
+  id          String   @id @default(cuid())
+  itemId      String
+  versionNo   Int
+  snapshot    Json
+  changedFields Json   @default("[]")
+  changeNote  String?
+  createdAt   DateTime @default(now())
+
+  editedById String
+  editedBy   User   @relation(fields: [editedById], references: [id])
+  item       ProjectEstimatedTimelineItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([itemId, versionNo])
+  @@index([itemId])
+  @@index([createdAt])
+}
+
+model ProjectEstimatedTimelineComment {
+  id        String   @id @default(cuid())
+  projectId String
+  authorId  String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author  User    @relation(fields: [authorId], references: [id])
+
+  @@index([projectId])
+  @@index([authorId])
 }
 
 model TaskRelatedDocument {

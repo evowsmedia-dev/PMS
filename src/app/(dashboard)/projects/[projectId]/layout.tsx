@@ -166,6 +166,12 @@ export default async function ProjectLayout({
 
           <nav className="space-y-0.5 text-[1.15rem]">
             <Link
+              href={`/projects/${projectRouteSegment}/estimated-timeline`}
+              className="block rounded-lg px-2 py-1.5 hover:bg-accent"
+            >
+              Timeline dự toán dự án
+            </Link>
+            <Link
               href={`/api/projects/${project.id}/export`}
               className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-accent"
             >

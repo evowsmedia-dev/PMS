@@ -93,6 +93,14 @@ export function ProjectMobileNav({
           <nav className="space-y-0.5 border-t pt-3 text-sm">
             <SheetClose asChild>
               <Link
+                href={`/projects/${projectRouteSegment}/estimated-timeline`}
+                className="block rounded-lg px-2 py-1.5 hover:bg-muted"
+              >
+                Timeline dự toán dự án
+              </Link>
+            </SheetClose>
+            <SheetClose asChild>
+              <Link
                 href={`/api/projects/${projectId}/export`}
                 className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-muted"
               >

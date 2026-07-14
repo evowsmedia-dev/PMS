@@ -41,6 +41,10 @@ import {
   type KanbanStatusColumn,
 } from "@/lib/kanban-status-config";
 import { deriveTaskEffortFields, refreshTaskDerivedFields } from "@/lib/task-rules";
+import {
+  removeProjectEstimatedTimelineTaskRow,
+  syncProjectEstimatedTimelineTaskRow,
+} from "@/lib/actions/project-timeline";
 import type { ActionState } from "@/lib/actions/profile";
 
 /** Revalidate both the module-scoped and project-scoped task views so a change
@@ -427,6 +431,12 @@ export async function createTaskAction(
     metadata: { title: values.title },
   });
 
+  await syncProjectEstimatedTimelineTaskRow({
+    projectId,
+    taskId: task.id,
+    actorId: session.user.id,
+    changeNote: "Đồng bộ khi tạo Task",
+  });
   revalidateTaskPaths(projectId, moduleId);
   redirect(`/projects/${projectId}/modules/${moduleId}/tasks/${task.id}`);
 }
@@ -549,6 +559,12 @@ export async function createProjectTaskAction(
     metadata: { title: values.title, type: values.type },
   });
 
+  await syncProjectEstimatedTimelineTaskRow({
+    projectId,
+    taskId: task.id,
+    actorId: session.user.id,
+    changeNote: "Đồng bộ khi tạo Task",
+  });
   revalidateTaskPaths(projectId, null);
   redirect(`/projects/${projectId}/tasks/${task.id}`);
 }
@@ -2553,6 +2569,12 @@ export async function updateTaskAction(
     projectId,
   });
 
+  await syncProjectEstimatedTimelineTaskRow({
+    projectId,
+    taskId,
+    actorId: session.user.id,
+    changeNote: "Đồng bộ khi cập nhật Task",
+  });
   revalidateTaskPaths(projectId, moduleId, taskId);
   return { success: "Đã cập nhật task." };
 }
@@ -2596,6 +2618,12 @@ export async function reassignTaskAction(
     metadata: { assigneeId },
   });
 
+  await syncProjectEstimatedTimelineTaskRow({
+    projectId,
+    taskId,
+    actorId: session.user.id,
+    changeNote: "Đồng bộ khi gán Task",
+  });
   revalidateTaskPaths(projectId, moduleId, taskId);
 }
 
@@ -2947,6 +2975,11 @@ export async function deleteTaskAction(
     projectId,
   });
 
+  await removeProjectEstimatedTimelineTaskRow({
+    projectId,
+    taskId,
+    actorId: session.user.id,
+  });
   revalidateTaskPaths(projectId, moduleId);
   redirect(
     moduleId

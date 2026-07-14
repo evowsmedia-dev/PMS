@@ -72,8 +72,16 @@ effort fields: `devEstimateHours`, `testEstimateHours`, `testEstimateSource`,
 **New models:** `Epic`, `Sprint`, `Milestone`, `TaskAssignment`, `TaskDependency`
 (`task` → `dependsOnTask`, unique per pair), `TimeLog`, `Bug`, `TestCase`,
 `TestRun`, `TestResult`, `DailyProjectSnapshot` (unique per `projectId +
-snapshotDate`), `Notification`. `TaskHistory` gained a `reason` field (required on
-reopen). `CommentMention` tracks pending/seen/resolved mention state.
+snapshotDate`), `Notification`, `ProjectEstimatedTimelineItem`,
+`ProjectEstimatedTimelineVersion`, `ProjectEstimatedTimelineComment`.
+`TaskHistory` gained a `reason` field (required on reopen). `CommentMention`
+tracks pending/seen/resolved mention state.
+
+`ProjectEstimatedTimelineItem` stores the project-level estimated timeline row:
+task/function name, start/end, duration, estimated mandays, calculated VND amount,
+assignee, note and optional source task. Versions store a JSON snapshot plus
+changed field names so the UI can highlight changed cells. Comments are scoped to
+the project timeline and can create notifications for mentioned project members.
 
 **Reused, not duplicated:** `AuditLog` + `logAudit()` (`src/lib/audit.ts`) is the
 activity log; `TaskHistory` is the status/field history; `Comment` (already had
@@ -91,6 +99,7 @@ as-is.
 | `tasks/[taskId]` | Task detail: unified parent/sub-task layout with planning meta, related documents/external links, effort/deadline warnings, QA links, offline XLSX export/import, editable own time logs, concise field-change history + comments |
 | `kanban` | 12-column drag-and-drop board (filter assignee / priority / sprint) |
 | `gantt` | CSS timeline grouped by epic with fixed task metadata columns, month/day timeline header, 14-day buffer, selectable metadata columns, draggable column borders, progress bars, overdue markers, today line |
+| `estimated-timeline` | Project estimated timeline table with manual edit, sync from all project tasks, XLSX export/import, version diff highlight and comment sidebar |
 | `epics` / `sprints` / `milestones` | List + inline create + task counts |
 | `bugs` | Bug list + filter + create + status change |
 | `test-cases` | Test-case list + create + inline execute (pass/fail) |
@@ -133,6 +142,18 @@ tasks, bugs, and SPI proxy. Headline task / bug / document status distributions
 remain in the project overview top cards; the old report-only task-status and
 bug-severity bar cards were removed.
 
+`/projects/:projectId/estimated-timeline` sits directly under the project
+Document menu in the sidebar. It tracks project-level forecast rows with columns
+for task/function name, start/end date, duration, estimated mandays, calculated
+amount (`estimateMandays * 3,600,000 VND`), assignee, and notes. Users with
+`task.managePlanning` can edit inline, sync all active tasks from any module in
+the project, or export/import an Excel workbook. Sync uses task title,
+planned/start/due dates, Dev/Test/Standard estimates and assignee where present;
+missing task fields remain blank for manual completion. Every create/update
+writes a row version snapshot and changed-field list; the UI highlights changed
+cells from the latest version. The right sidebar supports timeline comments and
+`@mention` notifications for project members.
+
 Nav lives in the project sidebar under **"Quản lý công việc"**
 (`src/app/(dashboard)/projects/[projectId]/layout.tsx`).
 
@@ -146,6 +167,7 @@ Nav lives in the project sidebar under **"Quản lý công việc"**
 | `src/lib/actions/planning.ts` | create / soft-delete for Epic, Sprint, Milestone |
 | `src/lib/actions/qa.ts` | `createBugAction`, `changeBugStatusAction`, `createTestCaseAction`, `submitTestResultAction` |
 | `src/lib/actions/gantt.ts` | `updateTaskScheduleAction`, `addTaskDependencyAction`, `removeTaskDependencyAction` |
+| `src/lib/actions/project-timeline.ts` | `saveProjectEstimatedTimelineAction`, `syncProjectEstimatedTimelineFromTasksAction`, `exportProjectEstimatedTimelineAction`, `importProjectEstimatedTimelineAction`, `addProjectEstimatedTimelineCommentAction` |
 | `src/lib/reports/snapshot.ts` | `computeProjectMetrics`, `upsertDailySnapshot` |
 
 Conventions: every status/field change writes a `TaskHistory` row **and** a

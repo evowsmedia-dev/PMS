@@ -64,9 +64,10 @@ Ghi chú:
 ├── Layout dự án
 │   ├── Sidebar project desktop.
 │   ├── Mobile project navigation bằng sheet.
-│   ├── Mục cùng cấp: Tổng quan dự án, BI Dashboard, Tài liệu, Export JSON.
+│   ├── Mục cùng cấp: Tổng quan dự án, BI Dashboard, Tài liệu, Timeline dự toán dự án, Export JSON.
 │   ├── Nhóm "Quản lý công việc" chứa task list, kanban, gantt, bugs, test cases, planning.
 │   ├── "Tài liệu" hiển thị tài liệu chung và các loại tài liệu/phân hệ.
+│   ├── "Timeline dự toán dự án" nằm ngay dưới menu Tài liệu và tổng hợp timeline/estimate toàn project.
 │   ├── Icon thêm loại tài liệu đang tạm ẩn.
 │   ├── Nút thêm tài liệu vẫn hiển thị theo quyền.
 │   ├── Menu tài liệu tự wrap khi tên dài.
@@ -78,6 +79,17 @@ Ghi chú:
 │   ├── Dùng `docs/BI_dashboard_rule.md` làm source công thức, nhưng chỉ tự động hóa KPI có dữ liệu live từ task/bug/time log/snapshot/member.
 │   ├── Button "Đồng bộ" cập nhật snapshot hôm nay, revalidate dữ liệu BI và refresh view hiện tại.
 │   └── Các KPI thiếu dữ liệu như AC/CPI/CV/EAC tài chính, risk exposure, thay đổi phạm vi, overtime hiển thị "Chưa cấu hình dữ liệu".
+│
+├── /projects/:projectId/estimated-timeline
+│   ├── Timeline dự toán dự án project-level, hiển thị dưới dạng bảng dữ liệu.
+│   ├── Cột: Tên task/chức năng, ngày bắt đầu, ngày kết thúc, duration, ngày công ước lượng, thành tiền, assignee, ghi chú.
+│   ├── Thành tiền được tính tự động = ngày công ước lượng * 3,600,000 VND.
+│   ├── Có 3 cách nhập/cập nhật: chỉnh sửa trực tiếp trong bảng, đồng bộ từ Task toàn dự án, hoặc export/import workbook Excel.
+│   ├── Đồng bộ từ Task lấy task active trong toàn bộ project, bất kể task thuộc module nào; trường chưa có dữ liệu để trống cho user cập nhật tay.
+│   ├── Import Excel giữ ID để cập nhật dòng cũ, để trống ID để tạo dòng mới; server vẫn tính lại thành tiền và kiểm tra assignee theo email thành viên dự án.
+│   ├── Mỗi thay đổi ghi version snapshot theo từng dòng; các cell vừa đổi được bôi vàng theo version mới nhất.
+│   ├── Sidebar comment bên phải hỗ trợ @mention thành viên dự án và tạo notification.
+│   └── Quyền xem dùng `report.view`; quyền sửa/sync/import dùng `task.managePlanning`; bình luận dùng `comment.create`.
 │
 ├── /projects/:projectId/tasks
 │   ├── Task list project-level.

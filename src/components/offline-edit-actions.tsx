@@ -10,6 +10,10 @@ import {
   importDocumentFromFileAction,
 } from "@/lib/actions/documents";
 import {
+  exportProjectEstimatedTimelineAction,
+  importProjectEstimatedTimelineAction,
+} from "@/lib/actions/project-timeline";
+import {
   exportProjectTasksForEditingAction,
   exportTaskForEditingAction,
   importProjectTasksFromFileAction,
@@ -268,6 +272,77 @@ export function ProjectTasksOfflineActions({
           <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => inputRef.current?.click()}>
             <Upload className="size-4" />
             Import task XLSX
+          </Button>
+          <input
+            ref={inputRef}
+            type="file"
+            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            className="hidden"
+            onChange={(event) => importFile(event.target.files?.[0])}
+          />
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+export function ProjectEstimatedTimelineOfflineActions({
+  projectId,
+  canImport,
+}: {
+  projectId: string;
+  canImport: boolean;
+}) {
+  const [pending, startTransition] = useTransition();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+
+  function exportFile() {
+    startTransition(async () => {
+      const result = await exportProjectEstimatedTimelineAction(projectId);
+      if (result.error || !result.content || !result.fileName) {
+        toast.error(result.error ?? "Không export được timeline dự toán.");
+        return;
+      }
+      downloadFile(result.fileName, result.content, {
+        encoding: result.encoding,
+        mimeType: result.mimeType,
+      });
+      toast.success(result.success ?? "Đã export timeline dự toán.");
+    });
+  }
+
+  async function importFile(file: File | undefined) {
+    if (!file) return;
+    try {
+      const content = await readFileForImport(file, [".xlsx"]);
+      startTransition(async () => {
+        const result = await importProjectEstimatedTimelineAction(projectId, content);
+        if (result.error) {
+          toast.error(result.error);
+          return;
+        }
+        toast.success(result.success ?? "Đã import timeline dự toán.");
+        router.refresh();
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Không đọc được file import.");
+    } finally {
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Button type="button" size="sm" variant="outline" disabled={pending} onClick={exportFile}>
+        <Download className="size-4" />
+        Export timeline XLSX
+      </Button>
+      {canImport ? (
+        <>
+          <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => inputRef.current?.click()}>
+            <Upload className="size-4" />
+            Import timeline XLSX
           </Button>
           <input
             ref={inputRef}
