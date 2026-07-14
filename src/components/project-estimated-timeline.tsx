@@ -153,6 +153,9 @@ export function ProjectEstimatedTimeline({
 }) {
   const [editing, setEditing] = useState(false);
   const [rows, setRows] = useState<TimelineRow[]>(initialRows.length ? initialRows : [blankRow()]);
+  const [unitPriceVnd, setUnitPriceVnd] = useState(
+    initialRows.find((row) => row.unitPriceVnd)?.unitPriceVnd || String(MANDAY_RATE_VND),
+  );
   const [selectedVersion, setSelectedVersion] = useState<TimelineVersionSummary | null>(null);
   const [saveState, saveAction, saving] = useActionState(
     saveProjectEstimatedTimelineAction.bind(null, projectId),
@@ -205,12 +208,28 @@ export function ProjectEstimatedTimeline({
       current.map((row, rowIndex) => {
         if (rowIndex !== index) return row;
         const next = { ...row, ...patch };
-        if (patch.durationDays !== undefined || patch.unitPriceVnd !== undefined) {
-          next.amountVnd = nextAmount(next.durationDays, next.unitPriceVnd);
+        if (patch.durationDays !== undefined) {
+          next.unitPriceVnd = unitPriceVnd;
+          next.amountVnd = nextAmount(next.durationDays, unitPriceVnd);
           next.estimateMandays = next.durationDays;
         }
         return next;
       }),
+    );
+  }
+
+  function updateUnitPrice(value: string) {
+    setUnitPriceVnd(value);
+    setRows((current) =>
+      current.map((row) =>
+        row.deleted
+          ? row
+          : {
+              ...row,
+              unitPriceVnd: value,
+              amountVnd: nextAmount(row.durationDays, value),
+            },
+      ),
     );
   }
 
@@ -279,7 +298,21 @@ export function ProjectEstimatedTimeline({
         </div>
 
         <form action={saveAction} className="space-y-3">
-          <ResponsiveTableFrame minWidth="min-w-[1120px]">
+          {editing ? (
+            <div className="flex max-w-xs flex-col gap-1">
+              <label htmlFor="timeline-unit-price" className="text-xs font-medium text-muted-foreground">
+                Đơn giá
+              </label>
+              <Input
+                id="timeline-unit-price"
+                value={unitPriceVnd}
+                onChange={(event) => updateUnitPrice(event.target.value)}
+                className="text-xs md:text-xs"
+              />
+            </div>
+          ) : null}
+
+          <ResponsiveTableFrame minWidth="min-w-[980px]">
             <table className="w-full border-collapse text-xs">
               <thead className="border-b bg-muted/50 text-left text-xs text-muted-foreground">
                 <tr>
@@ -287,7 +320,6 @@ export function ProjectEstimatedTimeline({
                   <th className="border-r px-2 py-2">Ngày bắt đầu</th>
                   <th className="border-r px-2 py-2">Ngày kết thúc</th>
                   <th className="border-r px-2 py-2">Duration</th>
-                  <th className="border-r px-2 py-2">Đơn giá</th>
                   <th className="border-r px-2 py-2">Thành tiền</th>
                   <th className="border-r px-2 py-2">Assignee</th>
                   <th className="border-r px-2 py-2">Ghi chú</th>
@@ -296,15 +328,15 @@ export function ProjectEstimatedTimeline({
               </thead>
               <tbody className="divide-y">
                 <tr className="bg-muted/20 font-semibold">
-                  <td colSpan={5} className="border-r px-2 py-2 text-right">
+                  <td colSpan={4} className="border-r px-2 py-2 text-left">
                     Tổng tiền
                   </td>
-                  <td className="border-r px-2 py-2">{formatVnd(totalAmountVnd)} VND</td>
+                  <td className="border-r px-2 py-2">{formatVnd(totalAmountVnd)}</td>
                   <td colSpan={editing ? 3 : 2} className="px-2 py-2" />
                 </tr>
                 {visibleRows.length === 0 ? (
                   <tr>
-                    <td colSpan={editing ? 9 : 8} className="px-3 py-8 text-center text-xs text-muted-foreground">
+                    <td colSpan={editing ? 8 : 7} className="px-3 py-8 text-center text-xs text-muted-foreground">
                       Chưa có timeline dự toán. Bấm đồng bộ từ Task hoặc thêm dòng thủ công.
                     </td>
                   </tr>
@@ -320,7 +352,7 @@ export function ProjectEstimatedTimeline({
                         <input type="hidden" name="endDate" value={row.endDate} />
                         <input type="hidden" name="durationDays" value={row.durationDays} />
                         <input type="hidden" name="estimateMandays" value={row.estimateMandays} />
-                        <input type="hidden" name="unitPriceVnd" value={row.unitPriceVnd} />
+                        <input type="hidden" name="unitPriceVnd" value={unitPriceVnd} />
                         <input type="hidden" name="amountVnd" value={row.amountVnd} />
                         <input type="hidden" name="assigneeId" value={row.assigneeId} />
                         <input type="hidden" name="note" value={row.note} />
@@ -380,19 +412,8 @@ export function ProjectEstimatedTimeline({
                         ) : (
                           row.durationDays
                         )}
-                      </td>
-                      <td className="border-r px-2 py-2">
-                        {editing ? (
-                          <Input
-                            name="unitPriceVnd"
-                            value={row.unitPriceVnd}
-                            onChange={(event) => updateRow(index, { unitPriceVnd: event.target.value })}
-                            className="text-xs md:text-xs"
-                          />
-                        ) : (
-                          formatVnd(row.unitPriceVnd)
-                        )}
                         <input type="hidden" name="estimateMandays" value={row.durationDays} />
+                        <input type="hidden" name="unitPriceVnd" value={unitPriceVnd} />
                       </td>
                       <td className="border-r px-2 py-2 font-medium">
                         <input type="hidden" name="amountVnd" value={row.amountVnd} />

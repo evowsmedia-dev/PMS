@@ -336,13 +336,13 @@ export function ProjectEstimatedTimelineOfflineActions({
     <div className="flex flex-wrap gap-2">
       <Button type="button" size="sm" variant="outline" disabled={pending} onClick={exportFile}>
         <Download className="size-4" />
-        Export timeline XLSX
+        Export xlsx
       </Button>
       {canImport ? (
         <>
           <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => inputRef.current?.click()}>
             <Upload className="size-4" />
-            Import timeline XLSX
+            Import xlsx
           </Button>
           <input
             ref={inputRef}
