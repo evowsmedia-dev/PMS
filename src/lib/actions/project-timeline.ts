@@ -35,11 +35,25 @@ interface TimelineSnapshot {
   note: string | null;
 }
 
-function parseOptionalDate(value: FormDataEntryValue | string | null | undefined) {
+function parseOptionalDate(value: unknown) {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const parsed = XLSX.SSF.parse_date_code(value);
+    if (!parsed) return null;
+    return new Date(parsed.y, parsed.m - 1, parsed.d);
+  }
   const raw = String(value ?? "").trim();
   if (!raw) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const date = new Date(`${raw}T00:00:00`);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
   const date = new Date(`${raw}T00:00:00`);
-  return Number.isNaN(date.getTime()) ? null : date;
+  if (!Number.isNaN(date.getTime())) return date;
+  const fallback = new Date(raw);
+  return Number.isNaN(fallback.getTime()) ? null : fallback;
 }
 
 function parseOptionalNumber(value: FormDataEntryValue | string | number | null | undefined) {
@@ -285,7 +299,11 @@ export async function syncProjectEstimatedTimelineFromTasksAction(projectId: str
   if ("error" in authorized) return { error: authorized.error };
 
   const tasks = await prisma.task.findMany({
-    where: { projectId, deletedAt: null, module: { deletedAt: null } },
+    where: {
+      projectId,
+      deletedAt: null,
+      OR: [{ moduleId: null }, { module: { deletedAt: null } }],
+    },
     select: {
       id: true,
       title: true,
@@ -323,14 +341,13 @@ export async function syncProjectEstimatedTimelineFromTasksAction(projectId: str
         estimateMandays,
         amountVnd: estimateToAmount(estimateMandays),
         assigneeId: task.assigneeId,
-        note: null,
         sortOrder: index,
       };
-      const snapshot = snapshotFromValues(next);
+      const snapshot = snapshotFromValues({ ...next, note: null });
       const item = existingByTask.get(task.id);
       if (!item) {
         const row = await tx.projectEstimatedTimelineItem.create({
-          data: { projectId, taskId: task.id, ...next },
+          data: { projectId, taskId: task.id, ...next, note: null },
         });
         await tx.projectEstimatedTimelineVersion.create({
           data: {
@@ -345,8 +362,9 @@ export async function syncProjectEstimatedTimelineFromTasksAction(projectId: str
         created += 1;
         continue;
       }
+      const nextSnapshot = snapshotFromValues({ ...next, note: item.note });
       const oldSnapshot = snapshotFromValues(item);
-      const changed = changedFields(oldSnapshot, snapshot);
+      const changed = changedFields(oldSnapshot, nextSnapshot);
       if (changed.length === 0 && item.sortOrder === index) continue;
       const nextVersionNo = changed.length > 0 ? item.currentVersionNo + 1 : item.currentVersionNo;
       await tx.projectEstimatedTimelineItem.update({
@@ -358,7 +376,7 @@ export async function syncProjectEstimatedTimelineFromTasksAction(projectId: str
           data: {
             itemId: item.id,
             versionNo: nextVersionNo,
-            snapshot: snapshot as unknown as Prisma.InputJsonValue,
+            snapshot: nextSnapshot as unknown as Prisma.InputJsonValue,
             changedFields: changed as Prisma.InputJsonValue,
             changeNote: "Đồng bộ từ Task",
             editedById: authorized.session.user.id,
@@ -393,7 +411,12 @@ export async function syncProjectEstimatedTimelineTaskRow({
   changeNote?: string;
 }) {
   const task = await prisma.task.findFirst({
-    where: { id: taskId, projectId, deletedAt: null, module: { deletedAt: null } },
+    where: {
+      id: taskId,
+      projectId,
+      deletedAt: null,
+      OR: [{ moduleId: null }, { module: { deletedAt: null } }],
+    },
     select: {
       id: true,
       title: true,
