@@ -64,7 +64,7 @@ Ghi chú:
 ├── Layout dự án
 │   ├── Sidebar project desktop.
 │   ├── Mobile project navigation bằng sheet.
-│   ├── Mục cùng cấp: Dashboard dự án, BI Dashboard, Tài liệu, Export JSON.
+│   ├── Mục cùng cấp: Tổng quan dự án, BI Dashboard, Tài liệu, Export JSON.
 │   ├── Nhóm "Quản lý công việc" chứa task list, kanban, gantt, bugs, test cases, planning.
 │   ├── "Tài liệu" hiển thị tài liệu chung và các loại tài liệu/phân hệ.
 │   ├── Icon thêm loại tài liệu đang tạm ẩn.
@@ -73,7 +73,7 @@ Ghi chú:
 │   └── User chỉ thấy phân hệ được phép truy cập theo assignment.
 │
 ├── /projects/:projectId/bi-dashboard
-│   ├── Module BI Dashboard riêng dưới menu sidebar của Dashboard dự án.
+│   ├── Module BI Dashboard riêng dưới menu sidebar của Tổng quan dự án.
 │   ├── Chỉ hiển thị cho user có quyền `report.view`; user thiếu quyền bị chuyển về `/overview`.
 │   ├── Dùng `docs/BI_dashboard_rule.md` làm source công thức, nhưng chỉ tự động hóa KPI có dữ liệu live từ task/bug/time log/snapshot/member.
 │   ├── Button "Đồng bộ" cập nhật snapshot hôm nay, revalidate dữ liệu BI và refresh view hiện tại.
@@ -123,7 +123,10 @@ Ghi chú:
 │   └── Kanban project-level theo 12 trạng thái task.
 │
 ├── /projects/:projectId/gantt
-│   └── Timeline/Gantt project-level theo epic/schedule/progress.
+│   ├── Timeline/Gantt project-level theo epic/schedule/progress.
+│   ├── Phạm vi timeline tự mở rộng 14 ngày trước/sau hoạt động task.
+│   ├── Header timeline hiển thị tháng/năm và từng ngày, scroll ngang theo phạm vi.
+│   └── Cho tùy bật/tắt các cột cạnh tên task: status, planned time, effort time, duration, start, end date.
 │
 ├── /projects/:projectId/epics
 │   └── Danh sách epic, tạo inline, task counts.
@@ -282,7 +285,7 @@ Main user flow:
   -> [/dashboard/overview]
   -> [/projects]
   -> [/projects/:projectId/overview]
-  -> [Sidebar project: Dashboard dự án / BI Dashboard / Tài liệu / Export JSON]
+  -> [Sidebar project: Tổng quan dự án / BI Dashboard / Tài liệu / Export JSON]
   -> [/projects/:projectId/modules/:moduleId/documents]
   -> [/projects/:projectId/modules/:moduleId/documents/:docId]
   -> [Edit / History / Comment / Task liên quan]

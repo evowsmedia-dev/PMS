@@ -140,7 +140,7 @@ export default async function ProjectLayout({
         <aside className="hidden min-w-0 shrink-0 space-y-4 lg:block">
           <nav className="space-y-0.5 text-[1.15rem]">
             <Link href={`/projects/${projectRouteSegment}/overview`} className="block rounded-lg px-2 py-1.5 hover:bg-accent">
-              Dashboard dự án
+              Tổng quan dự án
             </Link>
             <Link
               href={`/projects/${projectRouteSegment}/bi-dashboard`}

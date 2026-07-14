@@ -66,7 +66,7 @@ export function ProjectMobileNav({
                 href={`/projects/${projectRouteSegment}/overview`}
                 className="block rounded-lg px-2 py-1.5 hover:bg-muted"
               >
-                Dashboard dự án
+                Tổng quan dự án
               </Link>
             </SheetClose>
             <SheetClose asChild>
