@@ -18,6 +18,7 @@ import {
   BUG_STATUS_LABEL,
   BUG_STATUS_ORDER,
 } from "@/lib/validation/task";
+import { extractRouteId, projectCodeRouteSegment } from "@/lib/route-slug";
 
 // Fixed palette so chart colors stay stable across renders regardless of which
 // statuses happen to be present.
@@ -43,10 +44,14 @@ export default async function ProjectOverviewPage({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  const { projectId } = await params;
+  const { projectId: projectSegment } = await params;
+  const projectLookup = extractRouteId(projectSegment);
 
   const project = await prisma.project.findFirst({
-    where: { id: projectId, deletedAt: null },
+    where: {
+      deletedAt: null,
+      OR: [{ id: projectLookup }, { code: { equals: projectLookup, mode: "insensitive" } }],
+    },
     include: {
       subsystem: { select: { name: true } },
       modules: {
@@ -57,6 +62,11 @@ export default async function ProjectOverviewPage({
     },
   });
   if (!project) notFound();
+  const canonicalProjectSegment = projectCodeRouteSegment(project);
+  if (projectSegment !== canonicalProjectSegment) {
+    redirect(`/projects/${canonicalProjectSegment}/overview`);
+  }
+  const projectId = project.id;
 
   const projectRole = await getProjectRole(session.user.id, projectId);
   const roleCtx = { systemRole: session.user.systemRole };
