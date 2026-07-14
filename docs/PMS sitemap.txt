@@ -110,6 +110,7 @@ Ghi chú:
 │   ├── Tài liệu liên quan hỗ trợ chọn nhiều tài liệu trong dự án.
 │   ├── External link mở new tab.
 │   ├── Hiển thị Dev/Test/Standard estimate, Actual Dev/Test, progress, overdue/blocked/warning.
+│   ├── Export task ra JSON để chỉnh sửa offline và import ngược lại theo quyền `task.edit`; import ghi TaskHistory + audit log.
 │   ├── Time log theo loại việc: Dev, Test, BA, PM, Review, Other; user sửa được log của chính mình.
 │   ├── Comment task hỗ trợ @mention thành viên dự án và sinh notification.
 │   └── History chỉ hiển thị người thay đổi, tên trường dữ liệu và thời gian thay đổi.
@@ -161,6 +162,7 @@ Ghi chú:
 │   ├── Chi tiết tài liệu.
 │   ├── Metadata, nội dung, diagram nếu có, file đính kèm.
 │   ├── Action trong màn hình: edit, đổi trạng thái, submit review, delete vĩnh viễn theo quyền.
+│   ├── Export tài liệu ra JSON để chỉnh sửa offline và import ngược lại theo quyền `document.edit`; import tạo version mới + audit log.
 │   ├── Comment nằm ở sidebar/phần chi tiết, không có route `/comments` riêng.
 │   └── Task liên quan nếu có.
 │
@@ -190,6 +192,7 @@ Ghi chú:
 │   ├── Gán lại người thực hiện.
 │   ├── Sửa nhanh title/description và giữ nguyên metadata planning không gửi trong form.
 │   ├── Link document liên quan nếu có.
+│   ├── Export/import JSON để chỉnh sửa offline theo quyền `task.edit`.
 │   └── Comment task.
 │
 ├── /projects/:projectId/reports

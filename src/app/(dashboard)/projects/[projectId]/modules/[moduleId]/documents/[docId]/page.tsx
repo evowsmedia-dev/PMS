@@ -17,6 +17,7 @@ import { CreateCommentFromSelection } from "@/components/create-comment-from-sel
 import { DocumentTestCasePanel } from "@/components/document-test-cases";
 import { DocumentDetailShell } from "@/components/document-detail-shell";
 import { DocumentContentRenderer } from "@/components/document-content-renderer";
+import { DocumentOfflineEditActions } from "@/components/offline-edit-actions";
 
 export default async function DocumentDetailPage({
   params,
@@ -103,18 +104,26 @@ export default async function DocumentDetailPage({
                     <span>{doc.updatedAt.toLocaleDateString("vi-VN")}</span>
                   </div>
                 </div>
-                <DocumentStatusActions
-                  projectId={projectId}
-                  moduleId={moduleId}
-                  docId={docId}
-                  status={doc.status}
-                  approvers={approvers}
-                  canSubmitReview={await canAccess(roleCtx, "document.submitReview", projectRole)}
-                  canApprove={await canAccess(roleCtx, "document.approve", projectRole)}
-                  canArchive={await canAccess(roleCtx, "document.archive", projectRole)}
-                  canEdit={canEdit}
-                  canDelete={await canAccess(roleCtx, "document.delete", projectRole)}
-                />
+                <div className="flex flex-col items-end gap-2">
+                  <DocumentStatusActions
+                    projectId={projectId}
+                    moduleId={moduleId}
+                    docId={docId}
+                    status={doc.status}
+                    approvers={approvers}
+                    canSubmitReview={await canAccess(roleCtx, "document.submitReview", projectRole)}
+                    canApprove={await canAccess(roleCtx, "document.approve", projectRole)}
+                    canArchive={await canAccess(roleCtx, "document.archive", projectRole)}
+                    canEdit={canEdit}
+                    canDelete={await canAccess(roleCtx, "document.delete", projectRole)}
+                  />
+                  <DocumentOfflineEditActions
+                    projectId={projectId}
+                    moduleId={moduleId}
+                    docId={docId}
+                    canEdit={canEdit}
+                  />
+                </div>
               </div>
 
               {doc.description ? (

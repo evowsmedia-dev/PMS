@@ -2,13 +2,14 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canAccess } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { canAccessModule, getAssignedModuleIdsForUser } from "@/lib/document-type-access";
 import { logAudit } from "@/lib/audit";
-import { sanitizeDocumentHtml } from "@/lib/document-content";
+import { HTML_MOCKUP_MARKER, sanitizeDocumentHtml } from "@/lib/document-content";
 import { documentFormSchema } from "@/lib/validation/document";
 import { DOC_TEMPLATES } from "@/lib/document-templates";
 import type { ActionState } from "@/lib/actions/profile";
@@ -240,6 +241,196 @@ async function getRouteDocument(projectId: string, moduleId: string, docId: stri
   return prisma.document.findFirst({
     where: { id: docId, projectId, moduleId, deletedAt: null, module: { deletedAt: null } },
   });
+}
+
+const documentImportSchema = z.object({
+  kind: z.literal("PMS_DOCUMENT_EXPORT"),
+  version: z.literal(1),
+  document: documentFormSchema.extend({
+    contentFormat: z.enum(["MARKDOWN", "HTML"]).default("HTML"),
+    diagramUrl: z.string().url().nullable().optional(),
+    diagramTitle: z.string().trim().max(200).nullable().optional(),
+  }),
+});
+
+export interface ExportDocumentState extends ActionState {
+  fileName?: string;
+  content?: string;
+}
+
+function safeExportFileName(prefix: string, title: string) {
+  const slug = title
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+  return `${prefix}-${slug || "export"}.json`;
+}
+
+function normalizeImportedDocumentContent(content: string, contentFormat: "MARKDOWN" | "HTML") {
+  if (contentFormat === "MARKDOWN") return content;
+  if (content.trimStart().startsWith(HTML_MOCKUP_MARKER)) return content;
+  return sanitizeDocumentHtml(content);
+}
+
+export async function exportDocumentForEditingAction(
+  projectId: string,
+  moduleId: string,
+  docId: string,
+): Promise<ExportDocumentState> {
+  const session = await auth();
+  if (!session?.user) return { error: "Bạn cần đăng nhập." };
+
+  const projectRole = await getProjectRole(session.user.id, projectId);
+  if (!(await canAccess({ systemRole: session.user.systemRole }, "document.view", projectRole))) {
+    return { error: "Bạn không có quyền xem tài liệu này." };
+  }
+  if (
+    !(await assertCanAccessRouteModule({
+      userId: session.user.id,
+      systemRole: session.user.systemRole,
+      projectId,
+      moduleId,
+    }))
+  ) {
+    return { error: "Bạn không có quyền truy cập phân hệ này." };
+  }
+
+  const doc = await getRouteDocument(projectId, moduleId, docId);
+  if (!doc) return { error: "Không tìm thấy tài liệu." };
+
+  const payload = {
+    kind: "PMS_DOCUMENT_EXPORT",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    instructions: [
+      "Có thể chỉnh sửa các trường trong object document.",
+      "Không đổi kind/version. Import sẽ cập nhật tài liệu hiện tại và tạo version mới.",
+      "contentFormat nhận MARKDOWN hoặc HTML.",
+    ],
+    identity: {
+      projectId,
+      moduleId,
+      documentId: docId,
+      currentVersionNo: doc.currentVersionNo,
+    },
+    document: {
+      title: doc.title,
+      category: doc.category,
+      role: doc.role,
+      description: doc.description ?? "",
+      content: doc.currentContent,
+      contentFormat: doc.contentFormat,
+      diagramUrl: doc.diagramUrl,
+      diagramTitle: doc.diagramTitle,
+    },
+  };
+
+  await logAudit({
+    actorId: session.user.id,
+    action: "EXPORT",
+    entityType: "Document",
+    entityId: docId,
+    projectId,
+    metadata: { mode: "offline_edit_json" },
+  });
+
+  return {
+    success: "Đã chuẩn bị file export tài liệu.",
+    fileName: safeExportFileName("document", doc.title),
+    content: JSON.stringify(payload, null, 2),
+  };
+}
+
+export async function importDocumentFromFileAction(
+  projectId: string,
+  moduleId: string,
+  docId: string,
+  rawContent: string,
+): Promise<ActionState> {
+  const session = await auth();
+  if (!session?.user) return { error: "Bạn cần đăng nhập." };
+
+  if (!(await assertCanEdit(session.user.id, session.user.systemRole, projectId))) {
+    return { error: "Bạn không có quyền chỉnh sửa tài liệu này." };
+  }
+  if (
+    !(await assertCanAccessRouteModule({
+      userId: session.user.id,
+      systemRole: session.user.systemRole,
+      projectId,
+      moduleId,
+    }))
+  ) {
+    return { error: "Bạn không có quyền truy cập phân hệ này." };
+  }
+
+  let parsedJson: unknown;
+  try {
+    parsedJson = JSON.parse(rawContent);
+  } catch {
+    return { error: "File import không phải JSON hợp lệ." };
+  }
+
+  const parsed = documentImportSchema.safeParse(parsedJson);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "File import không đúng định dạng tài liệu PMS." };
+  }
+
+  const doc = await getRouteDocument(projectId, moduleId, docId);
+  if (!doc) return { error: "Không tìm thấy tài liệu." };
+
+  const values = parsed.data.document;
+  const content = normalizeImportedDocumentContent(values.content || "", values.contentFormat);
+  const nextVersionNo = doc.currentVersionNo + 1;
+
+  await prisma.$transaction([
+    prisma.document.update({
+      where: { id: docId },
+      data: {
+        title: values.title,
+        category: values.category,
+        role: values.role,
+        description: values.description || null,
+        currentContent: content,
+        contentFormat: values.contentFormat,
+        currentVersionNo: nextVersionNo,
+        diagramUrl: values.diagramUrl ?? null,
+        diagramTitle: values.diagramTitle ?? null,
+      },
+    }),
+    prisma.documentVersion.create({
+      data: {
+        documentId: docId,
+        versionNo: nextVersionNo,
+        title: values.title,
+        category: values.category,
+        role: values.role,
+        status: doc.status,
+        description: values.description || null,
+        content,
+        contentFormat: values.contentFormat,
+        editedById: session.user.id,
+        changeNote: "Import từ file chỉnh sửa offline",
+      },
+    }),
+  ]);
+
+  await logAudit({
+    actorId: session.user.id,
+    action: "UPDATE",
+    entityType: "Document",
+    entityId: docId,
+    projectId,
+    metadata: { mode: "offline_import_json", versionNo: nextVersionNo },
+  });
+
+  revalidatePath(`/projects/${projectId}`, "layout");
+  revalidatePath(`/projects/${projectId}/overview`);
+  revalidatePath(`/projects/${projectId}/modules/${moduleId}/documents`);
+  revalidatePath(`/projects/${projectId}/modules/${moduleId}/documents/${docId}`);
+  return { success: `Đã import tài liệu và tạo phiên bản v${nextVersionNo}.` };
 }
 
 export async function saveDocumentEditAction(
