@@ -23,6 +23,12 @@ function changedFieldsFromVersion(version: { changedFields: unknown } | undefine
     : [];
 }
 
+function snapshotFromVersion(version: { snapshot: unknown } | undefined) {
+  return version?.snapshot && typeof version.snapshot === "object" && !Array.isArray(version.snapshot)
+    ? (version.snapshot as Record<string, string | number | null>)
+    : {};
+}
+
 export default async function ProjectEstimatedTimelinePage({
   params,
 }: {
@@ -58,7 +64,11 @@ export default async function ProjectEstimatedTimelinePage({
       where: { projectId, deletedAt: null },
       include: {
         assignee: { select: { id: true, fullName: true } },
-        versions: { orderBy: { versionNo: "desc" }, take: 1 },
+        versions: {
+          orderBy: { versionNo: "desc" },
+          take: 1,
+          include: { editedBy: { select: { fullName: true } } },
+        },
       },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     }),
@@ -89,20 +99,34 @@ export default async function ProjectEstimatedTimelinePage({
             name: member.user.fullName,
             email: member.user.email,
           }))}
-        rows={items.map((item) => ({
-          id: item.id,
-          title: item.title,
-          startDate: dateKey(item.startDate),
-          endDate: dateKey(item.endDate),
-          durationDays: decimalText(item.durationDays),
-          estimateMandays: decimalText(item.estimateMandays),
-          amountVnd: decimalText(item.amountVnd),
-          assigneeId: item.assigneeId ?? "",
-          assigneeName: item.assignee?.fullName ?? "",
-          note: item.note ?? "",
-          changedFields: changedFieldsFromVersion(item.versions[0]),
-          versionNo: item.currentVersionNo,
-        }))}
+        rows={items.map((item) => {
+          const latestVersion = item.versions[0];
+          const changedFields = changedFieldsFromVersion(latestVersion);
+          return {
+            id: item.id,
+            title: item.title,
+            startDate: dateKey(item.startDate),
+            endDate: dateKey(item.endDate),
+            durationDays: decimalText(item.durationDays),
+            estimateMandays: decimalText(item.estimateMandays),
+            amountVnd: decimalText(item.amountVnd),
+            assigneeId: item.assigneeId ?? "",
+            assigneeName: item.assignee?.fullName ?? "",
+            note: item.note ?? "",
+            changedFields,
+            latestVersion: latestVersion
+              ? {
+                  versionNo: latestVersion.versionNo,
+                  changeNote: latestVersion.changeNote ?? "",
+                  createdAt: latestVersion.createdAt.toISOString(),
+                  editedByName: latestVersion.editedBy.fullName,
+                  changedFields,
+                  snapshot: snapshotFromVersion(latestVersion),
+                }
+              : null,
+            versionNo: item.currentVersionNo,
+          };
+        })}
         comments={comments.map((comment) => ({
           id: comment.id,
           content: comment.content,

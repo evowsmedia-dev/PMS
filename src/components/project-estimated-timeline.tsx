@@ -50,8 +50,18 @@ interface TimelineRow {
   assigneeName: string;
   note: string;
   changedFields: string[];
+  latestVersion?: TimelineVersionSummary | null;
   versionNo: number;
   deleted?: boolean;
+}
+
+interface TimelineVersionSummary {
+  versionNo: number;
+  changeNote: string;
+  createdAt: string;
+  editedByName: string;
+  changedFields: string[];
+  snapshot: Partial<Record<keyof typeof FIELD_LABELS, string | number | null>>;
 }
 
 interface MemberOption {
@@ -73,8 +83,10 @@ function formatVnd(value: string | number | null | undefined) {
   return new Intl.NumberFormat("vi-VN").format(number);
 }
 
-function changedClass(row: TimelineRow, field: string) {
-  return row.changedFields.includes(field) ? "bg-yellow-100/70" : "";
+function formatHistoryValue(field: string, value: string | number | null | undefined) {
+  if (value === null || value === undefined || value === "") return "Trống";
+  if (field === "amountVnd") return `${formatVnd(value)} VND`;
+  return String(value);
 }
 
 function nextAmount(estimate: string) {
@@ -242,7 +254,7 @@ export function ProjectEstimatedTimeline({
                     </tr>
                   ) : (
                     <tr key={`${row.id || "new"}-${index}`} className="align-top">
-                      <td className={`min-w-[220px] border-r px-2 py-2 ${changedClass(row, "title")}`}>
+                      <td className="min-w-[220px] border-r px-2 py-2">
                         <input type="hidden" name="itemId" value={row.id} />
                         <input type="hidden" name="deleteRow" value="0" />
                         {editing ? (
@@ -257,7 +269,7 @@ export function ProjectEstimatedTimeline({
                           <span className="whitespace-normal font-medium">{row.title}</span>
                         )}
                       </td>
-                      <td className={`border-r px-2 py-2 ${changedClass(row, "startDate")}`}>
+                      <td className="border-r px-2 py-2">
                         {editing ? (
                           <Input
                             type="date"
@@ -270,7 +282,7 @@ export function ProjectEstimatedTimeline({
                           row.startDate
                         )}
                       </td>
-                      <td className={`border-r px-2 py-2 ${changedClass(row, "endDate")}`}>
+                      <td className="border-r px-2 py-2">
                         {editing ? (
                           <Input
                             type="date"
@@ -283,7 +295,7 @@ export function ProjectEstimatedTimeline({
                           row.endDate
                         )}
                       </td>
-                      <td className={`border-r px-2 py-2 ${changedClass(row, "durationDays")}`}>
+                      <td className="border-r px-2 py-2">
                         {editing ? (
                           <Input
                             name="durationDays"
@@ -295,7 +307,7 @@ export function ProjectEstimatedTimeline({
                           row.durationDays
                         )}
                       </td>
-                      <td className={`border-r px-2 py-2 ${changedClass(row, "estimateMandays")}`}>
+                      <td className="border-r px-2 py-2">
                         {editing ? (
                           <Input
                             name="estimateMandays"
@@ -307,11 +319,11 @@ export function ProjectEstimatedTimeline({
                           row.estimateMandays
                         )}
                       </td>
-                      <td className={`border-r px-2 py-2 font-medium ${changedClass(row, "amountVnd")}`}>
+                      <td className="border-r px-2 py-2 font-medium">
                         <input type="hidden" name="amountVnd" value={row.amountVnd} />
                         {formatVnd(row.amountVnd)}
                       </td>
-                      <td className={`min-w-[180px] border-r px-2 py-2 ${changedClass(row, "assigneeId")}`}>
+                      <td className="min-w-[180px] border-r px-2 py-2">
                         {editing ? (
                           <Select
                             value={row.assigneeId || "__none"}
@@ -334,7 +346,7 @@ export function ProjectEstimatedTimeline({
                         )}
                         <input type="hidden" name="assigneeId" value={row.assigneeId} />
                       </td>
-                      <td className={`min-w-[220px] border-r px-2 py-2 ${changedClass(row, "note")}`}>
+                      <td className="min-w-[220px] border-r px-2 py-2">
                         {editing ? (
                           <Textarea
                             name="note"
@@ -379,15 +391,36 @@ export function ProjectEstimatedTimeline({
 
         <div className="rounded-lg border p-3">
           <p className="text-sm font-semibold">Lịch sử thay đổi gần nhất</p>
-          <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
-            {initialRows.flatMap((row) =>
-              row.changedFields.map((field) => (
-                <Badge key={`${row.id}-${field}`} variant="outline">
-                  {row.title}: {FIELD_LABELS[field] ?? field} ở v{row.versionNo}
-                </Badge>
-              )),
-            )}
-            {initialRows.every((row) => row.changedFields.length === 0) ? "Chưa có thay đổi mới." : null}
+          <div className="mt-2 space-y-2 text-xs">
+            {initialRows
+              .filter((row) => row.latestVersion && row.latestVersion.changedFields.length > 0)
+              .map((row) => (
+                <div key={`${row.id}-history`} className="rounded-lg border bg-muted/20 p-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="font-medium">{row.title}</p>
+                    <span className="text-muted-foreground">
+                      v{row.latestVersion?.versionNo} · {row.latestVersion?.editedByName} ·{" "}
+                      {row.latestVersion
+                        ? new Date(row.latestVersion.createdAt).toLocaleString("vi-VN")
+                        : ""}
+                    </span>
+                  </div>
+                  {row.latestVersion?.changeNote ? (
+                    <p className="mt-1 text-muted-foreground">{row.latestVersion.changeNote}</p>
+                  ) : null}
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {row.latestVersion?.changedFields.map((field) => (
+                      <span key={`${row.id}-${field}`} className="rounded-md border bg-yellow-100 px-2 py-1 text-foreground">
+                        <span className="font-medium">{FIELD_LABELS[field] ?? field}:</span>{" "}
+                        {formatHistoryValue(field, row.latestVersion?.snapshot[field as keyof typeof FIELD_LABELS])}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            {initialRows.every((row) => !row.latestVersion || row.latestVersion.changedFields.length === 0) ? (
+              <p className="text-muted-foreground">Chưa có thay đổi mới.</p>
+            ) : null}
           </div>
         </div>
       </div>
