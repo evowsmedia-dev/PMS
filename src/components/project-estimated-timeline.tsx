@@ -201,25 +201,25 @@ export function ProjectEstimatedTimeline({
 
         <form action={saveAction} className="space-y-3">
           <ResponsiveTableFrame minWidth="min-w-[1180px]">
-            <table className="w-full text-sm">
+            <table className="w-full border-collapse text-xs">
               <thead className="border-b bg-muted/50 text-left text-xs text-muted-foreground">
                 <tr>
-                  <th className="px-2 py-2">Tên task/chức năng</th>
-                  <th className="px-2 py-2">Ngày bắt đầu</th>
-                  <th className="px-2 py-2">Ngày kết thúc</th>
-                  <th className="px-2 py-2">Duration</th>
-                  <th className="px-2 py-2">Estimate</th>
-                  <th className="px-2 py-2">Thành tiền</th>
-                  <th className="px-2 py-2">Assignee</th>
-                  <th className="px-2 py-2">Ghi chú</th>
-                  <th className="px-2 py-2">Version</th>
+                  <th className="border-r px-2 py-2">Tên task/chức năng</th>
+                  <th className="border-r px-2 py-2">Ngày bắt đầu</th>
+                  <th className="border-r px-2 py-2">Ngày kết thúc</th>
+                  <th className="border-r px-2 py-2">Duration</th>
+                  <th className="border-r px-2 py-2">Estimate</th>
+                  <th className="border-r px-2 py-2">Thành tiền</th>
+                  <th className="border-r px-2 py-2">Assignee</th>
+                  <th className="border-r px-2 py-2">Ghi chú</th>
+                  <th className="border-r px-2 py-2">Version</th>
                   {editing ? <th className="px-2 py-2" /> : null}
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {visibleRows.length === 0 ? (
                   <tr>
-                    <td colSpan={editing ? 10 : 9} className="px-3 py-8 text-center text-sm text-muted-foreground">
+                    <td colSpan={editing ? 10 : 9} className="px-3 py-8 text-center text-xs text-muted-foreground">
                       Chưa có timeline dự toán. Bấm đồng bộ từ Task hoặc thêm dòng thủ công.
                     </td>
                   </tr>
@@ -242,7 +242,7 @@ export function ProjectEstimatedTimeline({
                     </tr>
                   ) : (
                     <tr key={`${row.id || "new"}-${index}`} className="align-top">
-                      <td className={`min-w-[220px] px-2 py-2 ${changedClass(row, "title")}`}>
+                      <td className={`min-w-[220px] border-r px-2 py-2 ${changedClass(row, "title")}`}>
                         <input type="hidden" name="itemId" value={row.id} />
                         <input type="hidden" name="deleteRow" value="0" />
                         {editing ? (
@@ -251,68 +251,73 @@ export function ProjectEstimatedTimeline({
                             value={row.title}
                             onChange={(event) => updateRow(index, { title: event.target.value })}
                             required
+                            className="text-xs md:text-xs"
                           />
                         ) : (
                           <span className="whitespace-normal font-medium">{row.title}</span>
                         )}
                       </td>
-                      <td className={`px-2 py-2 ${changedClass(row, "startDate")}`}>
+                      <td className={`border-r px-2 py-2 ${changedClass(row, "startDate")}`}>
                         {editing ? (
                           <Input
                             type="date"
                             name="startDate"
                             value={row.startDate}
                             onChange={(event) => updateRow(index, { startDate: event.target.value })}
+                            className="text-xs md:text-xs"
                           />
                         ) : (
                           row.startDate
                         )}
                       </td>
-                      <td className={`px-2 py-2 ${changedClass(row, "endDate")}`}>
+                      <td className={`border-r px-2 py-2 ${changedClass(row, "endDate")}`}>
                         {editing ? (
                           <Input
                             type="date"
                             name="endDate"
                             value={row.endDate}
                             onChange={(event) => updateRow(index, { endDate: event.target.value })}
+                            className="text-xs md:text-xs"
                           />
                         ) : (
                           row.endDate
                         )}
                       </td>
-                      <td className={`px-2 py-2 ${changedClass(row, "durationDays")}`}>
+                      <td className={`border-r px-2 py-2 ${changedClass(row, "durationDays")}`}>
                         {editing ? (
                           <Input
                             name="durationDays"
                             value={row.durationDays}
                             onChange={(event) => updateRow(index, { durationDays: event.target.value })}
+                            className="text-xs md:text-xs"
                           />
                         ) : (
                           row.durationDays
                         )}
                       </td>
-                      <td className={`px-2 py-2 ${changedClass(row, "estimateMandays")}`}>
+                      <td className={`border-r px-2 py-2 ${changedClass(row, "estimateMandays")}`}>
                         {editing ? (
                           <Input
                             name="estimateMandays"
                             value={row.estimateMandays}
                             onChange={(event) => updateRow(index, { estimateMandays: event.target.value })}
+                            className="text-xs md:text-xs"
                           />
                         ) : (
                           row.estimateMandays
                         )}
                       </td>
-                      <td className={`px-2 py-2 font-medium ${changedClass(row, "amountVnd")}`}>
+                      <td className={`border-r px-2 py-2 font-medium ${changedClass(row, "amountVnd")}`}>
                         <input type="hidden" name="amountVnd" value={row.amountVnd} />
                         {formatVnd(row.amountVnd)}
                       </td>
-                      <td className={`min-w-[180px] px-2 py-2 ${changedClass(row, "assigneeId")}`}>
+                      <td className={`min-w-[180px] border-r px-2 py-2 ${changedClass(row, "assigneeId")}`}>
                         {editing ? (
                           <Select
                             value={row.assigneeId || "__none"}
                             onValueChange={(value) => updateRow(index, { assigneeId: value === "__none" ? "" : value })}
                           >
-                            <SelectTrigger className="w-full">
+                            <SelectTrigger className="w-full text-xs">
                               <SelectValue placeholder="Chưa gán" />
                             </SelectTrigger>
                             <SelectContent>
@@ -329,19 +334,20 @@ export function ProjectEstimatedTimeline({
                         )}
                         <input type="hidden" name="assigneeId" value={row.assigneeId} />
                       </td>
-                      <td className={`min-w-[220px] px-2 py-2 ${changedClass(row, "note")}`}>
+                      <td className={`min-w-[220px] border-r px-2 py-2 ${changedClass(row, "note")}`}>
                         {editing ? (
                           <Textarea
                             name="note"
                             rows={1}
                             value={row.note}
                             onChange={(event) => updateRow(index, { note: event.target.value })}
+                            className="text-xs md:text-xs"
                           />
                         ) : (
                           <span className="whitespace-pre-wrap">{row.note}</span>
                         )}
                       </td>
-                      <td className="px-2 py-2">
+                      <td className="border-r px-2 py-2">
                         <Badge variant="outline">v{row.versionNo}</Badge>
                       </td>
                       {editing ? (
