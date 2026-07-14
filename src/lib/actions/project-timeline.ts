@@ -756,5 +756,3 @@ export async function addProjectEstimatedTimelineCommentAction(
   for (const path of timelinePaths(projectId, authorized.project.code)) revalidatePath(path);
   return { success: "Đã gửi nhận xét." };
 }
-
-export { FIELD_LABELS as PROJECT_TIMELINE_FIELD_LABELS };
