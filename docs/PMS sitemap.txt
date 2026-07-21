@@ -83,9 +83,11 @@ Ghi chú:
 ├── /projects/:projectId/estimated-timeline
 │   ├── Timeline dự toán dự án project-level, hiển thị dưới dạng bảng dữ liệu.
 │   ├── Cột: Tên task/chức năng, ngày bắt đầu, ngày kết thúc, duration, đơn giá, thành tiền, assignee, ghi chú.
-│   ├── Thành tiền được tính tự động = duration * đơn giá; đơn giá mặc định 3,600,000 VND và có thể chỉnh khi bật chỉnh sửa.
-│   ├── Dòng tổng tiền nằm ngay dưới row tiêu đề bảng.
+│   ├── Thành tiền được tính tự động = duration * đơn giá; đơn giá mặc định 3,600,000 VND.
+│   ├── Khi bật chỉnh sửa, đơn giá hiển thị thành một field chung duy nhất cho bảng timeline.
+│   ├── Dòng tổng tiền nằm ngay dưới row tiêu đề bảng, nhãn Tổng tiền align trái và số tiền không kèm hậu tố VND.
 │   ├── Có 4 cách nhập/cập nhật: chỉnh sửa trực tiếp trong bảng, đồng bộ từ Task toàn dự án, đồng bộ sang Task, hoặc export/import workbook Excel.
+│   ├── Button workbook hiển thị ngắn là "Export xlsx" và "Import xlsx".
 │   ├── Đồng bộ từ Task lấy task active trong toàn bộ project, bất kể task thuộc module nào; trường chưa có dữ liệu để trống cho user cập nhật tay.
 │   ├── Đồng bộ sang Task cập nhật task đã liên kết theo title, start/end, assignee và map duration thành Standard/Dev/Test estimate.
 │   ├── Import Excel giữ ID để cập nhật dòng cũ, để trống ID để tạo dòng mới; server vẫn tính lại thành tiền theo duration * đơn giá và kiểm tra assignee theo email thành viên dự án.

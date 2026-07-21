@@ -80,7 +80,9 @@ tracks pending/seen/resolved mention state.
 `ProjectEstimatedTimelineItem` stores the project-level estimated timeline row:
 task/function name, start/end, duration, editable unit price, calculated VND amount,
 assignee, note and optional source task. Timeline amount is calculated as
-`durationDays * unitPriceVnd`; the default unit price is 3,600,000 VND. Versions store a JSON snapshot plus
+`durationDays * unitPriceVnd`; the default unit price is 3,600,000 VND. In the
+timeline UI, unit price is edited through one shared field for the whole table
+when edit mode is enabled. Versions store a JSON snapshot plus
 changed field names so the UI can highlight changed cells. Comments are scoped to
 the project timeline and can create notifications for mentioned project members.
 
@@ -145,11 +147,14 @@ bug-severity bar cards were removed.
 
 `/projects/:projectId/estimated-timeline` sits directly under the project
 Document menu in the sidebar. It tracks project-level forecast rows with columns
-for task/function name, start/end date, duration, editable unit price, calculated
-amount (`durationDays * unitPriceVnd`), assignee, and notes. A total amount row
-is shown directly below the table header. Users with `task.managePlanning` can
-edit inline, sync all active tasks from any module into the timeline, sync linked
-timeline rows back into Task, or export/import an Excel workbook. Sync from Task
+for task/function name, start/end date, duration, calculated amount
+(`durationDays * unitPriceVnd`), assignee, and notes. Unit price is edited via one
+shared input above the table while edit mode is active. A total amount row is
+shown directly below the table header; its label is left-aligned and amount
+values are displayed without repeating the VND suffix in the table. Users with
+`task.managePlanning` can edit inline, sync all active tasks from any module into
+the timeline, sync linked timeline rows back into Task, or export/import an Excel
+workbook via the short buttons **Export xlsx** and **Import xlsx**. Sync from Task
 uses task title, planned/start/due dates, Dev/Test/Standard estimates and assignee
 where present; sync back to Task maps timeline duration to Standard/Dev/Test
 estimate and updates linked task title/start/end/assignee. Missing task fields
