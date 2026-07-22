@@ -159,7 +159,7 @@ function DocumentRow({
       ) : null}
       <Link
         href={href}
-        className={`flex min-w-0 flex-1 items-start gap-1.5 rounded-lg px-2 py-1 text-[0.8625rem] leading-snug hover:bg-accent ${
+        className={`flex min-w-0 flex-1 items-start gap-1.5 rounded-lg px-2 py-1 text-[14px] leading-snug hover:bg-accent ${
           active ? "font-medium" : "text-muted-foreground"
         }`}
       >
@@ -293,7 +293,7 @@ function DocumentList({
 
   if (roots.length === 0) {
     return (
-      <p className="ml-5 border-l pl-2 text-xs text-muted-foreground">Chưa có tài liệu.</p>
+      <p className="ml-5 border-l pl-2 text-[14px] text-muted-foreground">Chưa có tài liệu.</p>
     );
   }
 
@@ -393,7 +393,7 @@ function SortableModuleRow({
         ) : (
           <Link
             href={`/projects/${projectId}/modules/${module.id}/documents`}
-            className="flex min-w-0 flex-1 items-start gap-2 py-1.5 text-[1.00625rem] leading-snug"
+            className="flex min-w-0 flex-1 items-start gap-2 py-1.5 text-[16px] leading-snug"
           >
             <ModuleIcon className="mt-0.5 size-4 shrink-0" />
             <span className="min-w-0 whitespace-normal break-words">{module.name}</span>
@@ -512,9 +512,9 @@ export function ProjectDocumentsNav({
   }
 
   return (
-    <div className="min-w-0 space-y-2 text-[1.15em]">
+    <div className="min-w-0 space-y-2 text-[16px]">
       <div className="flex items-center justify-between rounded-lg px-2 py-1.5">
-        <p className="min-w-0 flex-1 text-[1.00625rem]">Tài liệu</p>
+        <p className="min-w-0 flex-1 text-[16px]">Tài liệu</p>
         <div className="flex shrink-0 items-center gap-0.5">
           {canCreateDocuments && mainModuleId ? (
             <Button asChild variant="ghost" size="icon" className="size-6" title="Thêm tài liệu">
