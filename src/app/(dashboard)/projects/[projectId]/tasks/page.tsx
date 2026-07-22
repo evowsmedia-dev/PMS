@@ -26,6 +26,7 @@ import {
   BUG_STATUS_LABEL,
 } from "@/lib/validation/task";
 import { projectCodeRouteSegment, projectRouteWhere } from "@/lib/route-slug";
+import { bugSeverityTone, bugStatusTone, taskPriorityTone, taskStatusTone } from "@/lib/status-style";
 
 export default async function ProjectTasksPage({
   params,
@@ -244,15 +245,15 @@ export default async function ProjectTasksPage({
                 >
                   {row.task.title}
                 </Link>
-                <Badge variant="secondary" className="text-[10px]">
+                <Badge variant="neutral" className="status-badge">
                   {TASK_TYPE_LABEL[row.task.type]}
                 </Badge>
-                <Badge variant="outline" className="text-[10px]">
+                <Badge variant={taskStatusTone(row.task.status)} className="status-badge">
                   {TASK_STATUS_LABEL[row.task.status]}
                 </Badge>
-                <span className="text-xs text-muted-foreground">
+                <Badge variant={taskPriorityTone(row.task.priority)} className="status-badge">
                   {TASK_PRIORITY_LABEL[row.task.priority]}
-                </span>
+                </Badge>
                 {row.task.assignee ? (
                   <span className="text-xs text-muted-foreground">· {row.task.assignee.fullName}</span>
                 ) : null}
@@ -268,7 +269,7 @@ export default async function ProjectTasksPage({
                   </span>
                 ) : null}
                 {row.task.estimateWarningFlag || row.task.isDevOverdue || row.task.isTestOverdue || row.task.isBlocked ? (
-                  <Badge variant="outline" className="text-[10px]">
+                  <Badge variant="danger" className="status-badge">
                     {row.task.estimateWarningFlag
                       ? TASK_WARNING_LABEL[row.task.estimateWarningFlag] ?? row.task.estimateWarningFlag
                       : row.task.isBlocked
@@ -294,7 +295,7 @@ export default async function ProjectTasksPage({
                       <span
                         className={`text-xs ${
                           row.task.dueDate < now && row.task.status !== "DONE"
-                            ? "font-medium text-destructive"
+                            ? "font-medium text-[var(--status-danger-text)]"
                             : "text-muted-foreground"
                         }`}
                       >
@@ -319,14 +320,14 @@ export default async function ProjectTasksPage({
                 style={{ paddingLeft: `${row.depth * 20 + 12}px` }}
               >
                 <span className="text-muted-foreground">↳</span>
-                <Badge variant="secondary" className="border-destructive/40 text-[10px] text-destructive">
+                <Badge variant="danger" className="status-badge">
                   BUG
                 </Badge>
                 <span className="font-mono text-xs text-muted-foreground">{row.bug.bugCode}</span>
                 <span className="font-medium">{row.bug.title}</span>
-                <span className="text-xs text-muted-foreground">
+                <Badge variant={bugSeverityTone(row.bug.severity)} className="status-badge">
                   {BUG_SEVERITY_LABEL[row.bug.severity]}
-                </span>
+                </Badge>
                 <div className="ml-auto">
                   {canEditBug ? (
                     <BugStatusSelect
@@ -336,7 +337,7 @@ export default async function ProjectTasksPage({
                       canEdit={canEditBug}
                     />
                   ) : (
-                    <Badge variant="outline" className="text-[10px]">
+                    <Badge variant={bugStatusTone(row.bug.status)} className="status-badge">
                       {BUG_STATUS_LABEL[row.bug.status]}
                     </Badge>
                   )}

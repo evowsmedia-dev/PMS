@@ -10,6 +10,7 @@ import { TaskViewTabs } from "@/components/task-view-tabs";
 import { EpicCreateForm, DeletePlanningButton } from "@/components/planning-forms";
 import { EPIC_STATUS_LABEL } from "@/lib/validation/task";
 import { projectCodeRouteSegment, projectRouteWhere } from "@/lib/route-slug";
+import { planningStatusTone } from "@/lib/status-style";
 
 export default async function EpicsPage({
   params,
@@ -62,7 +63,9 @@ export default async function EpicsPage({
                   ) : null}
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline">{EPIC_STATUS_LABEL[e.status]}</Badge>
+                  <Badge variant={planningStatusTone(e.status)} className="status-badge">
+                    {EPIC_STATUS_LABEL[e.status]}
+                  </Badge>
                   <Badge variant="secondary">{e._count.tasks} task</Badge>
                   {canManage ? <DeletePlanningButton projectId={projectId} id={e.id} kind="epic" /> : null}
                 </div>

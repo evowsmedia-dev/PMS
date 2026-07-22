@@ -25,6 +25,7 @@ import {
   projectCodeRouteSegment,
   routeSlug,
 } from "@/lib/route-slug";
+import { documentStatusTone, taskStatusTone } from "@/lib/status-style";
 
 export default async function DocumentDetailPage({
   params,
@@ -166,7 +167,9 @@ export default async function DocumentDetailPage({
                 <div className="min-w-0">
                   <h1 className="text-[24px] font-bold">{doc.title}</h1>
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                    <Badge>{DOC_STATUS_LABEL[doc.status]}</Badge>
+                    <Badge variant={documentStatusTone(doc.status)} className="status-badge">
+                      {DOC_STATUS_LABEL[doc.status]}
+                    </Badge>
                     <span>{doc.author.fullName}</span>
                     <span>·</span>
                     <span>{DOC_CATEGORY_LABEL[doc.category]}</span>
@@ -294,7 +297,7 @@ export default async function DocumentDetailPage({
                 <ul className="mt-2 space-y-1 text-sm">
                   {doc.tasks.map((t) => (
                     <li key={t.id}>
-                      {t.title} <Badge variant="outline">{t.status}</Badge>
+                      {t.title} <Badge variant={taskStatusTone(t.status)} className="status-badge">{t.status}</Badge>
                     </li>
                   ))}
                 </ul>

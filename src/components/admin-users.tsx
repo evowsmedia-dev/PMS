@@ -139,7 +139,7 @@ export function AdminUserRow({ user }: { user: UserRow }) {
         </Select>
       </td>
       <td className="px-4 py-2">
-        <Badge variant={user.isActive ? "default" : "secondary"}>
+        <Badge variant={user.isActive ? "success" : "neutral"} className="status-badge">
           {user.isActive ? "Hoạt động" : "Đã khóa"}
         </Badge>
       </td>

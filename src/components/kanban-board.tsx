@@ -34,6 +34,7 @@ import {
 } from "@/lib/kanban-status-config";
 import { TASK_STATUS_LABEL, TASK_STATUS_ORDER, TASK_PRIORITY_LABEL, type TaskStatusValue } from "@/lib/validation/task";
 import { taskHref } from "@/lib/task-href";
+import { semanticToneClass, taskPriorityTone, taskStatusTone } from "@/lib/status-style";
 
 export interface KanbanTask {
   id: string;
@@ -74,9 +75,9 @@ function TaskCard({
       style={style}
       {...attributes}
       {...listeners}
-      className={`min-w-0 cursor-grab space-y-1 rounded-lg border bg-card p-1.5 text-xs active:cursor-grabbing sm:p-2 sm:text-sm ${
-        blocked ? "border-destructive/60" : ""
-      } ${overdue ? "ring-1 ring-destructive/40" : ""}`}
+      className={`min-w-0 cursor-grab space-y-1 rounded-lg border bg-card p-1.5 text-[13px] active:cursor-grabbing sm:p-2 ${
+        blocked ? "border-[var(--status-danger-border)]" : ""
+      } ${overdue ? "ring-1 ring-[var(--status-danger-border)]" : ""}`}
     >
       {task.taskCode ? (
         <span className="block truncate font-mono text-[10px] text-muted-foreground">{task.taskCode}</span>
@@ -89,17 +90,17 @@ function TaskCard({
         {task.title}
       </Link>
       <div className="flex min-w-0 flex-wrap items-center gap-1">
-        <Badge variant="outline" className="text-[10px]">
+        <Badge variant={taskPriorityTone(task.priority)} className="status-badge">
           {TASK_PRIORITY_LABEL[task.priority]}
         </Badge>
         {task.dueDate ? (
-          <span className={`text-[10px] ${overdue ? "font-medium text-destructive" : "text-muted-foreground"}`}>
+          <span className={`text-xs ${overdue ? "font-medium text-[var(--status-danger-text)]" : "text-muted-foreground"}`}>
             {new Date(task.dueDate).toLocaleDateString("vi-VN")}
           </span>
         ) : null}
       </div>
       {task.assignee ? (
-        <p className="truncate text-[10px] text-muted-foreground sm:text-xs">{task.assignee.fullName}</p>
+        <p className="truncate text-xs text-muted-foreground">{task.assignee.fullName}</p>
       ) : null}
     </div>
   );
@@ -168,7 +169,7 @@ function Column({
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
-          <Badge variant="secondary" className="px-1 text-[10px] sm:px-2">
+          <Badge variant={taskStatusTone(primaryStatus)} className="status-badge px-1 sm:px-2">
             {tasks.length}
           </Badge>
           {canConfigureStatuses && column.statuses.length === 1 ? (
@@ -190,7 +191,7 @@ function Column({
           {column.statuses.map((status) => (
             <span
               key={status}
-              className="inline-flex min-w-0 max-w-full items-center gap-0.5 rounded-full border bg-background px-1 py-0.5 text-[10px] leading-none text-muted-foreground"
+              className={`inline-flex min-w-0 max-w-full items-center gap-0.5 rounded-full border px-1 py-0.5 text-xs leading-none ${semanticToneClass(taskStatusTone(status))}`}
               title={TASK_STATUS_LABEL[status]}
             >
               <span className="truncate">{TASK_STATUS_LABEL[status]}</span>

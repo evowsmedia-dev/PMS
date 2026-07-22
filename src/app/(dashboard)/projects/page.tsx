@@ -10,6 +10,7 @@ import { DeleteProjectButton } from "@/components/delete-project-button";
 import { ProjectIcon } from "@/lib/validation/icons";
 import { Plus, Search } from "lucide-react";
 import { projectCodeRouteSegment } from "@/lib/route-slug";
+import { taskPriorityTone } from "@/lib/status-style";
 
 const PRIORITY_LABEL: Record<string, string> = {
   LOW: "Thấp",
@@ -138,10 +139,12 @@ export default async function ProjectsPage({
                     {project.description || "Chưa có mô tả"}
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    <Badge variant={project.status === "ARCHIVED" ? "secondary" : "default"}>
+                    <Badge variant={project.status === "ARCHIVED" ? "neutral" : "success"} className="status-badge">
                       {project.status === "ARCHIVED" ? "Lưu trữ" : "Đang hoạt động"}
                     </Badge>
-                    <Badge variant="outline">{PRIORITY_LABEL[project.priority]}</Badge>
+                    <Badge variant={taskPriorityTone(project.priority)} className="status-badge">
+                      {PRIORITY_LABEL[project.priority]}
+                    </Badge>
                     <Badge variant="secondary">{project.subsystem?.name ?? "Chưa chọn phân hệ"}</Badge>
                   </div>
                   <p className="text-xs text-muted-foreground">

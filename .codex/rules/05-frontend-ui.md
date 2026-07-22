@@ -6,12 +6,17 @@ Design direction:
 - PMS is enterprise/project-management software: dense, clear, practical, and
   easy to scan.
 - Avoid marketing-page composition for in-app work surfaces.
-- Apply the new strict monochrome system: chalk white canvas, graphite/black
+- Apply the clean monochrome foundation: chalk white canvas, graphite/black
   text, hairline gray borders, and one black filled primary action per visual
   region.
-- Do not introduce chromatic accent colors for app chrome, status, priority,
-  destructive, error, quote, or comment UI. Use text, icons, borders, and gray
-  surfaces to communicate state.
+- Chromatic color is allowed only as controlled semantic UI feedback for
+  status, priority, overdue, blocked, validation, destructive actions, BI
+  warnings, and change highlights. Do not use chromatic color as decoration,
+  app chrome, brand accent, or arbitrary one-off emphasis.
+- Semantic colors must go through shared tokens/components such as
+  `src/app/globals.css`, `Badge` variants, and `src/lib/status-style.ts`.
+  Avoid raw `red-*`, `amber-*`, `green-*`, `blue-*`, or `yellow-*` Tailwind
+  utilities in feature UI unless the value is explicitly a documented token.
 
 Stack:
 
@@ -46,6 +51,11 @@ Layout rules:
 - Do not scale font sizes with viewport width.
 - Keep UI text letter spacing at `0`; use tight tracking only for intentional
   display-scale headings.
+- Default app text should remain readable and compact: body/table content about
+  13-14px, paragraph/document prose about 15-16px, badge/metadata 12-13px, and
+  page/section headings sized to their surface. Do not use `text-xs` for primary
+  table/card/detail content; reserve it for metadata, timestamps, tiny badges,
+  or uppercase section labels.
 
 Client/server split:
 

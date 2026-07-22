@@ -8,6 +8,7 @@ import { TASK_PRIORITY_LABEL } from "@/lib/validation/task";
 import { taskHref, taskDocumentHref } from "@/lib/task-href";
 import { PageShell, PageSection, PageToolbar } from "@/components/page-shell";
 import type { Prisma, TaskStatus } from "@/generated/prisma/client";
+import { taskPriorityTone } from "@/lib/status-style";
 
 const ACTIVE_STATUS_FILTER = { notIn: ["DONE", "CANCELLED"] as TaskStatus[] };
 const taskCardSelect = {
@@ -177,8 +178,10 @@ function TaskCard({ task }: { task: TaskItem }) {
             <p className="text-xs text-muted-foreground">{task.project.name}</p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
-            {task.isReviewRequest ? <Badge>Cần phê duyệt</Badge> : null}
-            <Badge variant="outline">{TASK_PRIORITY_LABEL[task.priority]}</Badge>
+            {task.isReviewRequest ? <Badge variant="info" className="status-badge">Cần phê duyệt</Badge> : null}
+            <Badge variant={taskPriorityTone(task.priority)} className="status-badge">
+              {TASK_PRIORITY_LABEL[task.priority]}
+            </Badge>
             {task.dueDate ? (
               <span className="text-xs text-muted-foreground">
                 {task.dueDate.toLocaleDateString("vi-VN")}

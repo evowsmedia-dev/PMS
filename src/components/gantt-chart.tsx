@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { taskHref } from "@/lib/task-href";
 import { TASK_STATUS_LABEL } from "@/lib/validation/task";
+import { taskStatusTone } from "@/lib/status-style";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DAY_WIDTH = 32;
@@ -343,7 +344,7 @@ function columnLabel(key: GanttColumnKey) {
 function renderColumnValue(key: GanttColumnKey, task: GanttTask, range: { start: Date; end: Date }) {
   switch (key) {
     case "status":
-      return <Badge variant="outline">{statusLabel(task.status)}</Badge>;
+      return <Badge variant={taskStatusTone(task.status)} className="status-badge">{statusLabel(task.status)}</Badge>;
     case "planned":
       return `${formatNumber(task.devEstimateHours + task.testEstimateHours)}h`;
     case "effort":

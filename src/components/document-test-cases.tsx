@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TestCaseCreateForm, TestCaseExecutePanel } from "@/components/qa-forms";
 import { TASK_PRIORITY_LABEL, TEST_RESULT_LABEL } from "@/lib/validation/task";
+import { taskPriorityTone, testResultTone } from "@/lib/status-style";
 
 /**
  * Structured test-case management embedded in a document that uses the Test
@@ -68,15 +69,17 @@ export async function DocumentTestCasePanel({
                       {tc.title}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {TASK_PRIORITY_LABEL[tc.priority]}
+                      <Badge variant={taskPriorityTone(tc.priority)} className="status-badge">
+                        {TASK_PRIORITY_LABEL[tc.priority]}
+                      </Badge>
                       {tc.task ? ` · ${tc.task.title}` : ""}
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     {last ? (
                       <Badge
-                        variant={last.result === "PASS" ? "default" : "outline"}
-                        className={last.result === "FAIL" ? "border-destructive text-destructive" : ""}
+                        variant={testResultTone(last.result)}
+                        className="status-badge"
                       >
                         {TEST_RESULT_LABEL[last.result]}
                       </Badge>

@@ -313,8 +313,8 @@ export function ProjectEstimatedTimeline({
           ) : null}
 
           <ResponsiveTableFrame minWidth="min-w-[980px]">
-            <table className="w-full border-collapse text-xs">
-              <thead className="border-b bg-muted/50 text-left text-xs text-muted-foreground">
+            <table className="data-table w-full border-collapse">
+              <thead className="border-b bg-muted/50 text-left text-muted-foreground">
                 <tr>
                   <th className="border-r px-2 py-2">Tên task/chức năng</th>
                   <th className="border-r px-2 py-2">Ngày bắt đầu</th>
@@ -336,7 +336,7 @@ export function ProjectEstimatedTimeline({
                 </tr>
                 {visibleRows.length === 0 ? (
                   <tr>
-                    <td colSpan={editing ? 8 : 7} className="px-3 py-8 text-center text-xs text-muted-foreground">
+                    <td colSpan={editing ? 8 : 7} className="px-3 py-8 text-center text-muted-foreground">
                       Chưa có timeline dự toán. Bấm đồng bộ từ Task hoặc thêm dòng thủ công.
                     </td>
                   </tr>
@@ -485,8 +485,8 @@ export function ProjectEstimatedTimeline({
         <div className="rounded-lg border p-3">
           <p className="text-sm font-semibold">Lịch sử thay đổi (v{latestTimelineVersion || 0})</p>
           <ResponsiveTableFrame minWidth="min-w-[760px]" className="mt-2">
-            <table className="w-full border-collapse text-xs">
-              <thead className="border-b bg-muted/50 text-left text-xs text-muted-foreground">
+              <table className="data-table w-full border-collapse">
+                <thead className="border-b bg-muted/50 text-left text-muted-foreground">
                 <tr>
                   <th className="border-r px-2 py-2">Phiên bản</th>
                   <th className="border-r px-2 py-2">Ngày</th>
@@ -577,13 +577,13 @@ export function ProjectEstimatedTimeline({
             </DialogDescription>
           </DialogHeader>
           {selectedVersion ? (
-            <div className="space-y-3 text-xs">
+            <div className="space-y-3 text-sm">
               <div className="rounded-lg border bg-muted/20 p-2">
                 <p className="font-medium">Ghi chú</p>
                 <p className="mt-1 text-muted-foreground">{selectedVersion.changeNote || "Không có ghi chú."}</p>
               </div>
               <ResponsiveTableFrame minWidth="min-w-[520px]">
-                <table className="w-full border-collapse text-xs">
+                <table className="data-table w-full border-collapse">
                   <thead className="border-b bg-muted/50 text-left text-muted-foreground">
                     <tr>
                       <th className="border-r px-2 py-2">Trường dữ liệu</th>
@@ -604,7 +604,7 @@ export function ProjectEstimatedTimeline({
                             {FIELD_LABELS[field] ?? field}
                           </td>
                           <td className="px-2 py-2">
-                            <span className="inline-block rounded-md border bg-yellow-100 px-2 py-1 text-foreground">
+                            <span className="inline-block rounded-md border border-[var(--change-highlight-border)] bg-[var(--change-highlight-bg)] px-2 py-1 text-foreground">
                               {formatHistoryValue(field, selectedVersion.snapshot[field])}
                             </span>
                           </td>

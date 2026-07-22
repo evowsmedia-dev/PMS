@@ -20,6 +20,7 @@ import {
   projectCodeRouteSegment,
   routeSlug,
 } from "@/lib/route-slug";
+import { documentStatusTone } from "@/lib/status-style";
 
 const PAGE_SIZE = 20;
 
@@ -212,7 +213,9 @@ export default async function ModuleDocumentsPage({
                   <Badge variant="outline">{doc.role}</Badge>
                 </td>
                 <td className="px-4 py-2">
-                  <Badge variant="secondary">{DOC_STATUS_LABEL[doc.status]}</Badge>
+                  <Badge variant={documentStatusTone(doc.status)} className="status-badge">
+                    {DOC_STATUS_LABEL[doc.status]}
+                  </Badge>
                 </td>
                 <td className="px-4 py-2 text-muted-foreground">
                   {doc.updatedAt.toLocaleDateString("vi-VN")}

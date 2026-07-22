@@ -26,6 +26,7 @@ import {
   TEST_RESULT_LABEL,
 } from "@/lib/validation/task";
 import type { ActionState } from "@/lib/actions/profile";
+import { semanticToneClass, bugStatusTone } from "@/lib/status-style";
 
 const initialState: ActionState = {};
 
@@ -189,7 +190,7 @@ export function BugStatusSelect({
         })
       }
     >
-      <SelectTrigger className="h-8 w-36">
+      <SelectTrigger className={`h-8 w-36 ${semanticToneClass(bugStatusTone(status))}`}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

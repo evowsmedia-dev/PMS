@@ -12,6 +12,7 @@ import { taskHref } from "@/lib/task-href";
 import { BUG_SEVERITY_LABEL, BUG_STATUS_ORDER, BUG_STATUS_LABEL } from "@/lib/validation/task";
 import type { Prisma, BugStatus } from "@/generated/prisma/client";
 import { projectCodeRouteSegment, projectRouteWhere } from "@/lib/route-slug";
+import { bugSeverityTone } from "@/lib/status-style";
 
 export default async function BugsPage({
   params,
@@ -104,7 +105,9 @@ export default async function BugsPage({
                     <span className="font-mono text-xs text-muted-foreground">{b.bugCode}</span> {b.title}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {BUG_SEVERITY_LABEL[b.severity]}
+                    <Badge variant={bugSeverityTone(b.severity)} className="status-badge">
+                      {BUG_SEVERITY_LABEL[b.severity]}
+                    </Badge>
                     {b.assignedTo ? ` · ${b.assignedTo.fullName}` : ""}
                     {b.task ? " · " : ""}
                     {b.task ? (

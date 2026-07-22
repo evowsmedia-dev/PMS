@@ -14,6 +14,21 @@
   --color-warning-foreground: var(--warning-foreground);
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
+  --color-status-danger-bg: var(--status-danger-bg);
+  --color-status-danger-text: var(--status-danger-text);
+  --color-status-danger-border: var(--status-danger-border);
+  --color-status-warning-bg: var(--status-warning-bg);
+  --color-status-warning-text: var(--status-warning-text);
+  --color-status-warning-border: var(--status-warning-border);
+  --color-status-success-bg: var(--status-success-bg);
+  --color-status-success-text: var(--status-success-text);
+  --color-status-success-border: var(--status-success-border);
+  --color-status-info-bg: var(--status-info-bg);
+  --color-status-info-text: var(--status-info-text);
+  --color-status-info-border: var(--status-info-border);
+  --color-status-neutral-bg: var(--status-neutral-bg);
+  --color-status-neutral-text: var(--status-neutral-text);
+  --color-status-neutral-border: var(--status-neutral-border);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
@@ -70,13 +85,30 @@
   --muted-foreground: oklch(0.556 0 0);
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.145 0 0);
-  --destructive: oklch(0.145 0 0);
-  --success: oklch(0.145 0 0);
+  --destructive: oklch(0.48 0.17 28);
+  --success: oklch(0.44 0.12 145);
   --success-foreground: oklch(1 0 0);
-  --warning: oklch(0.145 0 0);
+  --warning: oklch(0.55 0.12 75);
   --warning-foreground: oklch(1 0 0);
-  --info: oklch(0.145 0 0);
+  --info: oklch(0.45 0.12 245);
   --info-foreground: oklch(1 0 0);
+  --status-danger-bg: #fef2f2;
+  --status-danger-text: #991b1b;
+  --status-danger-border: #fecaca;
+  --status-warning-bg: #fffbeb;
+  --status-warning-text: #92400e;
+  --status-warning-border: #fde68a;
+  --status-success-bg: #f0fdf4;
+  --status-success-text: #166534;
+  --status-success-border: #bbf7d0;
+  --status-info-bg: #eff6ff;
+  --status-info-text: #1d4ed8;
+  --status-info-border: #bfdbfe;
+  --status-neutral-bg: #f5f5f5;
+  --status-neutral-text: #404040;
+  --status-neutral-border: #d4d4d4;
+  --change-highlight-bg: #fef9c3;
+  --change-highlight-border: #fde047;
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.145 0 0 / 0.16);
@@ -111,13 +143,30 @@
   --muted-foreground: oklch(0.708 0 0);
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.985 0 0);
-  --success: oklch(0.985 0 0);
+  --destructive: oklch(0.72 0.18 28);
+  --success: oklch(0.78 0.14 145);
   --success-foreground: oklch(0.145 0 0);
-  --warning: oklch(0.985 0 0);
+  --warning: oklch(0.8 0.14 75);
   --warning-foreground: oklch(0.145 0 0);
-  --info: oklch(0.985 0 0);
+  --info: oklch(0.78 0.12 245);
   --info-foreground: oklch(0.145 0 0);
+  --status-danger-bg: #3f1111;
+  --status-danger-text: #fecaca;
+  --status-danger-border: #7f1d1d;
+  --status-warning-bg: #3f2f08;
+  --status-warning-text: #fde68a;
+  --status-warning-border: #854d0e;
+  --status-success-bg: #102a18;
+  --status-success-text: #bbf7d0;
+  --status-success-border: #166534;
+  --status-info-bg: #10233f;
+  --status-info-text: #bfdbfe;
+  --status-info-border: #1d4ed8;
+  --status-neutral-bg: #262626;
+  --status-neutral-text: #d4d4d4;
+  --status-neutral-border: #525252;
+  --change-highlight-bg: #3f3608;
+  --change-highlight-border: #a16207;
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.985 0 0 / 0.16);
@@ -142,6 +191,8 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-size: 14px;
+    line-height: 1.5;
   }
   html {
     @apply font-sans;
@@ -150,7 +201,25 @@
   }
   p,
   td {
-    font-size: max(1em, 1rem);
+    font-size: 1em;
+  }
+}
+
+@layer components {
+  .status-badge {
+    border-width: 1px;
+    font-size: 12px;
+    line-height: 1.25;
+  }
+
+  .data-table {
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .data-table th,
+  .data-table td {
+    font-size: inherit;
   }
 }
 
@@ -181,7 +250,7 @@
   border: 1px solid #d4d4d4;
   border-left-color: #bdbdbd;
   border-right-color: #bdbdbd;
-  font-size: 1rem;
+  font-size: 0.875rem;
   line-height: 1;
   overflow-wrap: anywhere;
   vertical-align: middle;

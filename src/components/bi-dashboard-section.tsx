@@ -210,7 +210,7 @@ function MetricCard({
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
           <span>{label}</span>
-          {warn ? <Badge variant="outline">Cần chú ý</Badge> : null}
+          {warn ? <Badge variant="warning" className="status-badge">Cần chú ý</Badge> : null}
         </CardTitle>
       </CardHeader>
       <CardContent>

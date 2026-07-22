@@ -42,7 +42,7 @@ export function DocumentDiffRenderer({
         segment.changed ? (
           <mark
             key={`${index}-${segment.text}`}
-            className="rounded-[3px] bg-yellow-200 px-0.5 text-foreground"
+            className="rounded-[3px] border border-[var(--change-highlight-border)] bg-[var(--change-highlight-bg)] px-0.5 text-foreground"
           >
             {segment.text}
           </mark>

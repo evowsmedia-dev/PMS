@@ -30,6 +30,7 @@ import {
   projectRouteId,
   taskRouteId,
 } from "@/lib/route-slug";
+import { bugStatusTone } from "@/lib/status-style";
 
 export const maxDuration = 60;
 
@@ -198,13 +199,13 @@ export default async function ProjectTaskDetailPage({
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {task.estimateWarningFlag ? (
-                    <Badge variant="outline">
+                    <Badge variant="danger" className="status-badge">
                       {TASK_WARNING_LABEL[task.estimateWarningFlag] ?? task.estimateWarningFlag}
                     </Badge>
                   ) : null}
-                  {task.isDevOverdue ? <Badge variant="outline">Dev quá hạn</Badge> : null}
-                  {task.isTestOverdue ? <Badge variant="outline">Test quá hạn</Badge> : null}
-                  {task.isBlocked ? <Badge variant="outline">Blocked</Badge> : null}
+                  {task.isDevOverdue ? <Badge variant="danger" className="status-badge">Dev quá hạn</Badge> : null}
+                  {task.isTestOverdue ? <Badge variant="danger" className="status-badge">Test quá hạn</Badge> : null}
+                  {task.isBlocked ? <Badge variant="danger" className="status-badge">Blocked</Badge> : null}
                 </div>
                 {task.blockedReason ? <p className="mt-2 text-muted-foreground">{task.blockedReason}</p> : null}
               </div>
@@ -308,7 +309,7 @@ export default async function ProjectTaskDetailPage({
                         <span className="font-mono text-xs text-muted-foreground">{b.bugCode}</span>{" "}
                         {b.title}
                       </Link>
-                      <Badge variant="outline" className="text-[10px]">
+                      <Badge variant={bugStatusTone(b.status)} className="status-badge">
                         {BUG_STATUS_LABEL[b.status]}
                       </Badge>
                     </div>

@@ -10,6 +10,7 @@ import { TaskViewTabs } from "@/components/task-view-tabs";
 import { MilestoneCreateForm, DeletePlanningButton } from "@/components/planning-forms";
 import { MILESTONE_STATUS_LABEL } from "@/lib/validation/task";
 import { projectCodeRouteSegment, projectRouteWhere } from "@/lib/route-slug";
+import { planningStatusTone } from "@/lib/status-style";
 
 export default async function MilestonesPage({
   params,
@@ -59,13 +60,15 @@ export default async function MilestonesPage({
                 <CardContent className="flex flex-wrap items-center justify-between gap-2 p-3">
                   <div className="min-w-0">
                     <p className="font-medium">{m.name}</p>
-                    <p className={`text-xs ${overdue ? "font-medium text-destructive" : "text-muted-foreground"}`}>
+                    <p className={`text-xs ${overdue ? "font-medium text-[var(--status-danger-text)]" : "text-muted-foreground"}`}>
                       Đến hạn: {m.dueDate.toLocaleDateString("vi-VN")}
                       {m.description ? ` · ${m.description}` : ""}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline">{MILESTONE_STATUS_LABEL[m.status]}</Badge>
+                    <Badge variant={planningStatusTone(m.status)} className="status-badge">
+                      {MILESTONE_STATUS_LABEL[m.status]}
+                    </Badge>
                     <Badge variant="secondary">{m._count.tasks} task</Badge>
                     {canManage ? (
                       <DeletePlanningButton projectId={projectId} id={m.id} kind="milestone" />

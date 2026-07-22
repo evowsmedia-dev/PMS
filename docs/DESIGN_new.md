@@ -1,5 +1,5 @@
 # Ui — Style Reference
-> brutalist Swiss grid in graphite and chalk. A designer's drafting table where every line is a 1px border, every surface is white, and the only accent is a filled-black button that cuts like a blade through all that negative space.
+> brutalist Swiss grid in graphite and chalk. A designer's drafting table where every line is a 1px border, every surface is white, and the primary app chrome stays black-and-white. PMS may use restrained semantic status colors only where they help operators spot risk, progress, quality, and destructive actions.
 
 **Theme:** light
 
@@ -18,6 +18,22 @@ shadcn/ui is a strictly monochromatic design system documentation site: pure whi
 | Hairline | `#e5e5e5` | The dominant structural color — every card border, input border, table separator, and nav divider is this exact shade. Frequency 1225 makes it the load-bearing wall of the entire system |
 | Mist | `#f2f2f2` | Subtle surface fill for tags, ghost button hover, and micro-backgrounds — the lightest gray that still registers as not-white |
 | Chalk | `#ffffff` | Page canvas, card surfaces, button text on dark fills, input backgrounds — the dominant surface at all levels |
+
+## Semantic Status Colors
+
+The base UI remains monochrome. Use the following colors only through shared
+tokens/components for status, priority, warnings, destructive actions, BI
+signals, validation, and changed-content highlights. Do not use them as brand
+accent, decoration, navigation chrome, or arbitrary emphasis.
+
+| Tone | Role |
+|------|------|
+| Danger | Overdue, blocked, reopened, failed, destructive, critical risk |
+| Warning | Near due, needs review, estimate variance, QA-ready risk |
+| Success | Done, approved, verified, active/healthy |
+| Info | In progress, review, testing, informational workflow state |
+| Neutral | Backlog, draft, archived, disabled, unavailable |
+| Change highlight | Version diff content only |
 
 ## Typography
 
@@ -40,7 +56,9 @@ shadcn/ui is a strictly monochromatic design system documentation site: pure whi
 | Role | Size | Line Height | Letter Spacing |
 |------|------|-------------|----------------|
 | caption | 12px | 1.5 | — |
-| body | 14px | 1.43 | — |
+| body | 14px | 1.5 | — |
+| data table | 13-14px | 1.45 | — |
+| document prose | 15-16px | 1.6 | — |
 | subheading | 18px | 1.5 | -0.45px |
 | display | 48px | 1.1 | -2.4px |
 
@@ -153,11 +171,11 @@ Uses #171717 as background with white or light-gray text. Same 14px radius and 1
 - Use 10px border-radius for buttons, inputs, and nav items; 14px for cards; ~26px for tags; 9999px only for true pill shapes
 - Use Geist at 14px weight 400 with 1.43 line-height for body text, and 48px weight 600 with -0.05em letter-spacing for display headings
 - Keep section gaps at 48px and element gaps at 8px — the system is compact, not spacious; never let whitespace exceed the hairline grid
-- Use #737373 for all secondary/muted text and #0a0a0a for all primary text; never use a chromatic gray or a tinted neutral
+- Use #737373 for secondary/muted text and #0a0a0a for primary text; use semantic status colors only through shared PMS tokens/components
 - When showing a filled button next to a secondary action, use the filled black button + ghost text button pattern — never two filled buttons side by side
 
 ### Don't
-- Do not introduce any chromatic color — no blues, greens, reds, or purples for buttons, links, icons, or accents. The system is strictly achromatic
+- Do not introduce decorative chromatic color. Semantic colors are limited to shared status/warning/destructive/change-highlight tokens
 - Do not use shadows for elevation. Cards separate via 1px #e5e5e5 borders, not box-shadow. The only permitted shadow pattern is the 1px oklab outline ring
 - Do not use border-radius values outside the scale: 4px, 10px, 14px, 26px, 9999px. No 6px, 8px, 12px, 16px, or 20px radii
 - Do not use a sans-serif other than Geist (or its substitute Inter) — avoid decorative, humanist, or serif typefaces

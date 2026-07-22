@@ -13,6 +13,7 @@ import {
   projectCodeRouteSegment,
   routeSlug,
 } from "@/lib/route-slug";
+import { documentStatusTone } from "@/lib/status-style";
 
 export default async function DocumentHistoryPage({
   params,
@@ -115,7 +116,7 @@ export default async function DocumentHistoryPage({
                 Phiên bản {v.versionNo} — {v.title}
               </span>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Badge variant="outline">{v.status}</Badge>
+                <Badge variant={documentStatusTone(v.status)} className="status-badge">{v.status}</Badge>
                 <span>{v.editedBy.fullName}</span>
                 <span>{v.createdAt.toLocaleString("vi-VN")}</span>
               </div>

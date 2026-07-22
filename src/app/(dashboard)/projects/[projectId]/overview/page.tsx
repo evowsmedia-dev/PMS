@@ -19,22 +19,23 @@ import {
   BUG_STATUS_ORDER,
 } from "@/lib/validation/task";
 import { extractRouteId, projectCodeRouteSegment } from "@/lib/route-slug";
+import { taskPriorityTone } from "@/lib/status-style";
 
 // Fixed palette so chart colors stay stable across renders regardless of which
 // statuses happen to be present.
 const CHART_COLORS = [
-  "#6366f1",
-  "#8b5cf6",
-  "#ec4899",
-  "#f59e0b",
-  "#10b981",
-  "#0ea5e9",
-  "#ef4444",
-  "#14b8a6",
-  "#a855f7",
-  "#84cc16",
-  "#f43f5e",
-  "#64748b",
+  "#1d4ed8",
+  "#92400e",
+  "#166534",
+  "#991b1b",
+  "#404040",
+  "#737373",
+  "#a16207",
+  "#2563eb",
+  "#15803d",
+  "#b45309",
+  "#b91c1c",
+  "#525252",
 ];
 
 export default async function ProjectOverviewPage({
@@ -209,11 +210,15 @@ export default async function ProjectOverviewPage({
           </div>
           <div className="flex items-center justify-between gap-4">
             <span className="text-muted-foreground">Trạng thái</span>
-            <Badge variant="outline">{project.status}</Badge>
+            <Badge variant={project.status === "ARCHIVED" ? "neutral" : "success"} className="status-badge">
+              {project.status}
+            </Badge>
           </div>
           <div className="flex items-center justify-between gap-4">
             <span className="text-muted-foreground">Độ ưu tiên</span>
-            <Badge variant="outline">{project.priority}</Badge>
+            <Badge variant={taskPriorityTone(project.priority)} className="status-badge">
+              {project.priority}
+            </Badge>
           </div>
           <div className="flex items-start justify-between gap-4">
             <span className="text-muted-foreground">Phân hệ</span>
@@ -268,7 +273,7 @@ function StatList({
       {stats.map((s) => (
         <div key={s.label} className="flex items-center justify-between gap-4">
           <dt className="text-muted-foreground">{s.label}</dt>
-          <dd className={`font-medium ${s.alert ? "text-destructive" : ""}`}>{s.value}</dd>
+          <dd className={`font-medium ${s.alert ? "text-[var(--status-danger-text)]" : ""}`}>{s.value}</dd>
         </div>
       ))}
     </dl>

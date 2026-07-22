@@ -10,6 +10,7 @@ import { TaskViewTabs } from "@/components/task-view-tabs";
 import { SprintCreateForm, DeletePlanningButton } from "@/components/planning-forms";
 import { SPRINT_STATUS_LABEL } from "@/lib/validation/task";
 import { projectCodeRouteSegment, projectRouteWhere } from "@/lib/route-slug";
+import { planningStatusTone } from "@/lib/status-style";
 
 export default async function SprintsPage({
   params,
@@ -61,7 +62,9 @@ export default async function SprintsPage({
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline">{SPRINT_STATUS_LABEL[s.status]}</Badge>
+                  <Badge variant={planningStatusTone(s.status)} className="status-badge">
+                    {SPRINT_STATUS_LABEL[s.status]}
+                  </Badge>
                   <Badge variant="secondary">{s._count.tasks} task</Badge>
                   {canManage ? <DeletePlanningButton projectId={projectId} id={s.id} kind="sprint" /> : null}
                 </div>

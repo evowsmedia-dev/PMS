@@ -11,6 +11,7 @@ import { TestCaseCreateForm, TestCaseExecutePanel } from "@/components/qa-forms"
 import { taskHref } from "@/lib/task-href";
 import { TASK_PRIORITY_LABEL, TEST_RESULT_LABEL } from "@/lib/validation/task";
 import { projectCodeRouteSegment, projectRouteWhere } from "@/lib/route-slug";
+import { taskPriorityTone, testResultTone } from "@/lib/status-style";
 
 export default async function TestCasesPage({
   params,
@@ -84,7 +85,9 @@ export default async function TestCasesPage({
                       {tc.title}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {TASK_PRIORITY_LABEL[tc.priority]}
+                      <Badge variant={taskPriorityTone(tc.priority)} className="status-badge">
+                        {TASK_PRIORITY_LABEL[tc.priority]}
+                      </Badge>
                       {tc.task ? " · " : ""}
                       {tc.task ? (
                         <Link
@@ -99,8 +102,8 @@ export default async function TestCasesPage({
                   <div className="flex flex-wrap items-center gap-2">
                     {last ? (
                       <Badge
-                        variant={last.result === "PASS" ? "default" : "outline"}
-                        className={last.result === "FAIL" ? "border-destructive text-destructive" : ""}
+                        variant={testResultTone(last.result)}
+                        className="status-badge"
                       >
                         {TEST_RESULT_LABEL[last.result]}
                       </Badge>

@@ -94,7 +94,7 @@ export default async function AdminProjectsPage() {
                 <td className="px-4 py-2">{p.subsystem?.name ?? "Chưa chọn"}</td>
                 <td className="px-4 py-2">{p.createdBy.fullName}</td>
                 <td className="px-4 py-2">
-                  <Badge variant={p.status === "ARCHIVED" ? "secondary" : "default"}>
+                  <Badge variant={p.status === "ARCHIVED" ? "neutral" : "success"} className="status-badge">
                     {p.status === "ARCHIVED" ? "Lưu trữ" : "Hoạt động"}
                   </Badge>
                 </td>

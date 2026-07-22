@@ -13,12 +13,22 @@ const badgeVariants = cva(
         secondary:
           "bg-muted text-secondary-foreground [a]:hover:bg-muted/80",
         destructive:
-          "bg-background text-foreground focus-visible:ring-ring/40 [a]:hover:bg-muted",
+          "border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] text-[var(--status-danger-text)] focus-visible:ring-ring/40 [a]:hover:bg-[var(--status-danger-bg)]",
         outline:
           "border-border text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground",
         ghost:
           "border-transparent hover:bg-muted hover:text-muted-foreground",
         link: "border-transparent text-foreground underline-offset-4 hover:underline",
+        neutral:
+          "border-[var(--status-neutral-border)] bg-[var(--status-neutral-bg)] text-[var(--status-neutral-text)] [a]:hover:bg-[var(--status-neutral-bg)]",
+        info:
+          "border-[var(--status-info-border)] bg-[var(--status-info-bg)] text-[var(--status-info-text)] [a]:hover:bg-[var(--status-info-bg)]",
+        success:
+          "border-[var(--status-success-border)] bg-[var(--status-success-bg)] text-[var(--status-success-text)] [a]:hover:bg-[var(--status-success-bg)]",
+        warning:
+          "border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] text-[var(--status-warning-text)] [a]:hover:bg-[var(--status-warning-bg)]",
+        danger:
+          "border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] text-[var(--status-danger-text)] [a]:hover:bg-[var(--status-danger-bg)]",
       },
     },
     defaultVariants: {
