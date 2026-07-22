@@ -135,7 +135,7 @@ export default async function ProjectTaskDetailPage({
   const [members, epics, sprints, milestones, documents, candidateTasks] = await Promise.all([
     prisma.projectMember.findMany({
       where: { projectId },
-      include: { user: { select: { fullName: true } } },
+      include: { user: { select: { fullName: true, email: true } } },
     }),
     prisma.epic.findMany({
       where: { projectId, deletedAt: null },
@@ -390,6 +390,11 @@ export default async function ProjectTaskDetailPage({
               taskId={taskId}
               comments={task.comments.map((c) => ({ ...c, createdAt: c.createdAt.toISOString() }))}
               canComment={canComment}
+              members={members.map((member) => ({
+                userId: member.userId,
+                fullName: member.user.fullName,
+                email: member.user.email,
+              }))}
             />
           </CardContent>
         </Card>

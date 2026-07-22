@@ -2756,22 +2756,34 @@ export async function addTaskCommentAction(
   const content = String(formData.get("content") ?? "").trim();
   if (!content) return { error: "Nội dung không được để trống." };
 
-  const mentionNames = Array.from(content.matchAll(/@([\w.]+)/g)).map((m) => m[1]);
-  const members = mentionNames.length
+  const explicitMentionedUserIds = Array.from(
+    new Set(formData.getAll("mentionedUserIds").map((value) => String(value)).filter(Boolean)),
+  );
+  const mentionNames = Array.from(content.matchAll(/@([^\s@][^@\n\r,;]*)/g)).map((m) => m[1].trim());
+  const members = mentionNames.length || explicitMentionedUserIds.length
     ? await prisma.projectMember.findMany({
-        where: { projectId },
+        where: {
+          projectId,
+          user: { isActive: true },
+        },
         include: { user: { select: { id: true, fullName: true, email: true } } },
       })
     : [];
   const mentionedUserIds = new Set<string>();
+  const memberUserIds = new Set(members.map((member) => member.user.id));
+  for (const userId of explicitMentionedUserIds) {
+    if (memberUserIds.has(userId)) mentionedUserIds.add(userId);
+  }
   for (const name of mentionNames) {
     const match = members.find(
       (m) =>
         m.user.email.split("@")[0].toLowerCase() === name.toLowerCase() ||
-        m.user.fullName.replaceAll(" ", "").toLowerCase() === name.toLowerCase(),
+        m.user.fullName.toLowerCase() === name.toLowerCase() ||
+        m.user.fullName.replaceAll(" ", "").toLowerCase() === name.replaceAll(" ", "").toLowerCase(),
     );
     if (match) mentionedUserIds.add(match.user.id);
   }
+  mentionedUserIds.delete(session.user.id);
 
   const task = await prisma.task.findFirst({
     where: scopedTaskWhere(projectId, moduleId, taskId),

@@ -37,6 +37,7 @@ const initialState: ActionState = {};
 interface Member {
   userId: string;
   fullName: string;
+  email?: string;
 }
 
 interface CommentItem {
@@ -226,21 +227,43 @@ export function TaskComments({
   taskId,
   comments,
   canComment,
+  members = [],
 }: {
   projectId: string;
   moduleId: string | null;
   taskId: string;
   comments: CommentItem[];
   canComment: boolean;
+  members?: Member[];
 }) {
+  const [, startTransition] = useTransition();
+  const [content, setContent] = useState("");
+  const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
   const action = addTaskCommentAction.bind(null, projectId, moduleId, taskId);
   const [state, formAction, pending] = useActionState(action, initialState);
   const router = useRouter();
 
   useEffect(() => {
     if (state.error) toast.error(state.error);
-    if (state.success) router.refresh();
-  }, [state, router]);
+    if (state.success) {
+      toast.success(state.success);
+      startTransition(() => {
+        setContent("");
+        setMentionedUserIds([]);
+        router.refresh();
+      });
+    }
+  }, [state, router, startTransition]);
+
+  function toggleMention(member: Member) {
+    setMentionedUserIds((prev) =>
+      prev.includes(member.userId) ? prev.filter((id) => id !== member.userId) : [...prev, member.userId],
+    );
+    setContent((prev) => {
+      const tag = `@${member.fullName}`;
+      return prev.includes(tag) ? prev : `${prev}${prev && !prev.endsWith(" ") ? " " : ""}${tag} `;
+    });
+  }
 
   return (
     <div className="space-y-3">
@@ -265,7 +288,36 @@ export function TaskComments({
       </div>
       {canComment ? (
         <form action={formAction} className="space-y-2">
-          <Textarea name="content" rows={2} required />
+          <Textarea
+            name="content"
+            rows={3}
+            required
+            value={content}
+            onChange={(event) => setContent(event.target.value)}
+            placeholder="Nhập bình luận, dùng @ để nhắc thành viên..."
+          />
+          {mentionedUserIds.map((userId) => (
+            <input key={userId} type="hidden" name="mentionedUserIds" value={userId} />
+          ))}
+          {members.length > 0 ? (
+            <div className="flex flex-wrap gap-1">
+              {members.map((member) => {
+                const active = mentionedUserIds.includes(member.userId);
+                return (
+                  <Button
+                    key={member.userId}
+                    type="button"
+                    size="xs"
+                    variant={active ? "default" : "outline"}
+                    title={member.email || member.fullName}
+                    onClick={() => toggleMention(member)}
+                  >
+                    @{member.fullName}
+                  </Button>
+                );
+              })}
+            </div>
+          ) : null}
           <Button type="submit" size="sm" disabled={pending}>
             {pending ? "Đang gửi..." : "Gửi"}
           </Button>
