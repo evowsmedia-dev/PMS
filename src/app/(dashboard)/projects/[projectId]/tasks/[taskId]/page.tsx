@@ -192,7 +192,7 @@ export default async function ProjectTaskDetailPage({
             <TaskEditForm
               projectId={projectId}
               moduleId={taskModuleId}
-              taskId={taskId}
+              taskId={task.id}
               taskCode={task.taskCode}
               title={task.title}
               description={task.description ?? ""}
@@ -227,7 +227,7 @@ export default async function ProjectTaskDetailPage({
                 id: document.id,
                 label: `${document.module.name} · ${document.title}`,
               }))}
-              createChildTaskHref={`/projects/${projectId}/tasks/new?parentTaskId=${taskId}`}
+              createChildTaskHref={`/projects/${projectId}/tasks/new?parentTaskId=${task.id}`}
               canCreateChild={canCreate}
               allowAutoSubtask={!task.parentTaskId}
               canEdit={canEdit}
@@ -296,11 +296,11 @@ export default async function ProjectTaskDetailPage({
             <section className="border-t pt-4">
               <p className="text-sm font-semibold">Log time</p>
               <div className="mt-2 space-y-2">
-                <TaskTimeLogForm projectId={projectId} moduleId={taskModuleId} taskId={taskId} canEdit={canEdit} />
+                <TaskTimeLogForm projectId={projectId} moduleId={taskModuleId} taskId={task.id} canEdit={canEdit} />
                 <TaskTimeLogList
                   projectId={projectId}
                   moduleId={taskModuleId}
-                  taskId={taskId}
+                  taskId={task.id}
                   currentUserId={session.user.id}
                   canEdit={canEdit}
                   timeLogs={task.timeLogs.map((log) => ({
@@ -325,7 +325,7 @@ export default async function ProjectTaskDetailPage({
             <TaskComments
               projectId={projectId}
               moduleId={taskModuleId}
-              taskId={taskId}
+              taskId={task.id}
               comments={task.comments.map((c) => ({ ...c, createdAt: c.createdAt.toISOString() }))}
               canComment={canComment}
               members={members.map((member) => ({
