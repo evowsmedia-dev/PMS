@@ -61,11 +61,19 @@ function ReadOnlyFieldGrid({ fields }: { fields: { label: string; value: ReactNo
   );
 }
 
-function ReadOnlyField({ label, value }: { label: string; value: ReactNode }) {
+function ReadOnlyField({
+  label,
+  value,
+  align = "right",
+}: {
+  label: string;
+  value: ReactNode;
+  align?: "left" | "right";
+}) {
   return (
     <div className="flex min-w-0 items-start justify-between gap-3 rounded-md border bg-background px-3 py-2 text-sm">
       <p className="shrink-0 text-muted-foreground">{label}</p>
-      <div className="min-w-0 break-words text-right font-medium">{value}</div>
+      <div className={`min-w-0 break-words font-medium ${align === "left" ? "text-left" : "text-right"}`}>{value}</div>
     </div>
   );
 }
@@ -289,7 +297,7 @@ export function TaskEditForm({
           <>
             <TaskSection title="Thông tin chung">
               <ReadOnlyFieldGrid fields={commonInfoFields} />
-              <ReadOnlyField label="Tiêu đề" value={title || "—"} />
+              <ReadOnlyField label="Tiêu đề" value={title || "—"} align="left" />
               <ReadOnlyBlock label="Mô tả" value={readOnlyDetails.description} empty="Chưa có mô tả." />
               <ReadOnlyBlock
                 label="Tiêu chí nghiệm thu"
