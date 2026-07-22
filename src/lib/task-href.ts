@@ -1,10 +1,11 @@
-/** Builds a task link. The task segment is always the raw task id; task detail
- * pages canonicalize project/module segments to their short readable routes. */
-export function taskHref(projectId: string, moduleId: string | null, taskId: string): string {
+/** Builds a task link. The task segment prefers the business task code and
+ * falls back to the raw database id for tasks that do not have a code yet. */
+export function taskHref(projectId: string, moduleId: string | null, taskId: string, taskCode?: string | null): string {
+  const taskSegment = taskCode || taskId;
   if (moduleId) {
-    return `/projects/${projectId}/modules/${moduleId}/tasks/${taskId}`;
+    return `/projects/${projectId}/modules/${moduleId}/tasks/${taskSegment}`;
   }
-  return `/projects/${projectId}/tasks/${taskId}`;
+  return `/projects/${projectId}/tasks/${taskSegment}`;
 }
 
 /** Link to a document related to a task (review requests). Documents always live

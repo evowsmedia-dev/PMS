@@ -143,7 +143,7 @@ function TaskCard({
         ) : null}
       </div>
       <Link
-        href={taskHref(projectRouteSegment, task.moduleId ?? moduleId, task.id)}
+        href={taskHref(projectRouteSegment, task.moduleId ?? moduleId, task.id, task.taskCode)}
         className="line-clamp-2 font-medium leading-tight hover:underline"
         onClick={(e) => e.stopPropagation()}
       >

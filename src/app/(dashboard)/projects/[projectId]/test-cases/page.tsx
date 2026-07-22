@@ -42,7 +42,7 @@ export default async function TestCasesPage({
     prisma.testCase.findMany({
       where: { projectId, deletedAt: null },
       include: {
-        task: { select: { id: true, title: true, moduleId: true } },
+        task: { select: { id: true, title: true, taskCode: true, moduleId: true } },
         results: {
           orderBy: { executedAt: "desc" },
           take: 1,
@@ -91,7 +91,7 @@ export default async function TestCasesPage({
                       {tc.task ? " · " : ""}
                       {tc.task ? (
                         <Link
-                          href={taskHref(projectRouteSegment, tc.task.moduleId, tc.task.id)}
+                          href={taskHref(projectRouteSegment, tc.task.moduleId, tc.task.id, tc.task.taskCode)}
                           className="text-foreground underline-offset-4 hover:underline"
                         >
                           {tc.task.title}

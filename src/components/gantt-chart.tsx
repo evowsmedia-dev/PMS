@@ -162,7 +162,7 @@ export function GanttChart({
                     >
                       <div className="min-w-0 border-r px-3 py-2 text-sm">
                         <Link
-                          href={taskHref(projectRouteSegment, task.moduleId, task.id)}
+                          href={taskHref(projectRouteSegment, task.moduleId, task.id, task.taskCode)}
                           className="block truncate font-medium hover:underline"
                           title={task.title}
                         >

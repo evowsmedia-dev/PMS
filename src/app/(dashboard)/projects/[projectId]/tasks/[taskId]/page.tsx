@@ -59,7 +59,11 @@ export default async function ProjectTaskDetailPage({
   const projectId = project.id;
 
   const task = await prisma.task.findFirst({
-    where: { id: taskId, projectId, deletedAt: null },
+    where: {
+      projectId,
+      deletedAt: null,
+      OR: [{ id: taskId }, { taskCode: { equals: taskId, mode: "insensitive" } }],
+    },
     include: {
       assignee: { select: { fullName: true } },
       reviewer: { select: { fullName: true } },

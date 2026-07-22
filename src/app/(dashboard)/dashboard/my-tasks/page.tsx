@@ -165,7 +165,7 @@ function TaskCard({ task }: { task: TaskItem }) {
   const href =
     task.isReviewRequest && task.relatedDocumentId
       ? taskDocumentHref(projectRouteSegment, task.moduleId, task.relatedDocumentId)
-      : taskHref(projectRouteSegment, task.moduleId, task.id);
+      : taskHref(projectRouteSegment, task.moduleId, task.id, task.taskCode);
 
   return (
     <Link href={href}>

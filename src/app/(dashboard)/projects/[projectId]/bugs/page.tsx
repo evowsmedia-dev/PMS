@@ -52,7 +52,7 @@ export default async function BugsPage({
     prisma.bug.findMany({
       where,
       include: {
-        task: { select: { id: true, title: true, moduleId: true } },
+        task: { select: { id: true, title: true, taskCode: true, moduleId: true } },
         assignedTo: { select: { fullName: true } },
       },
       orderBy: { createdAt: "desc" },
@@ -112,7 +112,7 @@ export default async function BugsPage({
                     {b.task ? " · " : ""}
                     {b.task ? (
                       <Link
-                        href={taskHref(projectRouteSegment, b.task.moduleId, b.task.id)}
+                        href={taskHref(projectRouteSegment, b.task.moduleId, b.task.id, b.task.taskCode)}
                         className="text-foreground underline-offset-4 hover:underline"
                       >
                         {b.task.title}

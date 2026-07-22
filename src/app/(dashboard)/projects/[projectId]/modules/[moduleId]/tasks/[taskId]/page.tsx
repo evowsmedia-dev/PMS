@@ -76,7 +76,12 @@ export default async function TaskDetailPage({
   const moduleId = resolvedModule.id;
 
   const task = await prisma.task.findFirst({
-    where: { id: taskId, projectId, moduleId, deletedAt: null },
+    where: {
+      projectId,
+      moduleId,
+      deletedAt: null,
+      OR: [{ id: taskId }, { taskCode: { equals: taskId, mode: "insensitive" } }],
+    },
     include: {
       assignee: { select: { fullName: true } },
       reviewer: { select: { fullName: true } },
