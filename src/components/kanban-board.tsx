@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState, useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -22,39 +22,77 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { toast } from "sonner";
-import { EyeOff, GripVertical, Plus } from "lucide-react";
+import { EyeOff, GripVertical, Pencil, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { updateProjectKanbanStatusOrderAction } from "@/lib/actions/tasks";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { updateProjectKanbanStatusOrderAction, updateTaskAction } from "@/lib/actions/tasks";
 import {
   hiddenKanbanStatuses,
   makeKanbanStatusColumn,
   serializeKanbanStatusColumns,
   type KanbanStatusColumn,
 } from "@/lib/kanban-status-config";
-import { TASK_STATUS_LABEL, TASK_STATUS_ORDER, TASK_PRIORITY_LABEL, type TaskStatusValue } from "@/lib/validation/task";
+import {
+  TASK_PRIORITY_LABEL,
+  TASK_PRIORITY_ORDER,
+  TASK_STATUS_LABEL,
+  TASK_STATUS_ORDER,
+  type TaskStatusValue,
+} from "@/lib/validation/task";
 import { taskHref } from "@/lib/task-href";
 import { semanticToneClass, taskPriorityTone, taskStatusTone } from "@/lib/status-style";
+import type { ActionState } from "@/lib/actions/profile";
+
+const initialActionState: ActionState = {};
 
 export interface KanbanTask {
   id: string;
   title: string;
+  description?: string | null;
   taskCode?: string | null;
   status: string;
   priority: string;
   dueDate: string | null;
   moduleId?: string | null;
+  assigneeId?: string | null;
   assignee: { fullName: string } | null;
+}
+
+interface KanbanMember {
+  userId: string;
+  fullName: string;
 }
 
 function TaskCard({
   task,
   projectId,
   moduleId,
+  members,
+  canEditTasks,
 }: {
   task: KanbanTask;
   projectId: string;
   moduleId: string | null;
+  members: KanbanMember[];
+  canEditTasks: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
@@ -79,9 +117,16 @@ function TaskCard({
         blocked ? "border-[var(--status-danger-border)]" : ""
       } ${overdue ? "ring-1 ring-[var(--status-danger-border)]" : ""}`}
     >
-      {task.taskCode ? (
-        <span className="block truncate font-mono text-[10px] text-muted-foreground">{task.taskCode}</span>
-      ) : null}
+      <div className="flex min-w-0 items-start justify-between gap-1">
+        {task.taskCode ? (
+          <span className="block min-w-0 truncate font-mono text-[10px] text-muted-foreground">{task.taskCode}</span>
+        ) : (
+          <span />
+        )}
+        {canEditTasks ? (
+          <KanbanTaskEditDialog projectId={projectId} task={task} members={members} />
+        ) : null}
+      </div>
       <Link
         href={taskHref(projectId, task.moduleId ?? moduleId, task.id)}
         className="line-clamp-2 font-medium leading-tight hover:underline"
@@ -106,11 +151,154 @@ function TaskCard({
   );
 }
 
+function KanbanTaskEditDialog({
+  projectId,
+  task,
+  members,
+}: {
+  projectId: string;
+  task: KanbanTask;
+  members: KanbanMember[];
+}) {
+  const [open, setOpen] = useState(false);
+  const [assigneeId, setAssigneeId] = useState(task.assigneeId ?? "");
+  const action = updateTaskAction.bind(null, projectId, null, task.id);
+  const [state, formAction, pending] = useActionState(action, initialActionState);
+  const [, startTransition] = useTransition();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (state.error) toast.error(state.error);
+    if (state.success) {
+      toast.success(state.success);
+      startTransition(() => {
+        setOpen(false);
+        router.refresh();
+      });
+    }
+  }, [state, router, startTransition]);
+
+  function handleOpenChange(nextOpen: boolean) {
+    if (nextOpen) setAssigneeId(task.assigneeId ?? "");
+    setOpen(nextOpen);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <Button
+          type="button"
+          size="icon-xs"
+          variant="ghost"
+          title="Chỉnh sửa task"
+          onClick={(event) => event.stopPropagation()}
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <Pencil className="size-3.5" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>Chỉnh sửa task</DialogTitle>
+        </DialogHeader>
+        <form action={formAction} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor={`kanban-title-${task.id}`}>Tiêu đề</Label>
+            <Input id={`kanban-title-${task.id}`} name="title" defaultValue={task.title} required />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor={`kanban-description-${task.id}`}>Mô tả</Label>
+            <Textarea
+              id={`kanban-description-${task.id}`}
+              name="description"
+              defaultValue={task.description ?? ""}
+              rows={4}
+            />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor={`kanban-status-${task.id}`}>Trạng thái</Label>
+              <Select name="status" defaultValue={task.status}>
+                <SelectTrigger id={`kanban-status-${task.id}`} className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TASK_STATUS_ORDER.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {TASK_STATUS_LABEL[status]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={`kanban-priority-${task.id}`}>Độ ưu tiên</Label>
+              <Select name="priority" defaultValue={task.priority}>
+                <SelectTrigger id={`kanban-priority-${task.id}`} className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TASK_PRIORITY_ORDER.map((priority) => (
+                    <SelectItem key={priority} value={priority}>
+                      {TASK_PRIORITY_LABEL[priority]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor={`kanban-assignee-${task.id}`}>Người thực hiện</Label>
+              <input type="hidden" name="assigneeId" value={assigneeId} />
+              <Select
+                value={assigneeId || "__none"}
+                onValueChange={(value) => setAssigneeId(value === "__none" ? "" : value)}
+              >
+                <SelectTrigger id={`kanban-assignee-${task.id}`} className="w-full">
+                  <SelectValue placeholder="Chưa gán" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none">Chưa gán</SelectItem>
+                  {members.map((member) => (
+                    <SelectItem key={member.userId} value={member.userId}>
+                      {member.fullName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={`kanban-due-${task.id}`}>Deadline tổng</Label>
+              <Input
+                id={`kanban-due-${task.id}`}
+                name="dueDate"
+                type="date"
+                defaultValue={task.dueDate ? task.dueDate.slice(0, 10) : ""}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" disabled={pending} onClick={() => setOpen(false)}>
+              Hủy
+            </Button>
+            <Button type="submit" disabled={pending}>
+              {pending ? "Đang lưu..." : "Lưu thay đổi"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function Column({
   column,
   tasks,
   projectId,
   moduleId,
+  members,
+  canEditTasks,
   canConfigureStatuses,
   canHide,
   onHideStatus,
@@ -119,6 +307,8 @@ function Column({
   tasks: KanbanTask[];
   projectId: string;
   moduleId: string | null;
+  members: KanbanMember[];
+  canEditTasks: boolean;
   canConfigureStatuses: boolean;
   canHide: boolean;
   onHideStatus: (status: TaskStatusValue) => void;
@@ -213,7 +403,14 @@ function Column({
       <div ref={setNodeRef} className="flex-1 space-y-1.5 sm:space-y-2">
         <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
           {tasks.map((task) => (
-            <TaskCard key={task.id} task={task} projectId={projectId} moduleId={moduleId} />
+            <TaskCard
+              key={task.id}
+              task={task}
+              projectId={projectId}
+              moduleId={moduleId}
+              members={members}
+              canEditTasks={canEditTasks}
+            />
           ))}
         </SortableContext>
       </div>
@@ -280,13 +477,17 @@ export function KanbanBoard({
   moduleId,
   initialColumns,
   canConfigureStatuses,
+  canEditTasks,
   initialTasks,
+  members,
 }: {
   projectId: string;
   moduleId: string | null;
   initialColumns: KanbanStatusColumn[];
   canConfigureStatuses: boolean;
+  canEditTasks: boolean;
   initialTasks: KanbanTask[];
+  members: KanbanMember[];
 }) {
   const [tasks, setTasks] = useState(initialTasks);
   const [columnsConfig, setColumnsConfig] = useState(initialColumns);
@@ -433,6 +634,8 @@ export function KanbanBoard({
                 tasks={col.tasks}
                 projectId={projectId}
                 moduleId={moduleId}
+                members={members}
+                canEditTasks={canEditTasks}
                 canConfigureStatuses={canConfigureStatuses && !savingStatuses}
                 canHide={columnsConfig.reduce((sum, column) => sum + column.statuses.length, 0) > 1 && !savingStatuses}
                 onHideStatus={hideStatus}

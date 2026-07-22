@@ -42,6 +42,7 @@ export default async function ProjectKanbanPage({
 
   const canCreate = await canAccess({ systemRole: session.user.systemRole }, "task.create", projectRole);
   const canMove = await canAccess({ systemRole: session.user.systemRole }, "task.move", projectRole);
+  const canEditTasks = await canAccess({ systemRole: session.user.systemRole }, "task.edit", projectRole);
   const kanbanColumns = normalizeKanbanStatusColumns(project.kanbanStatusOrder);
 
   const where: Prisma.TaskWhereInput = {
@@ -138,18 +139,23 @@ export default async function ProjectKanbanPage({
       </div>
 
       <KanbanBoard
+        key={tasks.map((task) => `${task.id}:${task.updatedAt.toISOString()}:${task.status}`).join("|")}
         projectId={projectId}
         moduleId={null}
         initialColumns={kanbanColumns}
         canConfigureStatuses={canMove}
+        canEditTasks={canEditTasks}
+        members={members.map((m) => ({ userId: m.userId, fullName: m.user.fullName }))}
         initialTasks={tasks.map((t) => ({
           id: t.id,
           title: t.title,
+          description: t.description,
           taskCode: t.taskCode,
           status: t.status,
           priority: t.priority,
           dueDate: t.dueDate ? t.dueDate.toISOString() : null,
           moduleId: t.moduleId,
+          assigneeId: t.assigneeId,
           assignee: t.assignee,
         }))}
       />

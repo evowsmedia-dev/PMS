@@ -36,6 +36,7 @@ export default async function ModuleTasksPage({
 
   const projectRole = await getProjectRole(session.user.id, projectId);
   const canCreate = await canAccess({ systemRole: session.user.systemRole }, "task.create", projectRole);
+  const canEditTasks = await canAccess({ systemRole: session.user.systemRole }, "task.edit", projectRole);
   const assignedModuleIds = await getAssignedModuleIdsForUser({
     projectId,
     userId: session.user.id,
@@ -118,16 +119,23 @@ export default async function ModuleTasksPage({
       </div>
 
       <KanbanBoard
+        key={tasks.map((task) => `${task.id}:${task.updatedAt.toISOString()}:${task.status}`).join("|")}
         projectId={projectId}
         moduleId={moduleId}
         initialColumns={TASK_STATUS_ORDER.map((status) => makeKanbanStatusColumn([status]))}
         canConfigureStatuses={false}
+        canEditTasks={canEditTasks}
+        members={members.map((m) => ({ userId: m.userId, fullName: m.user.fullName }))}
         initialTasks={tasks.map((t) => ({
           id: t.id,
           title: t.title,
+          description: t.description,
+          taskCode: t.taskCode,
           status: t.status,
           priority: t.priority,
           dueDate: t.dueDate ? t.dueDate.toISOString() : null,
+          moduleId: t.moduleId,
+          assigneeId: t.assigneeId,
           assignee: t.assignee,
         }))}
       />
