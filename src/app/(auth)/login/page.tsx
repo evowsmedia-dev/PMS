@@ -1,3 +1,4 @@
+import Image from "next/image";
 import {
   Card,
   CardContent,
@@ -18,7 +19,19 @@ export default async function LoginPage({
   return (
     <Card className="w-full max-w-sm">
       <CardHeader>
-        <CardTitle className="text-xl">PMS</CardTitle>
+        <CardTitle className="flex items-center gap-2 text-xl">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border bg-background p-1">
+            <Image
+              src="/logo-Tre.png"
+              alt="Tre"
+              width={32}
+              height={15}
+              className="h-auto w-full object-contain"
+              priority
+            />
+          </span>
+          PMS
+        </CardTitle>
         <CardDescription>Đăng nhập để tiếp tục</CardDescription>
       </CardHeader>
       <CardContent>

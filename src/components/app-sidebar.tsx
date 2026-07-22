@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -67,8 +68,15 @@ export function AppSidebar({ isAdmin }: { isAdmin: boolean }) {
         href="/dashboard/overview"
         className="flex min-h-16 items-center gap-2 border-b p-4 hover:bg-sidebar-accent"
       >
-        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-[10px] font-bold leading-none text-primary-foreground">
-          PMS
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg border bg-background p-1">
+          <Image
+            src="/logo-Tre.png"
+            alt="Tre"
+            width={28}
+            height={14}
+            className="h-auto w-full object-contain"
+            priority
+          />
         </div>
         {!collapsed ? <span className="font-semibold">PMS</span> : null}
       </Link>

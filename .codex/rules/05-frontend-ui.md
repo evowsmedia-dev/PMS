@@ -57,6 +57,14 @@ Layout rules:
   table/card/detail content; reserve it for metadata, timestamps, tiny badges,
   or uppercase section labels.
 
+Typography and brand:
+
+- The app-wide sans font is `Google Sans Text`, with fallback stack
+  `Google Sans`, `Arial`, `system-ui`, `-apple-system`, `sans-serif`.
+- Keep `Geist Mono` only for monospace/code-adjacent UI.
+- Show the Tre logo together with the PMS app name in primary app chrome
+  whenever the app name is displayed as brand text.
+
 Client/server split:
 
 - Prefer Server Components for data fetching.

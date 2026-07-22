@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -42,7 +43,18 @@ export function MobileAppNav({ isAdmin }: { isAdmin: boolean }) {
       </SheetTrigger>
       <SheetContent side="left" className="w-[min(320px,85vw)] p-0">
         <SheetHeader className="border-b p-4">
-          <SheetTitle>PMS</SheetTitle>
+          <SheetTitle className="flex items-center gap-2">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border bg-background p-1">
+              <Image
+                src="/logo-Tre.png"
+                alt="Tre"
+                width={28}
+                height={14}
+                className="h-auto w-full object-contain"
+              />
+            </span>
+            PMS
+          </SheetTitle>
         </SheetHeader>
         <nav className="space-y-1 p-3">
           {NAV_ITEMS.map((item) => {
