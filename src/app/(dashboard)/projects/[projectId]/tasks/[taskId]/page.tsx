@@ -293,13 +293,7 @@ export default async function ProjectTaskDetailPage({
               </div>
             ) : null}
 
-          </CardContent>
-        </Card>
-        </div>
-
-        <Card className="h-fit min-w-0">
-          <CardContent className="space-y-5 pt-6">
-            <section>
+            <section className="border-t pt-4">
               <p className="text-sm font-semibold">Log time</p>
               <div className="mt-2 space-y-2">
                 <TaskTimeLogForm projectId={projectId} moduleId={taskModuleId} taskId={taskId} canEdit={canEdit} />
@@ -321,6 +315,13 @@ export default async function ProjectTaskDetailPage({
                 />
               </div>
             </section>
+
+          </CardContent>
+        </Card>
+        </div>
+
+        <Card className="h-fit min-w-0">
+          <CardContent className="space-y-5 pt-6">
             <TaskComments
               projectId={projectId}
               moduleId={taskModuleId}

@@ -70,10 +70,16 @@ function ReadOnlyField({
   value: ReactNode;
   align?: "left" | "right";
 }) {
+  const isLeftAligned = align === "left";
+
   return (
-    <div className="flex min-w-0 items-start justify-between gap-3 rounded-md border bg-background px-3 py-2 text-sm">
+    <div
+      className={`flex min-w-0 items-start gap-3 rounded-md border bg-background px-3 py-2 text-sm ${
+        isLeftAligned ? "justify-start" : "justify-between"
+      }`}
+    >
       <p className="shrink-0 text-muted-foreground">{label}</p>
-      <div className={`min-w-0 break-words font-medium ${align === "left" ? "text-left" : "text-right"}`}>{value}</div>
+      <div className={`min-w-0 break-words font-medium ${isLeftAligned ? "text-left" : "text-right"}`}>{value}</div>
     </div>
   );
 }
