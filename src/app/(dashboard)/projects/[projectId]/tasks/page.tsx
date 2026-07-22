@@ -240,7 +240,7 @@ export default async function ProjectTasksPage({
                   <span className="font-mono text-xs text-muted-foreground">{row.task.taskCode}</span>
                 ) : null}
                 <Link
-                  href={taskHref(projectId, row.task.moduleId, row.task.id)}
+                  href={taskHref(projectRouteSegment, row.task.moduleId, row.task.id)}
                   className="font-medium hover:underline"
                 >
                   {row.task.title}

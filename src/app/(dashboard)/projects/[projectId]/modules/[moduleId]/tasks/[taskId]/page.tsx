@@ -25,10 +25,10 @@ import {
 import {
   documentTitleRouteSegment,
   extractRouteId,
-  moduleRouteId,
   moduleNameRouteSegment,
   projectCodeRouteSegment,
-  projectRouteId,
+  projectRouteWhere,
+  routeSlug,
   taskRouteId,
 } from "@/lib/route-slug";
 import { bugStatusTone } from "@/lib/status-style";
@@ -50,9 +50,30 @@ export default async function TaskDetailPage({
   const session = await auth();
   if (!session?.user) redirect("/login");
   const { projectId: projectSegment, moduleId: moduleSegment, taskId: taskSegment } = await params;
-  const projectId = extractRouteId(projectSegment);
-  const moduleId = extractRouteId(moduleSegment);
   const taskId = extractRouteId(taskSegment);
+
+  const project = await prisma.project.findFirst({
+    where: projectRouteWhere(projectSegment),
+    select: { id: true },
+  });
+  if (!project) notFound();
+  const projectId = project.id;
+  const moduleLookup = extractRouteId(moduleSegment);
+  const module_ = await prisma.module.findFirst({
+    where: { id: moduleLookup, projectId, deletedAt: null },
+    select: { id: true, name: true },
+  });
+  const resolvedModule =
+    module_ ??
+    (
+      await prisma.module.findMany({
+        where: { projectId, deletedAt: null },
+        select: { id: true, name: true },
+        orderBy: { sortOrder: "asc" },
+      })
+    ).find((item) => routeSlug(item.name) === routeSlug(moduleSegment));
+  if (!resolvedModule) notFound();
+  const moduleId = resolvedModule.id;
 
   const task = await prisma.task.findFirst({
     where: { id: taskId, projectId, moduleId, deletedAt: null },
@@ -95,8 +116,8 @@ export default async function TaskDetailPage({
   });
   if (!task) notFound();
 
-  const canonicalProjectSegment = projectRouteId(task.project);
-  const canonicalModuleSegment = moduleRouteId(task.module!);
+  const canonicalProjectSegment = projectCodeRouteSegment(task.project);
+  const canonicalModuleSegment = moduleNameRouteSegment(task.module!);
   const canonicalTaskSegment = taskRouteId(task);
   if (
     projectSegment !== canonicalProjectSegment ||

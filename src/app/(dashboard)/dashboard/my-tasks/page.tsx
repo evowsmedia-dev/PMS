@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TASK_PRIORITY_LABEL } from "@/lib/validation/task";
 import { taskHref, taskDocumentHref } from "@/lib/task-href";
+import { projectCodeRouteSegment } from "@/lib/route-slug";
 import { PageShell, PageSection, PageToolbar } from "@/components/page-shell";
 import type { Prisma, TaskStatus } from "@/generated/prisma/client";
 import { taskPriorityTone } from "@/lib/status-style";
@@ -20,7 +21,7 @@ const taskCardSelect = {
   dueDate: true,
   isReviewRequest: true,
   relatedDocumentId: true,
-  project: { select: { id: true, name: true } },
+  project: { select: { id: true, code: true, name: true } },
 } satisfies Prisma.TaskSelect;
 
 interface TaskItem {
@@ -32,7 +33,7 @@ interface TaskItem {
   dueDate: Date | null;
   isReviewRequest: boolean;
   relatedDocumentId: string | null;
-  project: { id: string; name: string };
+  project: { id: string; code: string; name: string };
 }
 
 export default async function MyTasksPage() {
@@ -160,10 +161,11 @@ async function getTaskSections(userId: string) {
 }
 
 function TaskCard({ task }: { task: TaskItem }) {
+  const projectRouteSegment = projectCodeRouteSegment(task.project);
   const href =
     task.isReviewRequest && task.relatedDocumentId
-      ? taskDocumentHref(task.project.id, task.moduleId, task.relatedDocumentId)
-      : taskHref(task.project.id, task.moduleId, task.id);
+      ? taskDocumentHref(projectRouteSegment, task.moduleId, task.relatedDocumentId)
+      : taskHref(projectRouteSegment, task.moduleId, task.id);
 
   return (
     <Link href={href}>

@@ -97,12 +97,14 @@ const STATUS_ASSIGNEE_ROLES: Partial<Record<string, string[]>> = {
 function TaskCard({
   task,
   projectId,
+  projectRouteSegment,
   moduleId,
   members,
   canEditTasks,
 }: {
   task: KanbanTask;
   projectId: string;
+  projectRouteSegment: string;
   moduleId: string | null;
   members: KanbanMember[];
   canEditTasks: boolean;
@@ -141,7 +143,7 @@ function TaskCard({
         ) : null}
       </div>
       <Link
-        href={taskHref(projectId, task.moduleId ?? moduleId, task.id)}
+        href={taskHref(projectRouteSegment, task.moduleId ?? moduleId, task.id)}
         className="line-clamp-2 font-medium leading-tight hover:underline"
         onClick={(e) => e.stopPropagation()}
       >
@@ -307,6 +309,7 @@ function Column({
   column,
   tasks,
   projectId,
+  projectRouteSegment,
   moduleId,
   members,
   canEditTasks,
@@ -317,6 +320,7 @@ function Column({
   column: KanbanStatusColumn;
   tasks: KanbanTask[];
   projectId: string;
+  projectRouteSegment: string;
   moduleId: string | null;
   members: KanbanMember[];
   canEditTasks: boolean;
@@ -418,6 +422,7 @@ function Column({
               key={task.id}
               task={task}
               projectId={projectId}
+              projectRouteSegment={projectRouteSegment}
               moduleId={moduleId}
               members={members}
               canEditTasks={canEditTasks}
@@ -485,6 +490,7 @@ function HiddenStatusButton({
 
 export function KanbanBoard({
   projectId,
+  projectRouteSegment = projectId,
   moduleId,
   initialColumns,
   canConfigureStatuses,
@@ -494,6 +500,7 @@ export function KanbanBoard({
   activeAssigneeId,
 }: {
   projectId: string;
+  projectRouteSegment?: string;
   moduleId: string | null;
   initialColumns: KanbanStatusColumn[];
   canConfigureStatuses: boolean;
@@ -743,6 +750,7 @@ export function KanbanBoard({
                 column={col.column}
                 tasks={col.tasks}
                 projectId={projectId}
+                projectRouteSegment={projectRouteSegment}
                 moduleId={moduleId}
                 members={members}
                 canEditTasks={canEditTasks}

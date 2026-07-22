@@ -141,6 +141,7 @@ export default async function ProjectKanbanPage({
       <KanbanBoard
         key={tasks.map((task) => `${task.id}:${task.updatedAt.toISOString()}:${task.status}:${task.assigneeId ?? ""}`).join("|")}
         projectId={projectId}
+        projectRouteSegment={projectRouteSegment}
         moduleId={null}
         initialColumns={kanbanColumns}
         canConfigureStatuses={canMove}

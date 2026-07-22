@@ -112,7 +112,7 @@ export default async function BugsPage({
                     {b.task ? " · " : ""}
                     {b.task ? (
                       <Link
-                        href={taskHref(projectId, b.task.moduleId, b.task.id)}
+                        href={taskHref(projectRouteSegment, b.task.moduleId, b.task.id)}
                         className="text-foreground underline-offset-4 hover:underline"
                       >
                         {b.task.title}

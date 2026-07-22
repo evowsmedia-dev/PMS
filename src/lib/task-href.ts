@@ -1,6 +1,5 @@
-/** Builds the canonical link to a task. Tasks created at the project level have
- * no module, so they live under /projects/[id]/tasks/[taskId]; module-scoped
- * tasks keep their legacy /projects/[id]/modules/[moduleId]/tasks/[taskId] URL. */
+/** Builds a task link. The task segment is always the raw task id; task detail
+ * pages canonicalize project/module segments to their short readable routes. */
 export function taskHref(projectId: string, moduleId: string | null, taskId: string): string {
   if (moduleId) {
     return `/projects/${projectId}/modules/${moduleId}/tasks/${taskId}`;

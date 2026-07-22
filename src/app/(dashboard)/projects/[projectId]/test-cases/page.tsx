@@ -91,7 +91,7 @@ export default async function TestCasesPage({
                       {tc.task ? " · " : ""}
                       {tc.task ? (
                         <Link
-                          href={taskHref(projectId, tc.task.moduleId, tc.task.id)}
+                          href={taskHref(projectRouteSegment, tc.task.moduleId, tc.task.id)}
                           className="text-foreground underline-offset-4 hover:underline"
                         >
                           {tc.task.title}

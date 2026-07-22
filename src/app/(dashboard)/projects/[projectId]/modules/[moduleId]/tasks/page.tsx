@@ -13,7 +13,7 @@ import { TASK_STATUS_ORDER } from "@/lib/validation/task";
 import { makeKanbanStatusColumn } from "@/lib/kanban-status-config";
 import { Plus } from "lucide-react";
 import type { Prisma, TaskPriority } from "@/generated/prisma/client";
-import { projectRouteWhere } from "@/lib/route-slug";
+import { projectCodeRouteSegment, projectRouteWhere } from "@/lib/route-slug";
 
 export default async function ModuleTasksPage({
   params,
@@ -27,9 +27,10 @@ export default async function ModuleTasksPage({
   const { projectId: projectSegment, moduleId } = await params;
   const sp = await searchParams;
 
-  const project = await prisma.project.findFirst({ where: projectRouteWhere(projectSegment), select: { id: true } });
+  const project = await prisma.project.findFirst({ where: projectRouteWhere(projectSegment), select: { id: true, code: true } });
   if (!project) notFound();
   const projectId = project.id;
+  const projectRouteSegment = projectCodeRouteSegment(project);
 
   const module_ = await prisma.module.findFirst({ where: { id: moduleId, projectId } });
   if (!module_) notFound();
@@ -121,6 +122,7 @@ export default async function ModuleTasksPage({
       <KanbanBoard
         key={tasks.map((task) => `${task.id}:${task.updatedAt.toISOString()}:${task.status}:${task.assigneeId ?? ""}`).join("|")}
         projectId={projectId}
+        projectRouteSegment={projectRouteSegment}
         moduleId={moduleId}
         initialColumns={TASK_STATUS_ORDER.map((status) => makeKanbanStatusColumn([status]))}
         canConfigureStatuses={false}

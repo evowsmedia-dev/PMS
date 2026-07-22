@@ -52,6 +52,6 @@ export function documentRouteId(document: { id: string; title: string }) {
   return decorateRouteId(document.id, document.title);
 }
 
-export function taskRouteId(task: { id: string; taskCode?: string | null; title: string }) {
-  return decorateRouteId(task.id, [task.taskCode, task.title].filter(Boolean).join(" "));
+export function taskRouteId(task: { id: string }) {
+  return task.id;
 }

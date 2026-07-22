@@ -27,7 +27,7 @@ import {
   extractRouteId,
   moduleNameRouteSegment,
   projectCodeRouteSegment,
-  projectRouteId,
+  projectRouteWhere,
   taskRouteId,
 } from "@/lib/route-slug";
 import { bugStatusTone } from "@/lib/status-style";
@@ -49,8 +49,14 @@ export default async function ProjectTaskDetailPage({
   const session = await auth();
   if (!session?.user) redirect("/login");
   const { projectId: projectSegment, taskId: taskSegment } = await params;
-  const projectId = extractRouteId(projectSegment);
   const taskId = extractRouteId(taskSegment);
+
+  const project = await prisma.project.findFirst({
+    where: projectRouteWhere(projectSegment),
+    select: { id: true },
+  });
+  if (!project) notFound();
+  const projectId = project.id;
 
   const task = await prisma.task.findFirst({
     where: { id: taskId, projectId, deletedAt: null },
@@ -97,7 +103,7 @@ export default async function ProjectTaskDetailPage({
   });
   if (!task) notFound();
 
-  const canonicalProjectSegment = projectRouteId(task.project);
+  const canonicalProjectSegment = projectCodeRouteSegment(task.project);
   const canonicalTaskSegment = taskRouteId(task);
   if (projectSegment !== canonicalProjectSegment || taskSegment !== canonicalTaskSegment) {
     redirect(`/projects/${canonicalProjectSegment}/tasks/${canonicalTaskSegment}`);
