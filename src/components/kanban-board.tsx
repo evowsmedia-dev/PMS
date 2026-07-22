@@ -22,7 +22,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { toast } from "sonner";
-import { EyeOff, GripVertical, Pencil, Plus } from "lucide-react";
+import { AlertTriangle, EyeOff, GripVertical, Pencil, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -505,6 +505,14 @@ export function KanbanBoard({
   const [tasks, setTasks] = useState(initialTasks);
   const [columnsConfig, setColumnsConfig] = useState(initialColumns);
   const [savingStatuses, setSavingStatuses] = useState(false);
+  const [pendingMove, setPendingMove] = useState<{
+    task: KanbanTask;
+    nextStatus: string;
+    previousStatus: string;
+    requiredRoles: string[];
+  } | null>(null);
+  const [pendingAssigneeId, setPendingAssigneeId] = useState("");
+  const [movingTaskId, setMovingTaskId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
   const router = useRouter();
@@ -537,22 +545,94 @@ export function KanbanBoard({
   }
 
   function optimisticAssigneeForStatus(status: string, currentAssigneeId?: string | null) {
-    const roles = STATUS_ASSIGNEE_ROLES[status];
     const currentMember = members.find((member) => member.userId === currentAssigneeId);
-    if (!roles?.length) {
-      return currentMember
-        ? { assigneeId: currentMember.userId, assignee: { fullName: currentMember.fullName } }
-        : { assigneeId: currentAssigneeId ?? null, assignee: null };
-    }
-    if (currentMember && roles.includes(currentMember.role)) {
+    if (currentMember) {
       return { assigneeId: currentMember.userId, assignee: { fullName: currentMember.fullName } };
+    }
+
+    const roles = STATUS_ASSIGNEE_ROLES[status];
+    if (!roles?.length) {
+      return { assigneeId: null, assignee: null };
     }
     const nextMember = members
       .filter((member) => roles.includes(member.role))
       .sort((a, b) => roles.indexOf(a.role) - roles.indexOf(b.role))[0];
     return nextMember
       ? { assigneeId: nextMember.userId, assignee: { fullName: nextMember.fullName } }
-      : { assigneeId: currentAssigneeId ?? null, assignee: currentMember ? { fullName: currentMember.fullName } : null };
+      : { assigneeId: null, assignee: null };
+  }
+
+  function rollbackTask(task: KanbanTask, previousStatus: string) {
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === task.id
+          ? {
+              ...t,
+              status: previousStatus,
+              assigneeId: task.assigneeId ?? null,
+              assignee: task.assignee ?? null,
+            }
+          : t,
+      ),
+    );
+  }
+
+  async function moveTaskToStatus(task: KanbanTask, nextStatus: string, previousStatus: string, assigneeId?: string) {
+    setMovingTaskId(task.id);
+    try {
+      const res = await fetch(`/api/tasks/${task.id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: nextStatus, ...(assigneeId ? { assigneeId } : {}) }),
+      });
+      const payload = (await res.json()) as {
+        code?: string;
+        error?: string;
+        requiredRoles?: string[];
+        task?: {
+          status?: string;
+          assigneeId?: string | null;
+          assignee?: { fullName: string } | null;
+        };
+      };
+      if (!res.ok) {
+        if (payload.code === "ASSIGNEE_REQUIRED") {
+          rollbackTask(task, previousStatus);
+          setPendingMove({
+            task,
+            nextStatus,
+            previousStatus,
+            requiredRoles: payload.requiredRoles ?? STATUS_ASSIGNEE_ROLES[nextStatus] ?? [],
+          });
+          setPendingAssigneeId("");
+          toast.warning(payload.error ?? "Vui lòng chọn người phụ trách trước khi chuyển trạng thái.");
+          return;
+        }
+        throw new Error(payload.error ?? "Request failed");
+      }
+
+      const nextAssigneeId = payload.task?.assigneeId ?? null;
+      setTasks((prev) =>
+        prev
+          .map((t) =>
+            t.id === task.id
+              ? {
+                  ...t,
+                  status: payload.task?.status ?? nextStatus,
+                  assigneeId: nextAssigneeId,
+                  assignee: payload.task?.assignee ?? null,
+                }
+              : t,
+          )
+          .filter((t) => (activeAssigneeId && t.id === task.id ? t.assigneeId === activeAssigneeId : true)),
+      );
+      router.refresh();
+    } catch {
+      rollbackTask(task, previousStatus);
+      toast.error("Không thể cập nhật trạng thái task.");
+    } finally {
+      setMovingTaskId(null);
+    }
   }
 
   async function persistColumns(nextColumns: KanbanStatusColumn[], previousColumns = columnsConfig) {
@@ -630,56 +710,13 @@ export function KanbanBoard({
       prev.map((t) => (t.id === activeTask.id ? { ...t, status: nextStatus, ...optimisticAssignee } : t)),
     );
 
-    try {
-      const res = await fetch(`/api/tasks/${activeTask.id}/status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: nextStatus }),
-      });
-      if (!res.ok) throw new Error("Request failed");
-      const payload = (await res.json()) as {
-        task?: {
-          status?: string;
-          assigneeId?: string | null;
-          assignee?: { fullName: string } | null;
-        };
-      };
-      const nextAssigneeId = payload.task?.assigneeId ?? null;
-      setTasks((prev) =>
-        prev.flatMap((t) =>
-          t.id === activeTask.id
-            ? {
-                ...t,
-                status: payload.task?.status ?? nextStatus,
-                assigneeId: nextAssigneeId,
-                assignee: payload.task?.assignee ?? null,
-              }
-            : t,
-        ).filter((t) =>
-          activeAssigneeId && t.id === activeTask.id ? t.assigneeId === activeAssigneeId : true,
-        ),
-      );
-      router.refresh();
-    } catch {
-      setTasks((prev) =>
-        prev.map((t) =>
-          t.id === activeTask.id
-            ? {
-                ...t,
-                status: previousStatus,
-                assigneeId: activeTask.assigneeId ?? null,
-                assignee: activeTask.assignee ?? null,
-              }
-            : t,
-        ),
-      );
-      toast.error("Không thể cập nhật trạng thái task.");
-    }
+    await moveTaskToStatus(activeTask, nextStatus, previousStatus);
   }
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
-      <div className="space-y-3">
+    <>
+      <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
+        <div className="space-y-3">
         {canConfigureStatuses ? (
           <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-background p-2 text-sm">
             <span className="text-xs font-semibold uppercase text-muted-foreground">Trạng thái đã ẩn</span>
@@ -716,7 +753,80 @@ export function KanbanBoard({
             ))}
           </div>
         </SortableContext>
-      </div>
-    </DndContext>
+        </div>
+      </DndContext>
+      <Dialog open={Boolean(pendingMove)} onOpenChange={(open) => {
+        if (!open) {
+          setPendingMove(null);
+          setPendingAssigneeId("");
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Chọn người phụ trách</DialogTitle>
+          </DialogHeader>
+          {pendingMove ? (
+            <div className="space-y-4">
+              <div className="flex gap-3 rounded-lg border bg-muted p-3 text-sm">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                <div className="space-y-1">
+                  <p className="font-medium">Task chưa có người phụ trách phù hợp để chuyển sang {TASK_STATUS_LABEL[pendingMove.nextStatus]}.</p>
+                  <p className="text-muted-foreground">
+                    Role gợi ý: {pendingMove.requiredRoles.length > 0 ? pendingMove.requiredRoles.join(", ") : "không yêu cầu cụ thể"}.
+                    Chọn một nhân sự trong dự án để tiếp tục.
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="kanban-required-assignee">Người phụ trách</Label>
+                <Select value={pendingAssigneeId} onValueChange={setPendingAssigneeId}>
+                  <SelectTrigger id="kanban-required-assignee" className="w-full">
+                    <SelectValue placeholder="Chọn nhân sự" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {members.map((member) => (
+                      <SelectItem key={member.userId} value={member.userId}>
+                        {member.fullName} · {member.role}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={Boolean(movingTaskId)}
+              onClick={() => {
+                setPendingMove(null);
+                setPendingAssigneeId("");
+              }}
+            >
+              Hủy
+            </Button>
+            <Button
+              type="button"
+              disabled={!pendingMove || !pendingAssigneeId || Boolean(movingTaskId)}
+              onClick={() => {
+                if (!pendingMove || !pendingAssigneeId) return;
+                void moveTaskToStatus(
+                  pendingMove.task,
+                  pendingMove.nextStatus,
+                  pendingMove.previousStatus,
+                  pendingAssigneeId,
+                ).then(() => {
+                  setPendingMove(null);
+                  setPendingAssigneeId("");
+                });
+              }}
+            >
+              {movingTaskId ? "Đang chuyển..." : "Assign và chuyển trạng thái"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

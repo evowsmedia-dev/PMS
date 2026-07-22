@@ -34,7 +34,7 @@ export async function PATCH(
   }
 
   const { taskId } = await context.params;
-  const body = (await request.json()) as { status?: string };
+  const body = (await request.json()) as { status?: string; assigneeId?: string | null };
   const status = body.status;
   if (!status || !VALID_STATUSES.includes(status)) {
     return NextResponse.json({ error: "Invalid status" }, { status: 400 });
@@ -51,15 +51,27 @@ export async function PATCH(
   }
 
   const maxOrder = await prisma.task.aggregate({
-    where: { moduleId: task.moduleId, status: status as never, deletedAt: null },
+    where: { projectId: task.projectId, moduleId: task.moduleId, status: status as never, deletedAt: null },
     _max: { sortOrder: true },
   });
 
-  const nextAssigneeId = await assigneeForStatus({
+  const assignment = await assigneeForStatus({
     projectId: task.projectId,
     currentAssigneeId: task.assigneeId,
+    requestedAssigneeId: body.assigneeId ?? null,
     status,
   });
+  if (assignment.error) {
+    return NextResponse.json(
+      {
+        error: assignment.error,
+        code: assignment.code,
+        requiredRoles: assignment.requiredRoles,
+      },
+      { status: 409 },
+    );
+  }
+  const nextAssigneeId = assignment.assigneeId;
 
   const updatedTask = await prisma.task.update({
     where: { id: taskId },
@@ -165,14 +177,43 @@ export async function PATCH(
 async function assigneeForStatus({
   projectId,
   currentAssigneeId,
+  requestedAssigneeId,
   status,
 }: {
   projectId: string;
   currentAssigneeId: string | null;
+  requestedAssigneeId: string | null;
   status: string;
-}) {
+}): Promise<{
+  assigneeId: string | null;
+  code?: "ASSIGNEE_REQUIRED";
+  error?: string;
+  requiredRoles?: ProjectRole[];
+}> {
+  if (currentAssigneeId) return { assigneeId: currentAssigneeId };
+
+  if (requestedAssigneeId) {
+    const requestedMember = await prisma.projectMember.findFirst({
+      where: {
+        projectId,
+        userId: requestedAssigneeId,
+        user: { isActive: true },
+      },
+      select: { userId: true },
+    });
+    if (!requestedMember) {
+      return {
+        assigneeId: null,
+        code: "ASSIGNEE_REQUIRED",
+        error: "Người được chọn không thuộc dự án hoặc tài khoản không còn active.",
+        requiredRoles: [],
+      };
+    }
+    return { assigneeId: requestedMember.userId };
+  }
+
   const roles = STATUS_ASSIGNEE_ROLES[status];
-  if (!roles?.length) return currentAssigneeId;
+  if (!roles?.length) return { assigneeId: null };
 
   const members = await prisma.projectMember.findMany({
     where: { projectId, role: { in: roles } },
@@ -184,9 +225,13 @@ async function assigneeForStatus({
     orderBy: { addedAt: "asc" },
   });
   const activeMembers = members.filter((member) => member.user.isActive);
-  if (activeMembers.length === 0) return currentAssigneeId;
-  if (currentAssigneeId && activeMembers.some((member) => member.userId === currentAssigneeId)) {
-    return currentAssigneeId;
+  if (activeMembers.length === 0) {
+    return {
+      assigneeId: null,
+      code: "ASSIGNEE_REQUIRED",
+      error: `Dự án chưa có nhân sự role ${roles.join("/")} cho trạng thái ${status}. Vui lòng chọn người phụ trách trước khi chuyển trạng thái.`,
+      requiredRoles: roles,
+    };
   }
 
   const activeTaskCounts = await prisma.task.groupBy({
@@ -201,7 +246,7 @@ async function assigneeForStatus({
   });
   const countByUserId = new Map(activeTaskCounts.map((item) => [item.assigneeId, item._count._all]));
 
-  return activeMembers
+  const nextAssigneeId = activeMembers
     .map((member, index) => ({
       userId: member.userId,
       roleIndex: roles.indexOf(member.role),
@@ -209,4 +254,6 @@ async function assigneeForStatus({
       index,
     }))
     .sort((a, b) => a.roleIndex - b.roleIndex || a.activeCount - b.activeCount || a.index - b.index)[0].userId;
+
+  return { assigneeId: nextAssigneeId };
 }
