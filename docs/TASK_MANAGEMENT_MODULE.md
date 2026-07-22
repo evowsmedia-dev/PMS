@@ -264,6 +264,15 @@ overdue, vertical line = today, grouped by epic. Schedule, parent task, related
 documents, external links, and effort fields are edited from the unified task
 detail edit form.
 
+**Kanban auto-assignment** — dragging a task to a status column updates the task
+status and automatically assigns the task to an active project member with the
+role responsible for that workflow step. Dev-owned states (`TODO`,
+`IN_PROGRESS`, `BUG_FIXING`, `REOPENED`) prefer `DEV`; QA states
+(`READY_FOR_QA`, `TESTING`) prefer `TESTER`; review/UAT/blocked states prefer
+`BA`, then `PO`, then `OWNER`. If multiple members match, the member with the
+fewest active assigned tasks is selected; if no matching active member exists,
+the current assignee is kept.
+
 **Daily snapshot** — `GET /api/cron/daily-project-snapshots` (guarded by
 `CRON_SECRET`) iterates active projects and upserts one `DailyProjectSnapshot` per
 project per day; the overview burndown reads from these rows. Scheduled daily at

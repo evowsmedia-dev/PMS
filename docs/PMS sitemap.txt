@@ -136,7 +136,9 @@ Ghi chú:
 │   └── History chỉ hiển thị người thay đổi, tên trường dữ liệu và thời gian thay đổi.
 │
 ├── /projects/:projectId/kanban
-│   └── Kanban project-level theo 12 trạng thái task.
+│   ├── Kanban project-level theo 12 trạng thái task.
+│   ├── Kéo task sang cột trạng thái sẽ đổi status và tự gán assignee theo role phụ trách trạng thái đó.
+│   └── Nếu nhiều member cùng role phù hợp, hệ thống ưu tiên người có ít task active nhất.
 │
 ├── /projects/:projectId/gantt
 │   ├── Timeline/Gantt project-level theo epic/schedule/progress.
