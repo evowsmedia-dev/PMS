@@ -353,27 +353,28 @@ export function TaskTimeLogForm({
   if (!canEdit) return null;
 
   return (
-    <form action={formAction} className="space-y-2 rounded-md border p-3">
-      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_140px_auto]">
-        <Select name="workType" defaultValue="DEV">
-          <SelectTrigger className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {TASK_WORK_TYPE_ORDER.map((type) => (
-              <SelectItem key={type} value={type}>
-                {TASK_WORK_TYPE_LABEL[type]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Input name="workDate" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required />
-        <Button type="submit" size="sm" disabled={pending}>
-          {pending ? "Đang lưu..." : "Log giờ"}
-        </Button>
-      </div>
+    <form
+      action={formAction}
+      className="grid gap-2 rounded-md border p-3 md:grid-cols-[150px_140px_96px_minmax(220px,1fr)_auto]"
+    >
+      <Select name="workType" defaultValue="DEV">
+        <SelectTrigger className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {TASK_WORK_TYPE_ORDER.map((type) => (
+            <SelectItem key={type} value={type}>
+              {TASK_WORK_TYPE_LABEL[type]}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Input name="workDate" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required />
       <Input name="hours" type="number" min={0.25} step="0.25" placeholder="Giờ" required />
       <Input name="description" placeholder="Ghi chú công việc" />
+      <Button type="submit" size="sm" disabled={pending}>
+        {pending ? "Đang lưu..." : "Log giờ"}
+      </Button>
     </form>
   );
 }
