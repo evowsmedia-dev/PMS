@@ -138,7 +138,7 @@ export default async function DocumentDetailPage({
   const [allMembers, epics, sprints, milestones] = await Promise.all([
     prisma.projectMember.findMany({
       where: { projectId },
-      include: { user: { select: { id: true, fullName: true } } },
+      include: { user: { select: { id: true, fullName: true, email: true } } },
     }),
     prisma.epic.findMany({
       where: { projectId, deletedAt: null },
@@ -326,6 +326,11 @@ export default async function DocumentDetailPage({
               docId={docId}
               comments={doc.comments.map((c) => ({ ...c, createdAt: c.createdAt.toISOString() }))}
               canComment={await canAccess(roleCtx, "comment.create", projectRole)}
+              members={allMembers.map((m) => ({
+                userId: m.userId,
+                fullName: m.user.fullName,
+                email: m.user.email,
+              }))}
             />
           </CardContent>
         </Card>

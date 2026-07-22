@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useTransition } from "react";
+import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { toast } from "sonner";
@@ -22,22 +22,32 @@ interface CommentItem {
   author: { fullName: string };
 }
 
+interface Member {
+  userId: string;
+  fullName: string;
+  email?: string;
+}
+
 export function DocumentComments({
   projectId,
   moduleId,
   docId,
   comments,
   canComment,
+  members = [],
 }: {
   projectId: string;
   moduleId: string;
   docId: string;
   comments: CommentItem[];
   canComment: boolean;
+  members?: Member[];
 }) {
   const action = addDocumentCommentAction.bind(null, projectId, moduleId, docId);
   const [state, formAction, pending] = useActionState(action, initialState);
   const [, startTransition] = useTransition();
+  const [content, setContent] = useState("");
+  const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
   const { quote, setQuote } = useQuote();
   const formRef = useRef<HTMLFormElement>(null);
   const router = useRouter();
@@ -45,11 +55,26 @@ export function DocumentComments({
   useEffect(() => {
     if (state.error) toast.error(state.error);
     if (state.success) {
-      setQuote(null);
-      formRef.current?.reset();
-      router.refresh();
+      toast.success(state.success);
+      startTransition(() => {
+        setQuote(null);
+        setContent("");
+        setMentionedUserIds([]);
+        formRef.current?.reset();
+        router.refresh();
+      });
     }
-  }, [state, setQuote, router]);
+  }, [state, setQuote, router, startTransition]);
+
+  function toggleMention(member: Member) {
+    setMentionedUserIds((prev) =>
+      prev.includes(member.userId) ? prev.filter((id) => id !== member.userId) : [...prev, member.userId],
+    );
+    setContent((prev) => {
+      const tag = `@${member.fullName}`;
+      return prev.includes(tag) ? prev : `${prev}${prev && !prev.endsWith(" ") ? " " : ""}${tag} `;
+    });
+  }
 
   return (
     <div className="space-y-3">
@@ -117,10 +142,34 @@ export function DocumentComments({
           <input type="hidden" name="quotedText" value={quote ?? ""} readOnly />
           <Textarea
             name="content"
-            rows={2}
+            rows={3}
             placeholder="Viết nhận xét... dùng @tên để nhắc thành viên"
             required
+            value={content}
+            onChange={(event) => setContent(event.target.value)}
           />
+          {mentionedUserIds.map((userId) => (
+            <input key={userId} type="hidden" name="mentionedUserIds" value={userId} />
+          ))}
+          {members.length > 0 ? (
+            <div className="flex flex-wrap gap-1">
+              {members.map((member) => {
+                const active = mentionedUserIds.includes(member.userId);
+                return (
+                  <Button
+                    key={member.userId}
+                    type="button"
+                    size="xs"
+                    variant={active ? "default" : "outline"}
+                    title={member.email || member.fullName}
+                    onClick={() => toggleMention(member)}
+                  >
+                    @{member.fullName}
+                  </Button>
+                );
+              })}
+            </div>
+          ) : null}
           <Button type="submit" size="sm" className="w-full" disabled={pending}>
             {pending ? "Đang gửi..." : "Gửi nhận xét"}
           </Button>
