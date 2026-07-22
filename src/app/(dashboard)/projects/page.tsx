@@ -46,6 +46,7 @@ export default async function ProjectsPage({
           select: { id: true },
         },
         members: {
+          where: { user: { isActive: true } },
           select: {
             userId: true,
             role: true,

@@ -21,6 +21,7 @@ export default async function ProjectMembersPage({
     where: projectRouteWhere(projectSegment),
     include: {
       members: {
+        where: { user: { isActive: true } },
         include: {
           user: { select: { fullName: true, email: true } },
           documentTypeAssignments: { select: { moduleId: true } },

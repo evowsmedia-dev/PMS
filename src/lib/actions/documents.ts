@@ -860,10 +860,13 @@ export async function submitDocumentForReviewAction(
     return { error: "Bạn không có quyền gửi duyệt tài liệu này." };
   }
 
-  const reviewer = await prisma.user.findUnique({ where: { id: reviewerId } });
-  if (!reviewer) return { error: "Không tìm thấy người được chọn." };
+  const reviewerMember = await prisma.projectMember.findFirst({
+    where: { projectId, userId: reviewerId, user: { isActive: true } },
+    include: { user: { select: { systemRole: true } } },
+  });
+  if (!reviewerMember) return { error: "Người được chọn không thuộc dự án hoặc tài khoản không còn active." };
   const reviewerRole = await getProjectRole(reviewerId, projectId);
-  if (!(await canAccess({ systemRole: reviewer.systemRole }, "document.approve", reviewerRole))) {
+  if (!(await canAccess({ systemRole: reviewerMember.user.systemRole }, "document.approve", reviewerRole))) {
     return { error: "Người được chọn không có quyền phê duyệt." };
   }
 

@@ -60,7 +60,7 @@ export default async function ProjectKanbanPage({
       orderBy: { sortOrder: "asc" },
     }),
     prisma.projectMember.findMany({
-      where: { projectId },
+      where: { projectId, user: { isActive: true } },
       include: { user: { select: { id: true, fullName: true } } },
     }),
     prisma.sprint.findMany({
@@ -69,6 +69,7 @@ export default async function ProjectKanbanPage({
       orderBy: { startDate: "desc" },
     }),
   ]);
+  const activeMemberIds = new Set(members.map((member) => member.userId));
 
   function buildHref(overrides: Record<string, string | undefined>) {
     const next = new URLSearchParams({
@@ -157,8 +158,8 @@ export default async function ProjectKanbanPage({
           priority: t.priority,
           dueDate: t.dueDate ? t.dueDate.toISOString() : null,
           moduleId: t.moduleId,
-          assigneeId: t.assigneeId,
-          assignee: t.assignee,
+          assigneeId: activeMemberIds.has(t.assigneeId ?? "") ? t.assigneeId : null,
+          assignee: activeMemberIds.has(t.assigneeId ?? "") ? t.assignee : null,
         }))}
       />
     </PageSection>

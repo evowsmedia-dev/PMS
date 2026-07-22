@@ -57,6 +57,13 @@ export async function createBugAction(
     });
     if (!task) return { error: "Task liên quan không thuộc dự án này." };
   }
+  if (v.assignedToId) {
+    const assignee = await prisma.projectMember.findFirst({
+      where: { projectId, userId: v.assignedToId, user: { isActive: true } },
+      select: { userId: true },
+    });
+    if (!assignee) return { error: "Người được gán bug không còn thuộc dự án hoặc tài khoản không active." };
+  }
 
   const bug = await prisma.bug.create({
     data: {

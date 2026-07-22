@@ -190,7 +190,17 @@ async function assigneeForStatus({
   error?: string;
   requiredRoles?: ProjectRole[];
 }> {
-  if (currentAssigneeId) return { assigneeId: currentAssigneeId };
+  if (currentAssigneeId) {
+    const currentMember = await prisma.projectMember.findFirst({
+      where: {
+        projectId,
+        userId: currentAssigneeId,
+        user: { isActive: true },
+      },
+      select: { userId: true },
+    });
+    if (currentMember) return { assigneeId: currentMember.userId };
+  }
 
   if (requestedAssigneeId) {
     const requestedMember = await prisma.projectMember.findFirst({
@@ -216,16 +226,14 @@ async function assigneeForStatus({
   if (!roles?.length) return { assigneeId: null };
 
   const members = await prisma.projectMember.findMany({
-    where: { projectId, role: { in: roles } },
+    where: { projectId, role: { in: roles }, user: { isActive: true } },
     select: {
       userId: true,
       role: true,
-      user: { select: { isActive: true } },
     },
     orderBy: { addedAt: "asc" },
   });
-  const activeMembers = members.filter((member) => member.user.isActive);
-  if (activeMembers.length === 0) {
+  if (members.length === 0) {
     return {
       assigneeId: null,
       code: "ASSIGNEE_REQUIRED",
@@ -239,14 +247,14 @@ async function assigneeForStatus({
     where: {
       projectId,
       deletedAt: null,
-      assigneeId: { in: activeMembers.map((member) => member.userId) },
+      assigneeId: { in: members.map((member) => member.userId) },
       status: { in: ACTIVE_ASSIGNEE_STATUSES as never },
     },
     _count: { _all: true },
   });
   const countByUserId = new Map(activeTaskCounts.map((item) => [item.assigneeId, item._count._all]));
 
-  const nextAssigneeId = activeMembers
+  const nextAssigneeId = members
     .map((member, index) => ({
       userId: member.userId,
       roleIndex: roles.indexOf(member.role),

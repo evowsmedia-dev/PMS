@@ -33,7 +33,7 @@ export async function ProjectReportSection({ projectId }: { projectId: string })
         orderBy: [{ dueDate: "asc" }, { updatedAt: "desc" }],
       }),
       prisma.projectMember.findMany({
-        where: { projectId },
+        where: { projectId, user: { isActive: true } },
         include: { user: { select: { id: true, fullName: true } } },
       }),
       prisma.dailyProjectSnapshot.findMany({

@@ -855,7 +855,7 @@ export async function importProjectEstimatedTimelineAction(projectId: string, ba
   const [existing, members] = await Promise.all([
     prisma.projectEstimatedTimelineItem.findMany({ where: { projectId, deletedAt: null } }),
     prisma.projectMember.findMany({
-      where: { projectId },
+      where: { projectId, user: { isActive: true } },
       include: { user: { select: { id: true, email: true } } },
     }),
   ]);
@@ -948,7 +948,7 @@ async function mentionedProjectUserIds(projectId: string, content: string) {
   const mentionNames = extractMentionNames(content);
   if (mentionNames.length === 0) return [];
   const members = await prisma.projectMember.findMany({
-    where: { projectId },
+    where: { projectId, user: { isActive: true } },
     include: { user: { select: { id: true, fullName: true, email: true } } },
   });
   const mentionedUserIds = new Set<string>();

@@ -129,7 +129,7 @@ export default async function DocumentDetailPage({
   const canEdit = await canAccess(roleCtx, "document.edit", projectRole);
 
   const members = await prisma.projectMember.findMany({
-    where: { projectId, role: { in: ["OWNER", "PO", "BA"] } },
+    where: { projectId, role: { in: ["OWNER", "PO", "BA"] }, user: { isActive: true } },
     include: { user: { select: { id: true, fullName: true } } },
   });
   const approvers = members.map((m) => ({ id: m.user.id, fullName: m.user.fullName }));
@@ -137,7 +137,7 @@ export default async function DocumentDetailPage({
   // Options for the "create task from selection" dialog — mirrors /tasks/new.
   const [allMembers, epics, sprints, milestones] = await Promise.all([
     prisma.projectMember.findMany({
-      where: { projectId },
+      where: { projectId, user: { isActive: true } },
       include: { user: { select: { id: true, fullName: true, email: true } } },
     }),
     prisma.epic.findMany({

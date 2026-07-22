@@ -67,7 +67,7 @@ export default async function ProjectTasksPage({
     projectRole,
   });
 
-  const [tasks, bugs, autoTaskDocs] = await Promise.all([
+  const [tasks, bugs, autoTaskDocs, members] = await Promise.all([
     prisma.task.findMany({
       where: {
         projectId,
@@ -106,6 +106,7 @@ export default async function ProjectTasksPage({
         isBlocked: true,
         moduleId: true,
         parentTaskId: true,
+        assigneeId: true,
         assignee: { select: { fullName: true } },
       },
       orderBy: [{ createdAt: "asc" }],
@@ -136,7 +137,12 @@ export default async function ProjectTasksPage({
           take: 200,
         })
       : Promise.resolve([]),
+    prisma.projectMember.findMany({
+      where: { projectId, user: { isActive: true } },
+      select: { userId: true },
+    }),
   ]);
+  const activeMemberIds = new Set(members.map((member) => member.userId));
 
   type TaskRow = (typeof tasks)[number];
   type BugRow = (typeof bugs)[number];
@@ -254,7 +260,7 @@ export default async function ProjectTasksPage({
                 <Badge variant={taskPriorityTone(row.task.priority)} className="status-badge">
                   {TASK_PRIORITY_LABEL[row.task.priority]}
                 </Badge>
-                {row.task.assignee ? (
+                {activeMemberIds.has(row.task.assigneeId ?? "") && row.task.assignee ? (
                   <span className="text-xs text-muted-foreground">· {row.task.assignee.fullName}</span>
                 ) : null}
                 <span className="text-xs text-muted-foreground">

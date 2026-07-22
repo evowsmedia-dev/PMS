@@ -29,25 +29,32 @@ export default async function GanttPage({
   const isAdmin = session.user.systemRole === "ADMIN";
   if (!isAdmin && !projectRole) redirect("/projects");
 
-  const tasks = await prisma.task.findMany({
-    where: {
-      projectId,
-      deletedAt: null,
-      OR: [
-        { plannedStartAt: { not: null } },
-        { startDate: { not: null } },
-        { dueDate: { not: null } },
-        { devDueAt: { not: null } },
-        { testDueAt: { not: null } },
-      ],
-    },
-    include: {
-      epic: { select: { id: true, name: true } },
-      assignee: { select: { fullName: true } },
-      dependencies: { select: { dependsOnTaskId: true } },
-    },
-    orderBy: [{ startDate: "asc" }, { plannedStartAt: "asc" }, { dueDate: "asc" }],
-  });
+  const [tasks, members] = await Promise.all([
+    prisma.task.findMany({
+      where: {
+        projectId,
+        deletedAt: null,
+        OR: [
+          { plannedStartAt: { not: null } },
+          { startDate: { not: null } },
+          { dueDate: { not: null } },
+          { devDueAt: { not: null } },
+          { testDueAt: { not: null } },
+        ],
+      },
+      include: {
+        epic: { select: { id: true, name: true } },
+        assignee: { select: { fullName: true } },
+        dependencies: { select: { dependsOnTaskId: true } },
+      },
+      orderBy: [{ startDate: "asc" }, { plannedStartAt: "asc" }, { dueDate: "asc" }],
+    }),
+    prisma.projectMember.findMany({
+      where: { projectId, user: { isActive: true } },
+      select: { userId: true },
+    }),
+  ]);
+  const activeMemberIds = new Set(members.map((member) => member.userId));
 
   const ganttTasks: GanttTask[] = tasks.map((task) => ({
     id: task.id,
@@ -66,7 +73,7 @@ export default async function GanttPage({
     testEstimateHours: Number(task.testEstimateHours),
     actualDevHours: Number(task.actualDevHours),
     actualTestHours: Number(task.actualTestHours),
-    assigneeName: task.assignee?.fullName ?? null,
+    assigneeName: activeMemberIds.has(task.assigneeId ?? "") ? task.assignee?.fullName ?? null : null,
     dependencyCount: task.dependencies.length,
     epicName: task.epic?.name ?? "Không thuộc epic",
   }));

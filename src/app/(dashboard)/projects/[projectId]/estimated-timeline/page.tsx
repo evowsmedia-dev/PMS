@@ -72,7 +72,7 @@ export default async function ProjectEstimatedTimelinePage({
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     }),
     prisma.projectMember.findMany({
-      where: { projectId },
+      where: { projectId, user: { isActive: true } },
       include: { user: { select: { id: true, fullName: true, email: true, isActive: true } } },
       orderBy: { addedAt: "asc" },
     }),
@@ -83,6 +83,7 @@ export default async function ProjectEstimatedTimelinePage({
       take: 100,
     }),
   ]);
+  const activeMemberIds = new Set(members.map((member) => member.userId));
 
   return (
     <PageSection>
@@ -108,8 +109,8 @@ export default async function ProjectEstimatedTimelinePage({
             estimateMandays: decimalText(item.estimateMandays),
             unitPriceVnd: decimalText(item.unitPriceVnd),
             amountVnd: decimalText(item.amountVnd),
-            assigneeId: item.assigneeId ?? "",
-            assigneeName: item.assignee?.fullName ?? "",
+            assigneeId: activeMemberIds.has(item.assigneeId ?? "") ? item.assigneeId ?? "" : "",
+            assigneeName: activeMemberIds.has(item.assigneeId ?? "") ? item.assignee?.fullName ?? "" : "",
             note: item.note ?? "",
             versions: item.versions.map((version) => ({
               id: version.id,

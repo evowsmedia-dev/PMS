@@ -8,6 +8,7 @@ import { canAccess, PROJECT_ROLE_OPTIONS } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { logAudit } from "@/lib/audit";
 import { projectFormSchema } from "@/lib/validation/project";
+import { projectCodeRouteSegment } from "@/lib/route-slug";
 import type { ActionState } from "@/lib/actions/profile";
 
 function parseProjectForm(formData: FormData) {
@@ -31,6 +32,26 @@ async function getValidSubsystemId(subsystemId: string | undefined) {
     select: { id: true },
   });
   return subsystem?.id ?? null;
+}
+
+function revalidateProjectMembershipPaths(projectId: string, projectCode?: string | null) {
+  const segments = new Set([projectId]);
+  if (projectCode) segments.add(projectCodeRouteSegment({ code: projectCode }));
+
+  revalidatePath("/projects");
+  revalidatePath("/admin/projects");
+  revalidatePath("/dashboard/overview");
+  revalidatePath("/dashboard/my-tasks");
+  for (const segment of segments) {
+    revalidatePath(`/projects/${segment}`);
+    revalidatePath(`/projects/${segment}/overview`);
+    revalidatePath(`/projects/${segment}/tasks`);
+    revalidatePath(`/projects/${segment}/kanban`);
+    revalidatePath(`/projects/${segment}/gantt`);
+    revalidatePath(`/projects/${segment}/estimated-timeline`);
+    revalidatePath(`/projects/${segment}/bi-dashboard`);
+    revalidatePath(`/projects/${segment}/settings/members`);
+  }
 }
 
 export async function createProjectAction(
@@ -239,6 +260,11 @@ export async function addMemberAction(
   });
   if (existing) return { error: "Người dùng đã là thành viên dự án." };
 
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { code: true },
+  });
+
   await prisma.projectMember.create({
     data: { projectId, userId: user.id, role: role as never },
   });
@@ -252,7 +278,7 @@ export async function addMemberAction(
     metadata: { userId: user.id, role },
   });
 
-  revalidatePath(`/projects/${projectId}/settings/members`);
+  revalidateProjectMembershipPaths(projectId, project?.code);
   return { success: `Đã thêm ${user.fullName} vào dự án.` };
 }
 
@@ -287,6 +313,11 @@ export async function addProjectMembersByUserIdsAction(
   const usersToAdd = users.filter((user) => !existingUserIds.has(user.id));
   if (usersToAdd.length === 0) return { error: "Các nhân sự đã chọn đều đang thuộc dự án." };
 
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { code: true },
+  });
+
   await prisma.projectMember.createMany({
     data: usersToAdd.map((user) => {
       const requestedRole = String(formData.get(`role:${user.id}`) ?? "DEV");
@@ -313,12 +344,7 @@ export async function addProjectMembersByUserIdsAction(
     },
   });
 
-  revalidatePath("/projects");
-  revalidatePath("/dashboard/overview");
-  revalidatePath("/dashboard/my-tasks");
-  revalidatePath("/admin/projects");
-  revalidatePath(`/projects/${projectId}`);
-  revalidatePath(`/projects/${projectId}/settings/members`);
+  revalidateProjectMembershipPaths(projectId, project?.code);
 
   return { success: `Đã thêm ${usersToAdd.length} nhân sự vào dự án.` };
 }
@@ -332,10 +358,47 @@ export async function removeMemberAction(projectId: string, memberId: string) {
     return;
   }
 
-  const member = await prisma.projectMember.findFirst({ where: { id: memberId, projectId } });
+  const [member, project] = await Promise.all([
+    prisma.projectMember.findFirst({
+      where: { id: memberId, projectId },
+      include: { user: { select: { fullName: true } } },
+    }),
+    prisma.project.findUnique({ where: { id: projectId }, select: { code: true } }),
+  ]);
   if (!member) return;
 
-  await prisma.projectMember.delete({ where: { id: memberId } });
+  const removedAt = new Date();
+  await prisma.$transaction([
+    prisma.projectMember.delete({ where: { id: memberId } }),
+    prisma.task.updateMany({
+      where: { projectId, deletedAt: null, assigneeId: member.userId },
+      data: { assigneeId: null },
+    }),
+    prisma.task.updateMany({
+      where: { projectId, deletedAt: null, reviewerId: member.userId },
+      data: { reviewerId: null },
+    }),
+    prisma.task.updateMany({
+      where: { projectId, deletedAt: null, testerId: member.userId },
+      data: { testerId: null },
+    }),
+    prisma.taskAssignment.updateMany({
+      where: {
+        userId: member.userId,
+        unassignedAt: null,
+        task: { projectId, deletedAt: null },
+      },
+      data: { unassignedAt: removedAt },
+    }),
+    prisma.bug.updateMany({
+      where: { projectId, deletedAt: null, assignedToId: member.userId },
+      data: { assignedToId: null },
+    }),
+    prisma.projectEstimatedTimelineItem.updateMany({
+      where: { projectId, deletedAt: null, assigneeId: member.userId },
+      data: { assigneeId: null },
+    }),
+  ]);
 
   await logAudit({
     actorId: session.user.id,
@@ -343,10 +406,21 @@ export async function removeMemberAction(projectId: string, memberId: string) {
     entityType: "Project",
     entityId: projectId,
     projectId,
-    metadata: { userId: member.userId },
+    metadata: {
+      userId: member.userId,
+      fullName: member.user.fullName,
+      cleanup: {
+        taskAssignee: true,
+        taskReviewer: true,
+        taskTester: true,
+        activeTaskAssignments: true,
+        bugAssignee: true,
+        timelineAssignee: true,
+      },
+    },
   });
 
-  revalidatePath(`/projects/${projectId}/settings/members`);
+  revalidateProjectMembershipPaths(projectId, project?.code);
 }
 
 export async function assignMemberDocumentTypeAction(
@@ -383,8 +457,11 @@ export async function assignMemberDocumentTypeAction(
     metadata: { moduleId, assigned: true },
   });
 
-  revalidatePath(`/projects/${projectId}/settings/members`);
-  revalidatePath(`/projects/${projectId}`);
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { code: true },
+  });
+  revalidateProjectMembershipPaths(projectId, project?.code);
 }
 
 export async function unassignMemberDocumentTypeAction(
@@ -413,8 +490,11 @@ export async function unassignMemberDocumentTypeAction(
     metadata: { moduleId, assigned: false },
   });
 
-  revalidatePath(`/projects/${projectId}/settings/members`);
-  revalidatePath(`/projects/${projectId}`);
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { code: true },
+  });
+  revalidateProjectMembershipPaths(projectId, project?.code);
 }
 
 export async function changeMemberRoleAction(
@@ -445,5 +525,9 @@ export async function changeMemberRoleAction(
     metadata: { role },
   });
 
-  revalidatePath(`/projects/${projectId}/settings/members`);
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { code: true },
+  });
+  revalidateProjectMembershipPaths(projectId, project?.code);
 }

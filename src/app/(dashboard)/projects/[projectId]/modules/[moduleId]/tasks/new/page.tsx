@@ -40,7 +40,7 @@ export default async function NewTaskPage({
   }
 
   const members = await prisma.projectMember.findMany({
-    where: { projectId },
+    where: { projectId, user: { isActive: true } },
     include: { user: { select: { fullName: true } } },
   });
 

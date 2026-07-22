@@ -59,7 +59,7 @@ export default async function BugsPage({
       take: 300,
     }),
     prisma.projectMember.findMany({
-      where: { projectId },
+      where: { projectId, user: { isActive: true } },
       include: { user: { select: { id: true, fullName: true } } },
     }),
     prisma.task.findMany({
@@ -69,6 +69,7 @@ export default async function BugsPage({
       take: 200,
     }),
   ]);
+  const activeMemberIds = new Set(members.map((member) => member.userId));
 
   return (
     <PageSection>
@@ -108,7 +109,7 @@ export default async function BugsPage({
                     <Badge variant={bugSeverityTone(b.severity)} className="status-badge">
                       {BUG_SEVERITY_LABEL[b.severity]}
                     </Badge>
-                    {b.assignedTo ? ` · ${b.assignedTo.fullName}` : ""}
+                    {activeMemberIds.has(b.assignedToId ?? "") && b.assignedTo ? ` · ${b.assignedTo.fullName}` : ""}
                     {b.task ? " · " : ""}
                     {b.task ? (
                       <Link

@@ -35,7 +35,7 @@ export default async function NewProjectTaskPage({
 
   const [members, epics, sprints, milestones, documents] = await Promise.all([
     prisma.projectMember.findMany({
-      where: { projectId },
+      where: { projectId, user: { isActive: true } },
       include: { user: { select: { id: true, fullName: true } } },
     }),
     prisma.epic.findMany({

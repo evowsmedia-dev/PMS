@@ -147,7 +147,7 @@ export default async function TaskDetailPage({
 
   const [members, epics, sprints, milestones, documents] = await Promise.all([
     prisma.projectMember.findMany({
-      where: { projectId },
+      where: { projectId, user: { isActive: true } },
       include: { user: { select: { fullName: true, email: true } } },
     }),
     prisma.epic.findMany({
@@ -177,6 +177,10 @@ export default async function TaskDetailPage({
     orderBy: { updatedAt: "desc" },
     take: 200,
   });
+  const activeMemberIds = new Set(members.map((member) => member.userId));
+  const activeAssigneeId = activeMemberIds.has(task.assigneeId ?? "") ? task.assigneeId : null;
+  const activeReviewerId = activeMemberIds.has(task.reviewerId ?? "") ? task.reviewerId : null;
+  const activeTesterId = activeMemberIds.has(task.testerId ?? "") ? task.testerId : null;
 
   const meta: { label: string; value: string }[] = [
     { label: "Trạng thái", value: TASK_STATUS_LABEL[task.status] },
@@ -185,8 +189,8 @@ export default async function TaskDetailPage({
     { label: "Epic", value: task.epic?.name ?? "—" },
     { label: "Sprint", value: task.sprint?.name ?? "—" },
     { label: "Milestone", value: task.milestone?.name ?? "—" },
-    { label: "Reviewer", value: task.reviewer?.fullName ?? "—" },
-    { label: "Tester", value: task.tester?.fullName ?? "—" },
+    { label: "Reviewer", value: activeReviewerId && task.reviewer ? task.reviewer.fullName : "—" },
+    { label: "Tester", value: activeTesterId && task.tester ? task.tester.fullName : "—" },
     { label: "Dev estimate", value: `${task.devEstimateHours}h` },
     { label: "Test estimate", value: `${task.testEstimateHours}h` },
     { label: "Chuẩn", value: `${task.standardEstimateMandays} ngày công` },
@@ -257,9 +261,9 @@ export default async function TaskDetailPage({
               status={task.status}
               type={task.type}
               priority={task.priority}
-              assigneeId={task.assigneeId}
-              reviewerId={task.reviewerId}
-              testerId={task.testerId}
+              assigneeId={activeAssigneeId}
+              reviewerId={activeReviewerId}
+              testerId={activeTesterId}
               epicId={task.epicId}
               sprintId={task.sprintId}
               milestoneId={task.milestoneId}

@@ -107,6 +107,33 @@ function parseTaskForm(formData: FormData) {
   });
 }
 
+async function validateActiveProjectAssignees(
+  projectId: string,
+  assignments: Record<string, string | null | undefined>,
+) {
+  const userIds = Array.from(
+    new Set(Object.values(assignments).filter((value): value is string => Boolean(value))),
+  );
+  if (userIds.length === 0) return null;
+
+  const members = await prisma.projectMember.findMany({
+    where: {
+      projectId,
+      userId: { in: userIds },
+      user: { isActive: true },
+    },
+    select: { userId: true },
+  });
+  const activeMemberIds = new Set(members.map((member) => member.userId));
+  const invalidFields = Object.entries(assignments)
+    .filter(([, userId]) => userId && !activeMemberIds.has(userId))
+    .map(([field]) => field);
+
+  return invalidFields.length > 0
+    ? `Người được chọn ở ${invalidFields.join(", ")} không còn thuộc dự án hoặc tài khoản không active.`
+    : null;
+}
+
 function normalizeRelatedDocumentIds(formData: FormData) {
   return Array.from(new Set(formData.getAll("relatedDocumentIds").map((value) => String(value)).filter(Boolean)));
 }
@@ -148,7 +175,7 @@ async function mentionedProjectUserIds(projectId: string, content: string) {
   if (mentionNames.length === 0) return [];
 
   const members = await prisma.projectMember.findMany({
-    where: { projectId },
+    where: { projectId, user: { isActive: true } },
     include: { user: { select: { id: true, fullName: true, email: true } } },
   });
   const mentionedUserIds = new Set<string>();
@@ -365,6 +392,10 @@ export async function createTaskAction(
   const values = parsed.data;
   const relatedDocumentIds = normalizeRelatedDocumentIds(formData);
   const externalLinks = normalizeExternalLinks(formData);
+  const assigneeError = await validateActiveProjectAssignees(projectId, {
+    "Người thực hiện": values.assigneeId || null,
+  });
+  if (assigneeError) return { error: assigneeError };
 
   const maxOrder = await prisma.task.aggregate({
     where: { projectId, moduleId, status: "TODO", deletedAt: null },
@@ -462,6 +493,12 @@ export async function createProjectTaskAction(
   const values = parsed.data;
   const relatedDocumentIds = normalizeRelatedDocumentIds(formData);
   const externalLinks = normalizeExternalLinks(formData);
+  const assigneeError = await validateActiveProjectAssignees(projectId, {
+    "Người thực hiện": values.assigneeId || null,
+    Reviewer: values.reviewerId || null,
+    Tester: values.testerId || null,
+  });
+  if (assigneeError) return { error: assigneeError };
 
   const maxOrder = await prisma.task.aggregate({
     where: { projectId, status: "BACKLOG", deletedAt: null },
@@ -2394,6 +2431,13 @@ export async function updateTaskAction(
   const nextAssigneeId = has("assigneeId") ? values.assigneeId || null : before.assigneeId;
   const nextReviewerId = has("reviewerId") ? values.reviewerId || null : before.reviewerId;
   const nextTesterId = has("testerId") ? values.testerId || null : before.testerId;
+  const assigneeError = await validateActiveProjectAssignees(projectId, {
+    "Người thực hiện": nextAssigneeId,
+    Reviewer: nextReviewerId,
+    Tester: nextTesterId,
+  });
+  if (assigneeError) return { error: assigneeError };
+
   const nextEpicId = has("epicId") ? values.epicId || null : before.epicId;
   const nextSprintId = has("sprintId") ? values.sprintId || null : before.sprintId;
   const nextMilestoneId = has("milestoneId") ? values.milestoneId || null : before.milestoneId;
@@ -2590,6 +2634,10 @@ export async function reassignTaskAction(
 
   const projectRole = await getProjectRole(session.user.id, projectId);
   if (!(await canAccess({ systemRole: session.user.systemRole }, "task.reassign", projectRole))) return;
+  const assigneeError = await validateActiveProjectAssignees(projectId, {
+    "Người thực hiện": assigneeId || null,
+  });
+  if (assigneeError) return;
 
   const before = await prisma.task.findFirst({ where: scopedTaskWhere(projectId, moduleId, taskId) });
   if (!before) return;
