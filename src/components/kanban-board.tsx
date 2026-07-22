@@ -595,6 +595,25 @@ export function KanbanBoard({
         body: JSON.stringify({ status: nextStatus }),
       });
       if (!res.ok) throw new Error("Request failed");
+      const payload = (await res.json()) as {
+        task?: {
+          status?: string;
+          assigneeId?: string | null;
+          assignee?: { fullName: string } | null;
+        };
+      };
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === activeTask.id
+            ? {
+                ...t,
+                status: payload.task?.status ?? nextStatus,
+                assigneeId: payload.task?.assigneeId ?? null,
+                assignee: payload.task?.assignee ?? null,
+              }
+            : t,
+        ),
+      );
       router.refresh();
     } catch {
       setTasks((prev) =>

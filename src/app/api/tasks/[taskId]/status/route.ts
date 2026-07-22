@@ -59,7 +59,7 @@ export async function PATCH(
     status,
   });
 
-  await prisma.task.update({
+  const updatedTask = await prisma.task.update({
     where: { id: taskId },
     data: {
       status: status as never,
@@ -78,6 +78,12 @@ export async function PATCH(
         testDueAt: task.testDueAt,
         isBlocked: task.isBlocked,
       }),
+    },
+    select: {
+      id: true,
+      status: true,
+      assigneeId: true,
+      assignee: { select: { fullName: true } },
     },
   });
 
@@ -129,7 +135,15 @@ export async function PATCH(
   });
   await Promise.all(dependents.map((dependent) => refreshTaskDerivedFields(dependent.taskId)));
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({
+    ok: true,
+    task: {
+      id: updatedTask.id,
+      status: updatedTask.status,
+      assigneeId: updatedTask.assigneeId,
+      assignee: updatedTask.assignee,
+    },
+  });
 }
 
 async function assigneeForStatus({
