@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { canAccess } from "@/lib/rbac";
+import { canAccess, PROJECT_ROLE_OPTIONS } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { logAudit } from "@/lib/audit";
 import { projectFormSchema } from "@/lib/validation/project";
@@ -254,6 +254,73 @@ export async function addMemberAction(
 
   revalidatePath(`/projects/${projectId}/settings/members`);
   return { success: `Đã thêm ${user.fullName} vào dự án.` };
+}
+
+export async function addProjectMembersByUserIdsAction(
+  projectId: string,
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await auth();
+  if (!session?.user) return { error: "Bạn cần đăng nhập." };
+
+  const projectRole = await getProjectRole(session.user.id, projectId);
+  if (!(await canAccess({ systemRole: session.user.systemRole }, "project.manageMembers", projectRole))) {
+    return { error: "Bạn không có quyền quản lý thành viên." };
+  }
+
+  const userIds = Array.from(new Set(formData.getAll("userIds").map((value) => String(value)).filter(Boolean)));
+  if (userIds.length === 0) return { error: "Vui lòng chọn ít nhất một nhân sự mới." };
+
+  const [users, existingMembers] = await Promise.all([
+    prisma.user.findMany({
+      where: { id: { in: userIds }, isActive: true },
+      select: { id: true, fullName: true },
+    }),
+    prisma.projectMember.findMany({
+      where: { projectId, userId: { in: userIds } },
+      select: { userId: true },
+    }),
+  ]);
+
+  const existingUserIds = new Set(existingMembers.map((member) => member.userId));
+  const usersToAdd = users.filter((user) => !existingUserIds.has(user.id));
+  if (usersToAdd.length === 0) return { error: "Các nhân sự đã chọn đều đang thuộc dự án." };
+
+  await prisma.projectMember.createMany({
+    data: usersToAdd.map((user) => {
+      const requestedRole = String(formData.get(`role:${user.id}`) ?? "DEV");
+      const role = PROJECT_ROLE_OPTIONS.includes(requestedRole as never) ? requestedRole : "DEV";
+
+      return {
+        projectId,
+        userId: user.id,
+        role: role as never,
+      };
+    }),
+    skipDuplicates: true,
+  });
+
+  await logAudit({
+    actorId: session.user.id,
+    action: "MEMBER_ADD",
+    entityType: "Project",
+    entityId: projectId,
+    projectId,
+    metadata: {
+      userIds: usersToAdd.map((user) => user.id),
+      source: "project-list-dialog",
+    },
+  });
+
+  revalidatePath("/projects");
+  revalidatePath("/dashboard/overview");
+  revalidatePath("/dashboard/my-tasks");
+  revalidatePath("/admin/projects");
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath(`/projects/${projectId}/settings/members`);
+
+  return { success: `Đã thêm ${usersToAdd.length} nhân sự vào dự án.` };
 }
 
 export async function removeMemberAction(projectId: string, memberId: string) {

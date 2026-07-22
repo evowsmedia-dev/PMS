@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { canAccess } from "@/lib/rbac";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageShell, PageSection, PageToolbar } from "@/components/page-shell";
 import { DeleteProjectButton } from "@/components/delete-project-button";
+import { ProjectMemberPickerDialog } from "@/components/project-member-picker-dialog";
 import { ProjectIcon } from "@/lib/validation/icons";
 import { Plus, Search } from "lucide-react";
 import { projectCodeRouteSegment } from "@/lib/route-slug";
@@ -30,66 +32,91 @@ export default async function ProjectsPage({
 
   const isAdmin = session.user.systemRole === "ADMIN";
 
-  const projects = await prisma.project.findMany({
-    where: {
-      deletedAt: null,
-      ...(q ? { name: { contains: q, mode: "insensitive" } } : {}),
-      ...(isAdmin ? {} : { members: { some: { userId: session.user.id } } }),
-    },
-    include: {
-      subsystem: { select: { name: true } },
-      modules: {
-        where: { deletedAt: null },
-        select: { id: true },
+  const [projects, appUsers] = await Promise.all([
+    prisma.project.findMany({
+      where: {
+        deletedAt: null,
+        ...(q ? { name: { contains: q, mode: "insensitive" } } : {}),
+        ...(isAdmin ? {} : { members: { some: { userId: session.user.id } } }),
       },
-      members: {
-        where: { userId: session.user.id },
-        select: {
-          role: true,
-          documentTypeAssignments: { select: { moduleId: true } },
+      include: {
+        subsystem: { select: { name: true } },
+        modules: {
+          where: { deletedAt: null },
+          select: { id: true },
+        },
+        members: {
+          select: {
+            userId: true,
+            role: true,
+            documentTypeAssignments: { select: { moduleId: true } },
+          },
+        },
+        _count: {
+          select: {
+            tasks: { where: { deletedAt: null } },
+            modules: { where: { deletedAt: null } },
+          },
         },
       },
-      _count: {
-        select: {
-          tasks: { where: { deletedAt: null } },
-          modules: { where: { deletedAt: null } },
-        },
-      },
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
-  const documentCounts = await Promise.all(
-    projects.map(async (project) => {
-      const activeModuleIds = project.modules.map((module_) => module_.id);
-      const member = project.members[0];
-      const assignedModuleIds =
-        !isAdmin &&
-        member &&
-        member.role !== "OWNER" &&
-        member.role !== "PO" &&
-        member.documentTypeAssignments.length > 0
-          ? member.documentTypeAssignments
-              .map((assignment) => assignment.moduleId)
-              .filter((moduleId) => activeModuleIds.includes(moduleId))
-          : activeModuleIds;
-
-      if (assignedModuleIds.length === 0) {
-        return [project.id, 0] as const;
-      }
-
-      const count = await prisma.document.count({
-        where: {
-          projectId: project.id,
-          deletedAt: null,
-          moduleId: { in: assignedModuleIds },
-        },
-      });
-
-      return [project.id, count] as const;
+      orderBy: { createdAt: "desc" },
     }),
-  );
+    prisma.user.findMany({
+      where: { isActive: true },
+      orderBy: { fullName: "asc" },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+      },
+    }),
+  ]);
+
+  const [documentCounts, manageMemberPermissions] = await Promise.all([
+    Promise.all(
+      projects.map(async (project) => {
+        const activeModuleIds = project.modules.map((module_) => module_.id);
+        const member = project.members.find((projectMember) => projectMember.userId === session.user.id);
+        const assignedModuleIds =
+          !isAdmin &&
+          member &&
+          member.role !== "OWNER" &&
+          member.role !== "PO" &&
+          member.documentTypeAssignments.length > 0
+            ? member.documentTypeAssignments
+                .map((assignment) => assignment.moduleId)
+                .filter((moduleId) => activeModuleIds.includes(moduleId))
+            : activeModuleIds;
+
+        if (assignedModuleIds.length === 0) {
+          return [project.id, 0] as const;
+        }
+
+        const count = await prisma.document.count({
+          where: {
+            projectId: project.id,
+            deletedAt: null,
+            moduleId: { in: assignedModuleIds },
+          },
+        });
+
+        return [project.id, count] as const;
+      }),
+    ),
+    Promise.all(
+      projects.map(async (project) => {
+        const member = project.members.find((projectMember) => projectMember.userId === session.user.id);
+        const canManage = await canAccess(
+          { systemRole: session.user.systemRole },
+          "project.manageMembers",
+          member?.role,
+        );
+        return [project.id, canManage] as const;
+      }),
+    ),
+  ]);
   const documentCountByProjectId = new Map(documentCounts);
+  const canManageMembersByProjectId = new Map(manageMemberPermissions);
 
   return (
     <PageShell size="standard">
@@ -124,8 +151,21 @@ export default async function ProjectsPage({
                   <DeleteProjectButton projectId={project.id} projectName={project.name} />
                 </div>
               ) : null}
+              {canManageMembersByProjectId.get(project.id) ? (
+                <div className={`absolute top-3 z-10 ${isAdmin ? "right-12" : "right-3"}`}>
+                  <ProjectMemberPickerDialog
+                    projectId={project.id}
+                    projectName={project.name}
+                    users={appUsers}
+                    members={project.members.map((member) => ({
+                      userId: member.userId,
+                      role: member.role,
+                    }))}
+                  />
+                </div>
+              ) : null}
               <Link href={`/projects/${projectCodeRouteSegment(project)}/overview`} className="block">
-                <CardHeader className="flex flex-row items-start gap-3 space-y-0 pr-14">
+                <CardHeader className="flex flex-row items-start gap-3 space-y-0 pr-24">
                   <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-foreground">
                     <ProjectIcon name={project.icon} className="size-5" />
                   </div>
