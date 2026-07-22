@@ -100,6 +100,10 @@ function parseTaskForm(formData: FormData) {
     testEstimateHours: formData.get("testEstimateHours") ?? undefined,
     testEstimateSource: formData.get("testEstimateSource") || "AUTO",
     standardEstimateMandays: formData.get("standardEstimateMandays") ?? undefined,
+    taskMandays: formData.get("taskMandays") ?? undefined,
+    devContractMandays: formData.get("devContractMandays") ?? undefined,
+    testerContractMandays: formData.get("testerContractMandays") ?? undefined,
+    reviewerContractMandays: formData.get("reviewerContractMandays") ?? undefined,
     storyPoint: formData.get("storyPoint") ?? undefined,
     acceptanceCriteria: formData.get("acceptanceCriteria") ?? "",
     relatedDocumentId: formData.get("relatedDocumentId") ?? "",
@@ -429,6 +433,10 @@ export async function createTaskAction(
       plannedStartAt: values.plannedStartAt ? new Date(values.plannedStartAt) : null,
       devDueAt,
       testDueAt,
+      taskMandays: values.taskMandays ?? 0,
+      devContractMandays: values.devContractMandays ?? 0,
+      testerContractMandays: values.testerContractMandays ?? 0,
+      reviewerContractMandays: values.reviewerContractMandays ?? 0,
       ...derived,
       relatedDocumentId: relatedDocumentIds[0] ?? (values.relatedDocumentId || null),
       externalLinks,
@@ -543,6 +551,10 @@ export async function createProjectTaskAction(
       dueDate: values.dueDate ? new Date(values.dueDate) : null,
       devDueAt,
       testDueAt,
+      taskMandays: values.taskMandays ?? 0,
+      devContractMandays: values.devContractMandays ?? 0,
+      testerContractMandays: values.testerContractMandays ?? 0,
+      reviewerContractMandays: values.reviewerContractMandays ?? 0,
       ...derived,
       storyPoint: values.storyPoint ?? 0,
       acceptanceCriteria: values.acceptanceCriteria || null,
@@ -1427,6 +1439,10 @@ const taskImportSchema = z.object({
     testEstimateHours: z.coerce.number().min(0).max(100000).default(0),
     testEstimateSource: z.enum(["AUTO", "MANUAL"]).default("MANUAL"),
     standardEstimateMandays: z.coerce.number().min(0).max(100000).default(0),
+    taskMandays: z.coerce.number().min(0).max(100000).default(0),
+    devContractMandays: z.coerce.number().min(0).max(100000).default(0),
+    testerContractMandays: z.coerce.number().min(0).max(100000).default(0),
+    reviewerContractMandays: z.coerce.number().min(0).max(100000).default(0),
     storyPoint: z.coerce.number().min(0).max(1000).default(0),
     relatedDocumentIds: z.array(z.string().trim().min(1)).max(100).default([]),
     externalLinks: z.array(z.string().trim().url()).max(100).default([]),
@@ -1450,6 +1466,10 @@ const projectTaskImportRowSchema = z.object({
   testEstimateHours: z.coerce.number().min(0).max(100000).default(0),
   testEstimateSource: z.enum(["AUTO", "MANUAL"]).default("MANUAL"),
   standardEstimateMandays: z.coerce.number().min(0).max(100000).default(0),
+  taskMandays: z.coerce.number().min(0).max(100000).default(0),
+  devContractMandays: z.coerce.number().min(0).max(100000).default(0),
+  testerContractMandays: z.coerce.number().min(0).max(100000).default(0),
+  reviewerContractMandays: z.coerce.number().min(0).max(100000).default(0),
   storyPoint: z.coerce.number().min(0).max(1000).default(0),
   relatedDocumentIds: z.array(z.string().trim().min(1)).max(100).default([]),
   externalLinks: z.array(z.string().trim().url()).max(100).default([]),
@@ -1473,6 +1493,10 @@ const PROJECT_TASK_EXPORT_HEADERS = [
   "testEstimateHours",
   "testEstimateSource",
   "standardEstimateMandays",
+  "taskMandays",
+  "devContractMandays",
+  "testerContractMandays",
+  "reviewerContractMandays",
   "storyPoint",
   "relatedDocumentIds",
   "externalLinks",
@@ -1570,6 +1594,10 @@ function parseTaskCsvExport(rawContent: string) {
       testEstimateHours: values.get("testEstimateHours") || 0,
       testEstimateSource: values.get("testEstimateSource") || "MANUAL",
       standardEstimateMandays: values.get("standardEstimateMandays") || 0,
+      taskMandays: values.get("taskMandays") || 0,
+      devContractMandays: values.get("devContractMandays") || 0,
+      testerContractMandays: values.get("testerContractMandays") || 0,
+      reviewerContractMandays: values.get("reviewerContractMandays") || 0,
       storyPoint: values.get("storyPoint") || 0,
       relatedDocumentIds: splitCsvList(values.get("relatedDocumentIds") ?? ""),
       externalLinks: splitCsvList(values.get("externalLinks") ?? ""),
@@ -1622,6 +1650,10 @@ function parseTaskXlsxExport(rawBase64: string) {
       testEstimateHours: values.get("testEstimateHours") || 0,
       testEstimateSource: values.get("testEstimateSource") || "MANUAL",
       standardEstimateMandays: values.get("standardEstimateMandays") || 0,
+      taskMandays: values.get("taskMandays") || 0,
+      devContractMandays: values.get("devContractMandays") || 0,
+      testerContractMandays: values.get("testerContractMandays") || 0,
+      reviewerContractMandays: values.get("reviewerContractMandays") || 0,
       storyPoint: values.get("storyPoint") || 0,
       relatedDocumentIds: splitCsvList(values.get("relatedDocumentIds") ?? ""),
       externalLinks: splitCsvList(values.get("externalLinks") ?? ""),
@@ -1648,6 +1680,10 @@ function buildProjectTasksXlsxExport(
     testEstimateHours: unknown;
     testEstimateSource: string;
     standardEstimateMandays: unknown;
+    taskMandays: unknown;
+    devContractMandays: unknown;
+    testerContractMandays: unknown;
+    reviewerContractMandays: unknown;
     storyPoint: unknown;
     externalLinks: unknown;
     relatedDocuments: { documentId: string }[];
@@ -1673,6 +1709,10 @@ function buildProjectTasksXlsxExport(
       testEstimateHours: Number(task.testEstimateHours),
       testEstimateSource: task.testEstimateSource,
       standardEstimateMandays: Number(task.standardEstimateMandays),
+      taskMandays: Number(task.taskMandays),
+      devContractMandays: Number(task.devContractMandays),
+      testerContractMandays: Number(task.testerContractMandays),
+      reviewerContractMandays: Number(task.reviewerContractMandays),
       storyPoint: Number(task.storyPoint),
       relatedDocumentIds: task.relatedDocuments.map((relation) => relation.documentId).join("\n"),
       externalLinks: normalizeStoredExternalLinks(task.externalLinks).join("\n"),
@@ -1697,6 +1737,10 @@ function buildProjectTasksXlsxExport(
     { wch: 16 },
     { wch: 18 },
     { wch: 22 },
+    { wch: 16 },
+    { wch: 20 },
+    { wch: 22 },
+    { wch: 24 },
     { wch: 12 },
     { wch: 38 },
     { wch: 50 },
@@ -1741,6 +1785,10 @@ function parseProjectTasksXlsxExport(rawBase64: string) {
         testEstimateHours: row.testEstimateHours ?? 0,
         testEstimateSource: String(row.testEstimateSource ?? "MANUAL").trim() || "MANUAL",
         standardEstimateMandays: row.standardEstimateMandays ?? 0,
+        taskMandays: row.taskMandays ?? 0,
+        devContractMandays: row.devContractMandays ?? 0,
+        testerContractMandays: row.testerContractMandays ?? 0,
+        reviewerContractMandays: row.reviewerContractMandays ?? 0,
         storyPoint: row.storyPoint ?? 0,
         relatedDocumentIds: splitCsvList(String(row.relatedDocumentIds ?? "")),
         externalLinks: splitCsvList(String(row.externalLinks ?? "")),
@@ -1852,6 +1900,10 @@ export async function exportTaskForEditingAction(
     { field: "testEstimateHours", value: Number(task.testEstimateHours), help: "Số giờ Test estimate" },
     { field: "testEstimateSource", value: task.testEstimateSource, help: "AUTO hoặc MANUAL" },
     { field: "standardEstimateMandays", value: Number(task.standardEstimateMandays), help: "Ngày công chuẩn" },
+    { field: "taskMandays", value: Number(task.taskMandays), help: "Ngày công task" },
+    { field: "devContractMandays", value: Number(task.devContractMandays), help: "Công khoán Developer theo ngày công" },
+    { field: "testerContractMandays", value: Number(task.testerContractMandays), help: "Công khoán Tester theo ngày công" },
+    { field: "reviewerContractMandays", value: Number(task.reviewerContractMandays), help: "Công khoán Reviewer theo ngày công" },
     { field: "storyPoint", value: Number(task.storyPoint), help: "Story point" },
     {
       field: "relatedDocumentIds",
@@ -1958,6 +2010,10 @@ export async function importTaskFromFileAction(
       dueDate,
       devDueAt,
       testDueAt,
+      taskMandays: values.taskMandays,
+      devContractMandays: values.devContractMandays,
+      testerContractMandays: values.testerContractMandays,
+      reviewerContractMandays: values.reviewerContractMandays,
       storyPoint: values.storyPoint,
       relatedDocumentId: validRelatedDocumentIds[0] ?? null,
       externalLinks,
@@ -1988,6 +2044,10 @@ export async function importTaskFromFileAction(
   addHistoryIfChanged(historyEntries, { ...historyBase, field: "devEstimateHours", oldValue: before.devEstimateHours, newValue: values.devEstimateHours });
   addHistoryIfChanged(historyEntries, { ...historyBase, field: "testEstimateHours", oldValue: before.testEstimateHours, newValue: values.testEstimateHours });
   addHistoryIfChanged(historyEntries, { ...historyBase, field: "standardEstimateMandays", oldValue: before.standardEstimateMandays, newValue: values.standardEstimateMandays });
+  addHistoryIfChanged(historyEntries, { ...historyBase, field: "taskMandays", oldValue: before.taskMandays, newValue: values.taskMandays });
+  addHistoryIfChanged(historyEntries, { ...historyBase, field: "devContractMandays", oldValue: before.devContractMandays, newValue: values.devContractMandays });
+  addHistoryIfChanged(historyEntries, { ...historyBase, field: "testerContractMandays", oldValue: before.testerContractMandays, newValue: values.testerContractMandays });
+  addHistoryIfChanged(historyEntries, { ...historyBase, field: "reviewerContractMandays", oldValue: before.reviewerContractMandays, newValue: values.reviewerContractMandays });
   addHistoryIfChanged(historyEntries, { ...historyBase, field: "storyPoint", oldValue: before.storyPoint, newValue: values.storyPoint });
   if (historyEntries.length > 0) {
     await prisma.taskHistory.createMany({ data: historyEntries });
@@ -2145,6 +2205,10 @@ export async function importProjectTasksFromFileAction(
         dueDate,
         devDueAt,
         testDueAt,
+        taskMandays: values.taskMandays,
+        devContractMandays: values.devContractMandays,
+        testerContractMandays: values.testerContractMandays,
+        reviewerContractMandays: values.reviewerContractMandays,
         storyPoint: values.storyPoint,
         relatedDocumentId: validRelatedDocumentIds[0] ?? null,
         externalLinks,
@@ -2180,6 +2244,10 @@ export async function importProjectTasksFromFileAction(
     addHistoryIfChanged(historyEntries, { ...historyBase, field: "devEstimateHours", oldValue: before.devEstimateHours, newValue: values.devEstimateHours });
     addHistoryIfChanged(historyEntries, { ...historyBase, field: "testEstimateHours", oldValue: before.testEstimateHours, newValue: values.testEstimateHours });
     addHistoryIfChanged(historyEntries, { ...historyBase, field: "standardEstimateMandays", oldValue: before.standardEstimateMandays, newValue: values.standardEstimateMandays });
+    addHistoryIfChanged(historyEntries, { ...historyBase, field: "taskMandays", oldValue: before.taskMandays, newValue: values.taskMandays });
+    addHistoryIfChanged(historyEntries, { ...historyBase, field: "devContractMandays", oldValue: before.devContractMandays, newValue: values.devContractMandays });
+    addHistoryIfChanged(historyEntries, { ...historyBase, field: "testerContractMandays", oldValue: before.testerContractMandays, newValue: values.testerContractMandays });
+    addHistoryIfChanged(historyEntries, { ...historyBase, field: "reviewerContractMandays", oldValue: before.reviewerContractMandays, newValue: values.reviewerContractMandays });
     addHistoryIfChanged(historyEntries, { ...historyBase, field: "storyPoint", oldValue: before.storyPoint, newValue: values.storyPoint });
     if (historyEntries.length > 0) {
       await prisma.taskHistory.createMany({ data: historyEntries });
@@ -2507,6 +2575,12 @@ export async function updateTaskAction(
       dueDate: nextDueDate,
       devDueAt,
       testDueAt,
+      taskMandays: has("taskMandays") ? values.taskMandays ?? 0 : before.taskMandays,
+      devContractMandays: has("devContractMandays") ? values.devContractMandays ?? 0 : before.devContractMandays,
+      testerContractMandays: has("testerContractMandays") ? values.testerContractMandays ?? 0 : before.testerContractMandays,
+      reviewerContractMandays: has("reviewerContractMandays")
+        ? values.reviewerContractMandays ?? 0
+        : before.reviewerContractMandays,
       ...derived,
       completedAt: nextStatus === "DONE" ? new Date() : nextStatus !== before.status ? null : before.completedAt,
       storyPoint: values.storyPoint ?? before.storyPoint,
@@ -2599,6 +2673,42 @@ export async function updateTaskAction(
       field: "acceptanceCriteria",
       oldValue: before.acceptanceCriteria,
       newValue: values.acceptanceCriteria || null,
+    });
+  }
+  if (has("taskMandays")) {
+    addHistoryIfChanged(historyEntries, {
+      taskId,
+      changedById: session.user.id,
+      field: "taskMandays",
+      oldValue: before.taskMandays,
+      newValue: values.taskMandays ?? 0,
+    });
+  }
+  if (has("devContractMandays")) {
+    addHistoryIfChanged(historyEntries, {
+      taskId,
+      changedById: session.user.id,
+      field: "devContractMandays",
+      oldValue: before.devContractMandays,
+      newValue: values.devContractMandays ?? 0,
+    });
+  }
+  if (has("testerContractMandays")) {
+    addHistoryIfChanged(historyEntries, {
+      taskId,
+      changedById: session.user.id,
+      field: "testerContractMandays",
+      oldValue: before.testerContractMandays,
+      newValue: values.testerContractMandays ?? 0,
+    });
+  }
+  if (has("reviewerContractMandays")) {
+    addHistoryIfChanged(historyEntries, {
+      taskId,
+      changedById: session.user.id,
+      field: "reviewerContractMandays",
+      oldValue: before.reviewerContractMandays,
+      newValue: values.reviewerContractMandays ?? 0,
     });
   }
   if (historyEntries.length > 0) {

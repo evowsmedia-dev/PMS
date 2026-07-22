@@ -538,6 +538,10 @@ model Task {
   testEstimateHours       Decimal            @default(0) @db.Decimal(10, 2)
   testEstimateSource      TestEstimateSource @default(AUTO)
   standardEstimateMandays Decimal            @default(0) @db.Decimal(10, 2)
+  taskMandays             Decimal            @default(0) @db.Decimal(10, 2)
+  devContractMandays      Decimal            @default(0) @db.Decimal(10, 2)
+  testerContractMandays   Decimal            @default(0) @db.Decimal(10, 2)
+  reviewerContractMandays Decimal            @default(0) @db.Decimal(10, 2)
   actualDevHours          Decimal            @default(0) @db.Decimal(10, 2)
   actualTestHours         Decimal            @default(0) @db.Decimal(10, 2)
   plannedStartAt          DateTime?

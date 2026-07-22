@@ -6,7 +6,7 @@ import { canAccess } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { canAccessModule, getAssignedModuleIdsForUser } from "@/lib/document-type-access";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { TaskEditForm } from "@/components/task-edit-form";
 import {
   TaskComments,
@@ -16,11 +16,8 @@ import {
 import { TaskViewTabs } from "@/components/task-view-tabs";
 import { formatTaskHistoryField } from "@/lib/task-history-display";
 import {
-  TASK_TYPE_LABEL,
-  TASK_PRIORITY_LABEL,
   BUG_STATUS_LABEL,
   TASK_WARNING_LABEL,
-  TASK_STATUS_LABEL,
 } from "@/lib/validation/task";
 import {
   documentTitleRouteSegment,
@@ -168,28 +165,22 @@ export default async function ProjectTaskDetailPage({
   const activeAssigneeId = activeMemberIds.has(task.assigneeId ?? "") ? task.assigneeId : null;
   const activeReviewerId = activeMemberIds.has(task.reviewerId ?? "") ? task.reviewerId : null;
   const activeTesterId = activeMemberIds.has(task.testerId ?? "") ? task.testerId : null;
-  const meta: { label: string; value: string }[] = [
-    { label: "Trạng thái", value: TASK_STATUS_LABEL[task.status] },
-    { label: "Loại", value: TASK_TYPE_LABEL[task.type] },
-    { label: "Ưu tiên", value: TASK_PRIORITY_LABEL[task.priority] },
-    { label: "Epic", value: task.epic?.name ?? "—" },
-    { label: "Sprint", value: task.sprint?.name ?? "—" },
-    { label: "Milestone", value: task.milestone?.name ?? "—" },
-    { label: "Reviewer", value: activeReviewerId && task.reviewer ? task.reviewer.fullName : "—" },
-    { label: "Tester", value: activeTesterId && task.tester ? task.tester.fullName : "—" },
-    { label: "Dev estimate", value: `${task.devEstimateHours}h` },
-    { label: "Test estimate", value: `${task.testEstimateHours}h` },
-    { label: "Chuẩn", value: `${task.standardEstimateMandays} ngày công` },
-    { label: "Actual Dev/Test", value: `${task.actualDevHours}h / ${task.actualTestHours}h` },
-    { label: "Planned start", value: task.plannedStartAt?.toLocaleDateString("vi-VN") ?? "—" },
-    { label: "HTC Dev", value: task.devDueAt?.toLocaleDateString("vi-VN") ?? "—" },
-    { label: "HTC Test", value: task.testDueAt?.toLocaleDateString("vi-VN") ?? "—" },
-    { label: "Blocked", value: task.isBlocked ? "Có" : "Không" },
-    { label: "Story point", value: String(task.storyPoint) },
-    { label: "Tiến độ", value: `${task.progressPercent}%` },
-  ];
   const externalLinks = normalizeExternalLinks(task.externalLinks);
   const relatedDocuments = task.relatedDocuments.map((item) => item.document);
+  const warningItems = [
+    task.estimateWarningFlag ? TASK_WARNING_LABEL[task.estimateWarningFlag] ?? task.estimateWarningFlag : null,
+    task.isDevOverdue ? "Dev quá hạn" : null,
+    task.isTestOverdue ? "Test quá hạn" : null,
+    task.isBlocked ? "Blocked" : null,
+  ].filter((item): item is string => Boolean(item));
+  const parentTaskLink = task.parentTask
+    ? {
+        href: task.parentTask.moduleId
+          ? `/projects/${canonicalProjectSegment}/modules/${task.parentTask.moduleId}/tasks/${task.parentTask.id}`
+          : `/projects/${canonicalProjectSegment}/tasks/${task.parentTask.id}`,
+        label: `${task.parentTask.taskCode ? `${task.parentTask.taskCode} · ` : ""}${task.parentTask.title}`,
+      }
+    : null;
 
   return (
     <div className="space-y-4">
@@ -197,61 +188,12 @@ export default async function ProjectTaskDetailPage({
       <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,75%)_minmax(0,25%)] lg:items-start">
         <div className="min-w-0 space-y-4">
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              {task.taskCode ? (
-                <span className="font-mono text-sm text-muted-foreground">{task.taskCode}</span>
-              ) : null}
-              {task.title}
-            </CardTitle>
-          </CardHeader>
           <CardContent className="space-y-4">
-            {task.estimateWarningFlag || task.isDevOverdue || task.isTestOverdue || task.isBlocked ? (
-              <div className="rounded-md border bg-muted/40 p-3 text-sm">
-                <p className="text-xs font-semibold uppercase text-muted-foreground">
-                  Cảnh báo tiến độ / ngày công
-                </p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {task.estimateWarningFlag ? (
-                    <Badge variant="danger" className="status-badge">
-                      {TASK_WARNING_LABEL[task.estimateWarningFlag] ?? task.estimateWarningFlag}
-                    </Badge>
-                  ) : null}
-                  {task.isDevOverdue ? <Badge variant="danger" className="status-badge">Dev quá hạn</Badge> : null}
-                  {task.isTestOverdue ? <Badge variant="danger" className="status-badge">Test quá hạn</Badge> : null}
-                  {task.isBlocked ? <Badge variant="danger" className="status-badge">Blocked</Badge> : null}
-                </div>
-                {task.blockedReason ? <p className="mt-2 text-muted-foreground">{task.blockedReason}</p> : null}
-              </div>
-            ) : null}
-
-            {task.parentTask ? (
-              <p className="text-sm text-muted-foreground">
-                Task cha:{" "}
-                {task.parentTask.moduleId ? (
-                  <Link
-                    href={`/projects/${projectId}/modules/${task.parentTask.moduleId}/tasks/${task.parentTask.id}`}
-                    className="text-foreground underline-offset-4 hover:underline"
-                  >
-                    {task.parentTask.taskCode ? `${task.parentTask.taskCode} · ` : ""}
-                    {task.parentTask.title}
-                  </Link>
-                ) : (
-                  <Link
-                    href={`/projects/${projectId}/tasks/${task.parentTask.id}`}
-                    className="text-foreground underline-offset-4 hover:underline"
-                  >
-                    {task.parentTask.taskCode ? `${task.parentTask.taskCode} · ` : ""}
-                    {task.parentTask.title}
-                  </Link>
-                )}
-              </p>
-            ) : null}
-
             <TaskEditForm
               projectId={projectId}
               moduleId={taskModuleId}
               taskId={taskId}
+              taskCode={task.taskCode}
               title={task.title}
               description={task.description ?? ""}
               status={task.status}
@@ -273,6 +215,10 @@ export default async function ProjectTaskDetailPage({
               testEstimateHours={String(task.testEstimateHours)}
               testEstimateSource={task.testEstimateSource}
               standardEstimateMandays={String(task.standardEstimateMandays)}
+              taskMandays={String(task.taskMandays)}
+              devContractMandays={String(task.devContractMandays)}
+              testerContractMandays={String(task.testerContractMandays)}
+              reviewerContractMandays={String(task.reviewerContractMandays)}
               storyPoint={String(task.storyPoint)}
               acceptanceCriteria={task.acceptanceCriteria ?? ""}
               relatedDocumentId={task.relatedDocumentId}
@@ -289,7 +235,7 @@ export default async function ProjectTaskDetailPage({
               fullPlanningFields
               readOnlyDetails={{
                 description: task.description ?? "",
-                meta,
+                meta: [],
                 acceptanceCriteria: task.acceptanceCriteria ?? "",
                 relatedReferences: {
                   documents: relatedDocuments.map((document) => ({
@@ -300,6 +246,9 @@ export default async function ProjectTaskDetailPage({
                   externalLinks,
                 },
               }}
+              warningItems={warningItems}
+              blockedReason={task.blockedReason}
+              parentTaskLink={parentTaskLink}
               members={members.map((m) => ({ userId: m.userId, fullName: m.user.fullName }))}
               epics={epics.map((epic) => ({ id: epic.id, label: epic.name }))}
               sprints={sprints.map((sprint) => ({ id: sprint.id, label: sprint.name }))}
@@ -345,8 +294,14 @@ export default async function ProjectTaskDetailPage({
               </div>
             ) : null}
 
-            <div className="border-t pt-3">
-              <p className="text-xs font-semibold uppercase text-muted-foreground">Time log</p>
+          </CardContent>
+        </Card>
+        </div>
+
+        <Card className="h-fit min-w-0">
+          <CardContent className="space-y-5 pt-6">
+            <section>
+              <p className="text-sm font-semibold">Log time</p>
               <div className="mt-2 space-y-2">
                 <TaskTimeLogForm projectId={projectId} moduleId={taskModuleId} taskId={taskId} canEdit={canEdit} />
                 <TaskTimeLogList
@@ -366,28 +321,7 @@ export default async function ProjectTaskDetailPage({
                   }))}
                 />
               </div>
-            </div>
-
-            <div className="border-t pt-3">
-              <p className="text-xs font-semibold uppercase text-muted-foreground">Lịch sử</p>
-              <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
-                {task.history.map((h) => (
-                  <li key={h.id}>
-                    {h.changedBy.fullName} đã thay đổi {formatTaskHistoryField(h.field)} vào{" "}
-                    {h.createdAt.toLocaleString("vi-VN")}
-                  </li>
-                ))}
-                {task.history.length === 0 ? (
-                  <li>Chưa có lịch sử thay đổi.</li>
-                ) : null}
-              </ul>
-            </div>
-          </CardContent>
-        </Card>
-        </div>
-
-        <Card className="h-fit min-w-0">
-          <CardContent className="pt-6">
+            </section>
             <TaskComments
               projectId={projectId}
               moduleId={taskModuleId}
@@ -400,6 +334,18 @@ export default async function ProjectTaskDetailPage({
                 email: member.user.email,
               }))}
             />
+            <section className="border-t pt-4">
+              <p className="text-sm font-semibold">Lịch sử</p>
+              <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+                {task.history.map((h) => (
+                  <li key={h.id}>
+                    {h.changedBy.fullName} đã thay đổi {formatTaskHistoryField(h.field)} vào{" "}
+                    {h.createdAt.toLocaleString("vi-VN")}
+                  </li>
+                ))}
+                {task.history.length === 0 ? <li>Chưa có lịch sử thay đổi.</li> : null}
+              </ul>
+            </section>
           </CardContent>
         </Card>
       </div>

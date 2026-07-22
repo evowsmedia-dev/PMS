@@ -1,10 +1,12 @@
 "use client";
 
 import { useActionState, useEffect, useState, useTransition } from "react";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -34,6 +36,49 @@ function calculateDefaultTestEstimate(devEstimate: number) {
   return Math.round(Math.max(0, devEstimate || 0) * 0.3 * 2) / 2;
 }
 
+function TaskSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="space-y-3 rounded-md border p-3">
+      <h2 className="text-sm font-semibold">{title}</h2>
+      {children}
+    </section>
+  );
+}
+
+function ReadOnlyFieldGrid({ fields }: { fields: { label: string; value: ReactNode }[] }) {
+  return (
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      {fields.map((field) => (
+        <ReadOnlyField key={field.label} label={field.label} value={field.value} />
+      ))}
+    </div>
+  );
+}
+
+function ReadOnlyField({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="min-w-0 rounded-md border bg-background px-3 py-2 text-sm">
+      <p className="text-muted-foreground">{label}</p>
+      <div className="mt-1 min-w-0 break-words font-medium">{value}</div>
+    </div>
+  );
+}
+
+function ReadOnlyBlock({ label, value, empty }: { label: string; value: string; empty: string }) {
+  return (
+    <div className="rounded-md border bg-background p-3 text-sm">
+      <p className="font-medium text-muted-foreground">{label}</p>
+      {value ? <p className="mt-1 whitespace-pre-wrap">{value}</p> : <p className="mt-1 text-muted-foreground">{empty}</p>}
+    </div>
+  );
+}
+
 interface Option {
   id: string;
   label: string;
@@ -48,6 +93,7 @@ export function TaskEditForm({
   projectId,
   moduleId,
   taskId,
+  taskCode = "",
   title,
   description,
   status = "BACKLOG",
@@ -69,6 +115,10 @@ export function TaskEditForm({
   testEstimateHours = "0",
   testEstimateSource = "AUTO",
   standardEstimateMandays = "0",
+  taskMandays = "0",
+  devContractMandays = "0",
+  testerContractMandays = "0",
+  reviewerContractMandays = "0",
   storyPoint = "0",
   acceptanceCriteria = "",
   relatedDocumentId = "",
@@ -82,6 +132,9 @@ export function TaskEditForm({
   showPriorityDueDate = true,
   fullPlanningFields = false,
   readOnlyDetails,
+  warningItems = [],
+  blockedReason = "",
+  parentTaskLink,
   members = [],
   epics = [],
   sprints = [],
@@ -91,6 +144,7 @@ export function TaskEditForm({
   projectId: string;
   moduleId: string | null;
   taskId: string;
+  taskCode?: string | null;
   title: string;
   description: string;
   status?: string;
@@ -112,6 +166,10 @@ export function TaskEditForm({
   testEstimateHours?: string;
   testEstimateSource?: string;
   standardEstimateMandays?: string;
+  taskMandays?: string;
+  devContractMandays?: string;
+  testerContractMandays?: string;
+  reviewerContractMandays?: string;
   storyPoint?: string;
   acceptanceCriteria?: string;
   relatedDocumentId?: string | null;
@@ -133,6 +191,9 @@ export function TaskEditForm({
       externalLinks: string[];
     };
   };
+  warningItems?: string[];
+  blockedReason?: string | null;
+  parentTaskLink?: { href: string; label: string } | null;
   members?: MemberOption[];
   epics?: Option[];
   sprints?: Option[];
@@ -156,69 +217,124 @@ export function TaskEditForm({
     if (state.error) toast.error(state.error);
   }, [state, router, startTransition]);
 
+  const memberName = (userId?: string | null) =>
+    userId ? members.find((member) => member.userId === userId)?.fullName ?? "—" : "—";
+  const optionLabel = (options: Option[], id?: string | null) =>
+    id ? options.find((option) => option.id === id)?.label ?? "—" : "—";
+  const commonInfoFields = [
+    { label: "Mã", value: taskCode || "—" },
+    { label: "Loại ngắn", value: TASK_TYPE_LABEL[type] ?? type },
+  ];
+  const classificationFields = [
+    { label: "Trạng thái", value: TASK_STATUS_LABEL[status] ?? status },
+    { label: "Loại task", value: TASK_TYPE_LABEL[type] ?? type },
+    { label: "Độ ưu tiên", value: TASK_PRIORITY_LABEL[priority] ?? priority },
+    { label: "Epic", value: optionLabel(epics, epicId) },
+    { label: "Sprint", value: optionLabel(sprints, sprintId) },
+    { label: "Milestone", value: optionLabel(milestones, milestoneId) },
+  ];
+  const assignmentFields = [
+    { label: "Developer", value: memberName(assigneeId) },
+    { label: "Tester", value: memberName(testerId) },
+    { label: "Reviewer", value: memberName(reviewerId) },
+    { label: "Ngày công task", value: `${taskMandays || "0"} ngày` },
+    { label: "Công khoán Dev", value: `${devContractMandays || "0"} ngày` },
+    { label: "Công khoán Tester", value: `${testerContractMandays || "0"} ngày` },
+    { label: "Công khoán Reviewer", value: `${reviewerContractMandays || "0"} ngày` },
+    { label: "Due date tổng", value: dueDate || "—" },
+  ];
+  const executionFields = [
+    { label: "Ngày bắt đầu", value: startDate || "—" },
+    { label: "Ngày kết thúc", value: dueDate || "—" },
+    { label: "Dự kiến hoàn thành Dev", value: devDueAt || "—" },
+    { label: "Dự kiến hoàn thành Tester", value: testDueAt || "—" },
+    { label: "Dev estimate", value: `${devEstimateHours || "0"}h` },
+    { label: "Tester estimate", value: `${testEstimateHours || "0"}h` },
+  ];
+
   if (!editing) {
     return (
       <div className="space-y-4">
         {readOnlyDetails ? (
           <>
-            <div className="rounded-md border bg-muted/30 p-3 text-sm">
-              <p className="text-xs font-semibold uppercase text-muted-foreground">Mô tả</p>
-              {readOnlyDetails.description ? (
-                <p className="mt-1 whitespace-pre-wrap">{readOnlyDetails.description}</p>
-              ) : (
-                <p className="mt-1 text-muted-foreground">Chưa có mô tả.</p>
-              )}
-            </div>
-
-            {readOnlyDetails.acceptanceCriteria ? (
-              <div className="rounded-md bg-muted p-3 text-sm">
-                <p className="text-xs font-semibold uppercase text-muted-foreground">
-                  Tiêu chí nghiệm thu
-                </p>
-                <p className="mt-1 whitespace-pre-wrap">{readOnlyDetails.acceptanceCriteria}</p>
-              </div>
-            ) : null}
-
-            {readOnlyDetails.relatedReferences &&
-            (readOnlyDetails.relatedReferences.documents.length > 0 ||
-              readOnlyDetails.relatedReferences.externalLinks.length > 0) ? (
-              <div className="rounded-md border p-3 text-sm">
-                <p className="text-xs font-semibold uppercase text-muted-foreground">
-                  Tài liệu / link liên quan
-                </p>
-                <div className="mt-2 space-y-1">
-                  {readOnlyDetails.relatedReferences.documents.map((document) => (
-                    <Link
-                      key={document.id}
-                      href={document.href}
-                      className="block text-foreground underline-offset-4 hover:underline"
-                    >
-                      {document.label}
+            <TaskSection title="Thông tin chung">
+              <ReadOnlyFieldGrid fields={commonInfoFields} />
+              {warningItems.length > 0 ? (
+                <div className="rounded-md border bg-muted/40 p-3">
+                  <p className="text-sm font-medium">Cảnh báo tiến độ / ngày công</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {warningItems.map((item) => (
+                      <Badge key={item} variant="danger" className="status-badge">
+                        {item}
+                      </Badge>
+                    ))}
+                  </div>
+                  {blockedReason ? <p className="mt-2 text-muted-foreground">{blockedReason}</p> : null}
+                </div>
+              ) : null}
+              <ReadOnlyField
+                label="Task cha"
+                value={
+                  parentTaskLink ? (
+                    <Link href={parentTaskLink.href} className="underline-offset-4 hover:underline">
+                      {parentTaskLink.label}
                     </Link>
-                  ))}
-                  {readOnlyDetails.relatedReferences.externalLinks.map((link) => (
-                    <a
-                      key={link}
-                      href={link}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="block break-all text-foreground underline-offset-4 hover:underline"
-                    >
-                      {link}
-                    </a>
-                  ))}
-                </div>
-              </div>
-            ) : null}
+                  ) : (
+                    "—"
+                  )
+                }
+              />
+              <ReadOnlyField label="Tiêu đề" value={title || "—"} />
+              <ReadOnlyBlock label="Mô tả" value={readOnlyDetails.description} empty="Chưa có mô tả." />
+              <ReadOnlyBlock
+                label="Tiêu chí nghiệm thu"
+                value={readOnlyDetails.acceptanceCriteria ?? ""}
+                empty="Chưa có tiêu chí nghiệm thu."
+              />
+            </TaskSection>
 
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-3">
-              {readOnlyDetails.meta.map((m) => (
-                <div key={m.label} className="flex justify-between gap-2 border-b py-1">
-                  <span className="text-muted-foreground">{m.label}</span>
-                  <span className="text-right font-medium">{m.value}</span>
-                </div>
-              ))}
-            </div>
+            <TaskSection title="Phân loại & kế hoạch">
+              <ReadOnlyFieldGrid fields={classificationFields} />
+            </TaskSection>
+
+            <TaskSection title="Giao nhiệm vụ">
+              <ReadOnlyFieldGrid fields={assignmentFields} />
+            </TaskSection>
+
+            <TaskSection title="Người thực hiện">
+              <ReadOnlyFieldGrid fields={executionFields} />
+            </TaskSection>
+
+            <TaskSection title="Tài liệu liên quan">
+              {readOnlyDetails.relatedReferences &&
+              (readOnlyDetails.relatedReferences.documents.length > 0 ||
+                readOnlyDetails.relatedReferences.externalLinks.length > 0) ? (
+                <div className="space-y-1 text-sm">
+                    {readOnlyDetails.relatedReferences.documents.map((document) => (
+                      <Link
+                        key={document.id}
+                        href={document.href}
+                        className="block text-foreground underline-offset-4 hover:underline"
+                      >
+                        {document.label}
+                      </Link>
+                    ))}
+                    {readOnlyDetails.relatedReferences.externalLinks.map((link) => (
+                      <a
+                        key={link}
+                        href={link}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block break-all text-foreground underline-offset-4 hover:underline"
+                      >
+                        {link}
+                      </a>
+                    ))}
+                  </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Chưa có tài liệu hoặc external link liên quan.</p>
+              )}
+            </TaskSection>
           </>
         ) : null}
 
@@ -255,25 +371,15 @@ export function TaskEditForm({
 
   return (
     <form action={formAction} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="title">Tiêu đề</Label>
-        <Input id="title" name="title" defaultValue={title} required disabled={!canEdit} />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="description">Mô tả</Label>
-        <Textarea
-          id="description"
-          name="description"
-          defaultValue={description}
-          rows={3}
-          disabled={!canEdit}
-        />
-      </div>
-
       {fullPlanningFields ? (
         <FullPlanningFields
           canEdit={canEdit}
+          taskCode={taskCode ?? ""}
+          title={title}
+          description={description}
+          warningItems={warningItems}
+          blockedReason={blockedReason ?? ""}
+          parentTaskLink={parentTaskLink}
           status={status}
           type={type}
           priority={priority}
@@ -293,6 +399,10 @@ export function TaskEditForm({
           testEstimateHours={testEstimateHours}
           testEstimateSource={testEstimateSource}
           standardEstimateMandays={standardEstimateMandays}
+          taskMandays={taskMandays}
+          devContractMandays={devContractMandays}
+          testerContractMandays={testerContractMandays}
+          reviewerContractMandays={reviewerContractMandays}
           storyPoint={storyPoint}
           acceptanceCriteria={acceptanceCriteria}
           relatedDocumentId={relatedDocumentId ?? ""}
@@ -354,6 +464,12 @@ export function TaskEditForm({
 
 function FullPlanningFields({
   canEdit,
+  taskCode,
+  title,
+  description,
+  warningItems,
+  blockedReason,
+  parentTaskLink,
   status,
   type,
   priority,
@@ -373,6 +489,10 @@ function FullPlanningFields({
   testEstimateHours,
   testEstimateSource,
   standardEstimateMandays,
+  taskMandays,
+  devContractMandays,
+  testerContractMandays,
+  reviewerContractMandays,
   storyPoint,
   acceptanceCriteria,
   relatedDocumentId,
@@ -386,6 +506,12 @@ function FullPlanningFields({
   tasks,
 }: {
   canEdit: boolean;
+  taskCode: string;
+  title: string;
+  description: string;
+  warningItems: string[];
+  blockedReason: string;
+  parentTaskLink?: { href: string; label: string } | null;
   status: string;
   type: string;
   priority: string;
@@ -405,6 +531,10 @@ function FullPlanningFields({
   testEstimateHours: string;
   testEstimateSource: string;
   standardEstimateMandays: string;
+  taskMandays: string;
+  devContractMandays: string;
+  testerContractMandays: string;
+  reviewerContractMandays: string;
   storyPoint: string;
   acceptanceCriteria: string;
   relatedDocumentId: string;
@@ -419,7 +549,70 @@ function FullPlanningFields({
 }) {
   return (
     <>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+      <TaskSection title="Thông tin chung">
+        <ReadOnlyFieldGrid fields={[
+          { label: "Mã", value: taskCode || "—" },
+          { label: "Loại ngắn", value: TASK_TYPE_LABEL[type] ?? type },
+        ]} />
+        {warningItems.length > 0 ? (
+          <div className="rounded-md border bg-muted/40 p-3">
+            <p className="text-sm font-medium">Cảnh báo tiến độ / ngày công</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {warningItems.map((item) => (
+                <Badge key={item} variant="danger" className="status-badge">
+                  {item}
+                </Badge>
+              ))}
+            </div>
+            {blockedReason ? <p className="mt-2 text-muted-foreground">{blockedReason}</p> : null}
+          </div>
+        ) : null}
+        <ReadOnlyField
+          label="Task cha"
+          value={
+            parentTaskLink ? (
+              <Link href={parentTaskLink.href} className="underline-offset-4 hover:underline">
+                {parentTaskLink.label}
+              </Link>
+            ) : (
+              "—"
+            )
+          }
+        />
+        {tasks.length > 0 ? (
+          <OptionalSelect
+            name="parentTaskId"
+            label="Task cha"
+            placeholder="Không có task cha"
+            value={parentTaskId}
+            options={tasks}
+            disabled={!canEdit}
+          />
+        ) : (
+          <input type="hidden" name="parentTaskId" value={parentTaskId} />
+        )}
+        <div className="space-y-2">
+          <Label htmlFor="title">Tiêu đề</Label>
+          <Input id="title" name="title" defaultValue={title} required disabled={!canEdit} />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="description">Mô tả</Label>
+          <Textarea id="description" name="description" defaultValue={description} rows={4} disabled={!canEdit} />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="acceptanceCriteria">Tiêu chí nghiệm thu</Label>
+          <Textarea
+            id="acceptanceCriteria"
+            name="acceptanceCriteria"
+            defaultValue={acceptanceCriteria}
+            rows={3}
+            disabled={!canEdit}
+          />
+        </div>
+      </TaskSection>
+
+      <TaskSection title="Phân loại & kế hoạch">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <StatusField canEdit={canEdit} status={status} />
 
         <div className="space-y-2">
@@ -439,34 +632,6 @@ function FullPlanningFields({
         </div>
 
         <PriorityField canEdit={canEdit} priority={priority} />
-
-        <MemberSelect
-          name="assigneeId"
-          label="Người thực hiện"
-          value={assigneeId}
-          placeholder="Chưa gán"
-          members={members}
-          canEdit={canEdit}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <MemberSelect
-          name="reviewerId"
-          label="Reviewer"
-          value={reviewerId}
-          placeholder="Chưa có reviewer"
-          members={members}
-          canEdit={canEdit}
-        />
-        <MemberSelect
-          name="testerId"
-          label="Tester"
-          value={testerId}
-          placeholder="Chưa có tester"
-          members={members}
-          canEdit={canEdit}
-        />
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -495,18 +660,46 @@ function FullPlanningFields({
           disabled={!canEdit}
         />
       </div>
+      </TaskSection>
 
-      {tasks.length > 0 ? (
-        <OptionalSelect
-          name="parentTaskId"
-          label="Task cha (liên quan)"
-          placeholder="Không có task cha"
-          value={parentTaskId}
-          options={tasks}
-          disabled={!canEdit}
+      <TaskSection title="Giao nhiệm vụ">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <MemberSelect
+            name="assigneeId"
+            label="Developer"
+            value={assigneeId}
+            placeholder="Chưa gán developer"
+            members={members}
+            canEdit={canEdit}
+          />
+          <MemberSelect
+            name="testerId"
+            label="Tester"
+            value={testerId}
+            placeholder="Chưa có tester"
+            members={members}
+            canEdit={canEdit}
+          />
+          <MemberSelect
+            name="reviewerId"
+            label="Reviewer"
+            value={reviewerId}
+            placeholder="Chưa có reviewer"
+            members={members}
+            canEdit={canEdit}
+          />
+        </div>
+        <AssignmentEffortFields
+          canEdit={canEdit}
+          dueDate={dueDate}
+          taskMandays={taskMandays}
+          devContractMandays={devContractMandays}
+          testerContractMandays={testerContractMandays}
+          reviewerContractMandays={reviewerContractMandays}
         />
-      ) : null}
+      </TaskSection>
 
+      <TaskSection title="Người thực hiện">
       <DateAndEffortFields
         canEdit={canEdit}
         startDate={startDate}
@@ -520,24 +713,16 @@ function FullPlanningFields({
         standardEstimateMandays={standardEstimateMandays}
         storyPoint={storyPoint}
       />
+      </TaskSection>
 
-      <div className="space-y-2">
-        <Label htmlFor="acceptanceCriteria">Tiêu chí nghiệm thu</Label>
-        <Textarea
-          id="acceptanceCriteria"
-          name="acceptanceCriteria"
-          defaultValue={acceptanceCriteria}
-          rows={2}
-          disabled={!canEdit}
-        />
-      </div>
-
+      <TaskSection title="Tài liệu liên quan">
       <input type="hidden" name="relatedDocumentId" value={relatedDocumentId} />
       <RelatedReferencesFields
         documents={documents}
         relatedDocumentIds={relatedDocumentIds}
         externalLinks={externalLinks}
       />
+      </TaskSection>
     </>
   );
 }
@@ -637,40 +822,28 @@ function DateAndEffortFields({
 
   return (
     <>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-        <div className="space-y-2">
-          <Label htmlFor="plannedStartAt">Bắt đầu kế hoạch</Label>
-          <Input
-            id="plannedStartAt"
-            name="plannedStartAt"
-            type="date"
-            defaultValue={plannedStartAt}
-            disabled={!canEdit}
-          />
-        </div>
+      <input type="hidden" name="plannedStartAt" value={plannedStartAt} />
+      <input type="hidden" name="standardEstimateMandays" value={standardEstimateMandays} />
+      <input type="hidden" name="storyPoint" value={storyPoint} />
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {!compact ? (
           <div className="space-y-2">
-            <Label htmlFor="startDate">Bắt đầu thực tế</Label>
+            <Label htmlFor="startDate">Ngày bắt đầu</Label>
             <Input id="startDate" name="startDate" type="date" defaultValue={startDate} disabled={!canEdit} />
           </div>
         ) : null}
+        <ReadOnlyField label="Ngày kết thúc" value={dueDate || "—"} />
         <div className="space-y-2">
-          <Label htmlFor="devDueAt">Dự kiến HTC Dev</Label>
+          <Label htmlFor="devDueAt">Ngày dự kiến hoàn thành Dev</Label>
           <Input id="devDueAt" name="devDueAt" type="date" defaultValue={devDueAt} disabled={!canEdit} />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="testDueAt">Dự kiến HTC Test</Label>
+          <Label htmlFor="testDueAt">Ngày dự kiến hoàn thành Tester</Label>
           <Input id="testDueAt" name="testDueAt" type="date" defaultValue={testDueAt} disabled={!canEdit} />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
-        {!compact ? (
-          <div className="space-y-2">
-            <Label htmlFor="dueDate">Deadline tổng</Label>
-            <Input id="dueDate" name="dueDate" type="date" defaultValue={dueDate} disabled={!canEdit} />
-          </div>
-        ) : null}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="devEstimateHours">Dev estimate (h)</Label>
           <Input
@@ -698,34 +871,49 @@ function DateAndEffortFields({
           />
           <input type="hidden" name="testEstimateSource" value={testEstimateSourceValue} />
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="standardEstimateMandays">Chuẩn (ngày công)</Label>
-          <Input
-            id="standardEstimateMandays"
-            name="standardEstimateMandays"
-            type="number"
-            min={0}
-            step="0.25"
-            defaultValue={standardEstimateMandays}
-            disabled={!canEdit}
-          />
-        </div>
-        {!compact ? (
-          <div className="space-y-2">
-            <Label htmlFor="storyPoint">Story point</Label>
-            <Input
-              id="storyPoint"
-              name="storyPoint"
-              type="number"
-              min={0}
-              step="1"
-              defaultValue={storyPoint}
-              disabled={!canEdit}
-            />
-          </div>
-        ) : null}
       </div>
     </>
+  );
+}
+
+function AssignmentEffortFields({
+  canEdit,
+  dueDate,
+  taskMandays,
+  devContractMandays,
+  testerContractMandays,
+  reviewerContractMandays,
+}: {
+  canEdit: boolean;
+  dueDate: string;
+  taskMandays: string;
+  devContractMandays: string;
+  testerContractMandays: string;
+  reviewerContractMandays: string;
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
+      <div className="space-y-2">
+        <Label htmlFor="taskMandays">Ngày công task</Label>
+        <Input id="taskMandays" name="taskMandays" type="number" min={0} step="0.25" defaultValue={taskMandays} disabled={!canEdit} />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="devContractMandays">Công khoán Dev</Label>
+        <Input id="devContractMandays" name="devContractMandays" type="number" min={0} step="0.25" defaultValue={devContractMandays} disabled={!canEdit} />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="testerContractMandays">Công khoán Tester</Label>
+        <Input id="testerContractMandays" name="testerContractMandays" type="number" min={0} step="0.25" defaultValue={testerContractMandays} disabled={!canEdit} />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="reviewerContractMandays">Công khoán Reviewer</Label>
+        <Input id="reviewerContractMandays" name="reviewerContractMandays" type="number" min={0} step="0.25" defaultValue={reviewerContractMandays} disabled={!canEdit} />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="dueDate">Due date tổng</Label>
+        <Input id="dueDate" name="dueDate" type="date" defaultValue={dueDate} disabled={!canEdit} />
+      </div>
+    </div>
   );
 }
 
