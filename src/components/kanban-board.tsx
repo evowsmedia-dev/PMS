@@ -79,7 +79,20 @@ export interface KanbanTask {
 interface KanbanMember {
   userId: string;
   fullName: string;
+  role: string;
 }
+
+const STATUS_ASSIGNEE_ROLES: Partial<Record<string, string[]>> = {
+  TODO: ["DEV"],
+  IN_PROGRESS: ["DEV"],
+  BUG_FIXING: ["DEV"],
+  REOPENED: ["DEV"],
+  READY_FOR_QA: ["TESTER"],
+  TESTING: ["TESTER"],
+  CODE_REVIEW: ["BA", "PO", "OWNER"],
+  READY_FOR_UAT: ["BA", "PO", "OWNER"],
+  BLOCKED: ["BA", "PO", "OWNER"],
+};
 
 function TaskCard({
   task,
@@ -144,9 +157,7 @@ function TaskCard({
           </span>
         ) : null}
       </div>
-      {task.assignee ? (
-        <p className="truncate text-xs text-muted-foreground">{task.assignee.fullName}</p>
-      ) : null}
+      <p className="truncate text-xs text-muted-foreground">{task.assignee?.fullName ?? "Chưa gán"}</p>
     </div>
   );
 }
@@ -480,6 +491,7 @@ export function KanbanBoard({
   canEditTasks,
   initialTasks,
   members,
+  activeAssigneeId,
 }: {
   projectId: string;
   moduleId: string | null;
@@ -488,12 +500,22 @@ export function KanbanBoard({
   canEditTasks: boolean;
   initialTasks: KanbanTask[];
   members: KanbanMember[];
+  activeAssigneeId?: string;
 }) {
   const [tasks, setTasks] = useState(initialTasks);
   const [columnsConfig, setColumnsConfig] = useState(initialColumns);
   const [savingStatuses, setSavingStatuses] = useState(false);
+  const [, startTransition] = useTransition();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
   const router = useRouter();
+
+  useEffect(() => {
+    startTransition(() => setTasks(initialTasks));
+  }, [initialTasks, startTransition]);
+
+  useEffect(() => {
+    startTransition(() => setColumnsConfig(initialColumns));
+  }, [initialColumns, startTransition]);
 
   const columns = columnsConfig.map((column) => ({
     column,
@@ -512,6 +534,25 @@ export function KanbanBoard({
     if (directColumn) return directColumn;
     const task = findTask(id);
     return task ? columnsConfig.find((column) => column.statuses.includes(task.status as TaskStatusValue)) : undefined;
+  }
+
+  function optimisticAssigneeForStatus(status: string, currentAssigneeId?: string | null) {
+    const roles = STATUS_ASSIGNEE_ROLES[status];
+    const currentMember = members.find((member) => member.userId === currentAssigneeId);
+    if (!roles?.length) {
+      return currentMember
+        ? { assigneeId: currentMember.userId, assignee: { fullName: currentMember.fullName } }
+        : { assigneeId: currentAssigneeId ?? null, assignee: null };
+    }
+    if (currentMember && roles.includes(currentMember.role)) {
+      return { assigneeId: currentMember.userId, assignee: { fullName: currentMember.fullName } };
+    }
+    const nextMember = members
+      .filter((member) => roles.includes(member.role))
+      .sort((a, b) => roles.indexOf(a.role) - roles.indexOf(b.role))[0];
+    return nextMember
+      ? { assigneeId: nextMember.userId, assignee: { fullName: nextMember.fullName } }
+      : { assigneeId: currentAssigneeId ?? null, assignee: currentMember ? { fullName: currentMember.fullName } : null };
   }
 
   async function persistColumns(nextColumns: KanbanStatusColumn[], previousColumns = columnsConfig) {
@@ -584,8 +625,9 @@ export function KanbanBoard({
 
     const previousStatus = activeTask.status;
     const nextStatus = targetColumn.statuses[0];
+    const optimisticAssignee = optimisticAssigneeForStatus(nextStatus, activeTask.assigneeId);
     setTasks((prev) =>
-      prev.map((t) => (t.id === activeTask.id ? { ...t, status: nextStatus } : t)),
+      prev.map((t) => (t.id === activeTask.id ? { ...t, status: nextStatus, ...optimisticAssignee } : t)),
     );
 
     try {
@@ -602,22 +644,34 @@ export function KanbanBoard({
           assignee?: { fullName: string } | null;
         };
       };
+      const nextAssigneeId = payload.task?.assigneeId ?? null;
       setTasks((prev) =>
-        prev.map((t) =>
+        prev.flatMap((t) =>
           t.id === activeTask.id
             ? {
                 ...t,
                 status: payload.task?.status ?? nextStatus,
-                assigneeId: payload.task?.assigneeId ?? null,
+                assigneeId: nextAssigneeId,
                 assignee: payload.task?.assignee ?? null,
               }
             : t,
+        ).filter((t) =>
+          activeAssigneeId && t.id === activeTask.id ? t.assigneeId === activeAssigneeId : true,
         ),
       );
       router.refresh();
     } catch {
       setTasks((prev) =>
-        prev.map((t) => (t.id === activeTask.id ? { ...t, status: previousStatus } : t)),
+        prev.map((t) =>
+          t.id === activeTask.id
+            ? {
+                ...t,
+                status: previousStatus,
+                assigneeId: activeTask.assigneeId ?? null,
+                assignee: activeTask.assignee ?? null,
+              }
+            : t,
+        ),
       );
       toast.error("Không thể cập nhật trạng thái task.");
     }

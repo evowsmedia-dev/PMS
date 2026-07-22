@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canAccess } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { logAudit } from "@/lib/audit";
+import { projectCodeRouteSegment } from "@/lib/route-slug";
 import { TASK_STATUS_ORDER } from "@/lib/validation/task";
 import { deriveTaskEffortFields, refreshTaskDerivedFields } from "@/lib/task-rules";
 import type { ProjectRole } from "@/generated/prisma/enums";
@@ -134,6 +136,20 @@ export async function PATCH(
     select: { taskId: true },
   });
   await Promise.all(dependents.map((dependent) => refreshTaskDerivedFields(dependent.taskId)));
+
+  const project = await prisma.project.findUnique({
+    where: { id: task.projectId },
+    select: { id: true, code: true },
+  });
+  const routeSegments = [task.projectId];
+  if (project) routeSegments.push(projectCodeRouteSegment(project));
+  for (const segment of new Set(routeSegments)) {
+    revalidatePath(`/projects/${segment}/tasks`);
+    revalidatePath(`/projects/${segment}/kanban`);
+    revalidatePath(`/projects/${segment}/overview`);
+    if (task.moduleId) revalidatePath(`/projects/${segment}/modules/${task.moduleId}/tasks`);
+  }
+  revalidatePath("/dashboard/my-tasks");
 
   return NextResponse.json({
     ok: true,

@@ -139,13 +139,14 @@ export default async function ProjectKanbanPage({
       </div>
 
       <KanbanBoard
-        key={tasks.map((task) => `${task.id}:${task.updatedAt.toISOString()}:${task.status}`).join("|")}
+        key={tasks.map((task) => `${task.id}:${task.updatedAt.toISOString()}:${task.status}:${task.assigneeId ?? ""}`).join("|")}
         projectId={projectId}
         moduleId={null}
         initialColumns={kanbanColumns}
         canConfigureStatuses={canMove}
         canEditTasks={canEditTasks}
-        members={members.map((m) => ({ userId: m.userId, fullName: m.user.fullName }))}
+        members={members.map((m) => ({ userId: m.userId, fullName: m.user.fullName, role: m.role }))}
+        activeAssigneeId={sp.assigneeId}
         initialTasks={tasks.map((t) => ({
           id: t.id,
           title: t.title,
