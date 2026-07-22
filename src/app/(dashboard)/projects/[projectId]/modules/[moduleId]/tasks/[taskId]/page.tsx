@@ -229,7 +229,6 @@ export default async function TaskDetailPage({
               taskMandays={String(task.taskMandays)}
               devContractMandays={String(task.devContractMandays)}
               testerContractMandays={String(task.testerContractMandays)}
-              reviewerContractMandays={String(task.reviewerContractMandays)}
               storyPoint={String(task.storyPoint)}
               acceptanceCriteria={task.acceptanceCriteria ?? ""}
               relatedDocumentId={task.relatedDocumentId}
