@@ -128,6 +128,7 @@ export default async function ProjectTaskDetailPage({
   const canEdit = await canAccess(roleCtx, "task.edit", projectRole);
   const canCreate = await canAccess(roleCtx, "task.create", projectRole);
   const canComment = await canAccess(roleCtx, "comment.create", projectRole);
+  const canDeleteAnyTimeLog = session.user.systemRole === "ADMIN";
 
   const [members, epics, sprints, milestones, documents, candidateTasks] = await Promise.all([
     prisma.projectMember.findMany({
@@ -303,6 +304,7 @@ export default async function ProjectTaskDetailPage({
                   taskId={task.id}
                   currentUserId={session.user.id}
                   canEdit={canEdit}
+                  canDeleteAny={canDeleteAnyTimeLog}
                   timeLogs={task.timeLogs.map((log) => ({
                     id: log.id,
                     userId: log.userId,

@@ -20,6 +20,7 @@ import {
   updateTaskPriorityAction,
   updateTaskDueDateAction,
   addTaskTimeLogAction,
+  deleteTaskTimeLogAction,
   updateTaskTimeLogAction,
 } from "@/lib/actions/tasks";
 import {
@@ -386,6 +387,7 @@ export function TaskTimeLogList({
   currentUserId,
   timeLogs,
   canEdit,
+  canDeleteAny,
 }: {
   projectId: string;
   moduleId: string | null;
@@ -393,6 +395,7 @@ export function TaskTimeLogList({
   currentUserId: string;
   timeLogs: TimeLogItem[];
   canEdit: boolean;
+  canDeleteAny?: boolean;
 }) {
   if (timeLogs.length === 0) {
     return <p className="text-sm text-muted-foreground">Chưa có log giờ.</p>;
@@ -420,6 +423,7 @@ export function TaskTimeLogList({
               taskId={taskId}
               log={log}
               canEdit={canEdit && log.userId === currentUserId}
+              canDelete={Boolean(canDeleteAny)}
             />
           ))}
         </tbody>
@@ -434,17 +438,21 @@ function TaskTimeLogRow({
   taskId,
   log,
   canEdit,
+  canDelete,
 }: {
   projectId: string;
   moduleId: string | null;
   taskId: string;
   log: TimeLogItem;
   canEdit: boolean;
+  canDelete: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [workType, setWorkType] = useState(log.workType);
   const action = updateTaskTimeLogAction.bind(null, projectId, moduleId, taskId, log.id);
   const [state, formAction, pending] = useActionState(action, initialState);
+  const deleteAction = deleteTaskTimeLogAction.bind(null, projectId, moduleId, taskId, log.id);
+  const [deleteState, deleteFormAction, deletePending] = useActionState(deleteAction, initialState);
   const [, startTransition] = useTransition();
   const router = useRouter();
 
@@ -458,6 +466,17 @@ function TaskTimeLogRow({
       });
     }
   }, [state, router, startTransition]);
+
+  useEffect(() => {
+    if (deleteState.error) toast.error(deleteState.error);
+    if (deleteState.success) {
+      toast.success(deleteState.success);
+      startTransition(() => {
+        setEditing(false);
+        router.refresh();
+      });
+    }
+  }, [deleteState, router, startTransition]);
 
   if (editing) {
     return (
@@ -523,10 +542,21 @@ function TaskTimeLogRow({
       <td className="px-2 py-1">{log.user.fullName}</td>
       <td className="px-2 py-1">{log.description ?? "—"}</td>
       <td className="px-2 py-1 text-right">
-        {canEdit ? (
-          <Button type="button" size="sm" variant="outline" onClick={() => setEditing(true)}>
-            Sửa
-          </Button>
+        {canEdit || canDelete ? (
+          <div className="flex justify-end gap-2">
+            {canEdit ? (
+              <Button type="button" size="sm" variant="outline" onClick={() => setEditing(true)}>
+                Sửa
+              </Button>
+            ) : null}
+            {canDelete ? (
+              <form action={deleteFormAction}>
+                <Button type="submit" size="sm" variant="destructive" disabled={deletePending}>
+                  {deletePending ? "Đang xóa..." : "Xóa"}
+                </Button>
+              </form>
+            ) : null}
+          </div>
         ) : (
           <span className="text-muted-foreground">—</span>
         )}

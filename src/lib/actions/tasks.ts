@@ -53,6 +53,8 @@ function revalidateTaskPaths(projectId: string, moduleId: string | null, taskId?
   revalidatePath(`/projects/${projectId}/tasks`);
   revalidatePath(`/projects/${projectId}/kanban`);
   revalidatePath(`/projects/${projectId}/overview`);
+  revalidatePath(`/projects/${projectId}/bi-dashboard`);
+  revalidatePath(`/dashboard/overview`);
   revalidatePath(`/dashboard/my-tasks`);
   if (taskId) revalidatePath(`/projects/${projectId}/tasks/${taskId}`);
   if (moduleId) {
@@ -3117,6 +3119,59 @@ export async function updateTaskTimeLogAction(
   revalidateTaskPaths(projectId, moduleId, taskId);
   revalidatePath(`/projects/${projectId}/overview`);
   return { success: "Đã cập nhật log giờ." };
+}
+
+export async function deleteTaskTimeLogAction(
+  projectId: string,
+  moduleId: string | null,
+  taskId: string,
+  timeLogId: string,
+  _prevState: ActionState,
+): Promise<ActionState> {
+  void _prevState;
+  const session = await auth();
+  if (!session?.user) return { error: "Bạn cần đăng nhập." };
+  if (session.user.systemRole !== "ADMIN") {
+    return { error: "Chỉ admin được xóa log giờ." };
+  }
+
+  const timeLog = await prisma.timeLog.findFirst({
+    where: {
+      id: timeLogId,
+      taskId,
+      task: { projectId, deletedAt: null, ...(moduleId ? { moduleId } : {}) },
+    },
+    select: {
+      id: true,
+      taskId: true,
+      userId: true,
+      workType: true,
+      hours: true,
+      description: true,
+    },
+  });
+  if (!timeLog) return { error: "Không tìm thấy log giờ." };
+
+  await prisma.timeLog.delete({ where: { id: timeLogId } });
+  await refreshTaskDerivedFields(timeLog.taskId);
+
+  await logAudit({
+    actorId: session.user.id,
+    action: "DELETE",
+    entityType: "TimeLog",
+    entityId: timeLogId,
+    projectId,
+    metadata: {
+      taskId: timeLog.taskId,
+      userId: timeLog.userId,
+      workType: timeLog.workType,
+      hours: String(timeLog.hours),
+      description: timeLog.description,
+    },
+  });
+
+  revalidateTaskPaths(projectId, moduleId, timeLog.taskId);
+  return { success: "Đã xóa log giờ và cập nhật lại ngày công thực tế." };
 }
 
 /** Soft-delete a task. */
