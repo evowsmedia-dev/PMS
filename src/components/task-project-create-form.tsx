@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useState } from "react";
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -64,6 +65,7 @@ export function TaskProjectCreateForm({
   defaultRelatedDocumentId,
   defaultSourceHighlight,
   relatedDocumentTitle,
+  cancelHref,
 }: {
   projectId: string;
   members: { userId: string; fullName: string }[];
@@ -76,6 +78,7 @@ export function TaskProjectCreateForm({
   defaultRelatedDocumentId?: string;
   defaultSourceHighlight?: string;
   relatedDocumentTitle?: string;
+  cancelHref?: string;
 }) {
   const action = createProjectTaskAction.bind(null, projectId);
   const [state, formAction, pending] = useActionState(action, initialState);
@@ -349,6 +352,11 @@ export function TaskProjectCreateForm({
         <Button type="submit" disabled={pending}>
           {pending ? "Đang tạo..." : "Tạo task"}
         </Button>
+        {cancelHref ? (
+          <Button asChild type="button" variant="outline" disabled={pending}>
+            <Link href={cancelHref}>Hủy tạo</Link>
+          </Button>
+        ) : null}
       </div>
     </form>
   );

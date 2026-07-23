@@ -479,7 +479,7 @@ export async function createTaskAction(
     changeNote: "Đồng bộ khi tạo Task",
   });
   revalidateTaskPaths(projectId, moduleId);
-  redirect(`/projects/${projectId}/modules/${moduleId}/tasks/${task.id}`);
+  redirect(`/projects/${projectId}/modules/${moduleId}/tasks`);
 }
 
 /** Project-level create with the full planning field set. */
@@ -617,7 +617,7 @@ export async function createProjectTaskAction(
     changeNote: "Đồng bộ khi tạo Task",
   });
   revalidateTaskPaths(projectId, null);
-  redirect(`/projects/${projectId}/tasks/${task.id}`);
+  redirect(`/projects/${projectId}/tasks`);
 }
 
 export async function autoGenerateTasksFromDocumentsAction(

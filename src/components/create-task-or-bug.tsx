@@ -21,6 +21,7 @@ export function CreateTaskOrBug({
   tasks,
   documents = [],
   defaultParentTaskId,
+  cancelHref,
 }: {
   projectId: string;
   members: { userId: string; fullName: string }[];
@@ -30,6 +31,7 @@ export function CreateTaskOrBug({
   tasks: Option[];
   documents?: Option[];
   defaultParentTaskId?: string;
+  cancelHref?: string;
 }) {
   const [mode, setMode] = useState<"task" | "bug">("task");
 
@@ -66,6 +68,7 @@ export function CreateTaskOrBug({
           tasks={tasks}
           documents={documents}
           defaultParentTaskId={defaultParentTaskId}
+          cancelHref={cancelHref}
         />
       ) : (
         <BugCreateForm projectId={projectId} members={members} tasks={tasks} defaultTaskId={defaultParentTaskId} />

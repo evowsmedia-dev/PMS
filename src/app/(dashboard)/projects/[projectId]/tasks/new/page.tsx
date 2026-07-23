@@ -82,6 +82,7 @@ export default async function NewProjectTaskPage({
           label: `${document.module.name} · ${document.title}`,
         }))}
         defaultParentTaskId={sp.parentTaskId}
+        cancelHref={`/projects/${projectRouteSegment}/tasks`}
       />
     </PageSection>
   );
