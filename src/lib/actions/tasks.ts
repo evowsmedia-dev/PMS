@@ -510,11 +510,11 @@ export async function createProjectTaskAction(
   });
   if (assigneeError) return { error: assigneeError };
 
+  const status = values.status;
   const maxOrder = await prisma.task.aggregate({
-    where: { projectId, status: "BACKLOG", deletedAt: null },
+    where: { projectId, status, deletedAt: null },
     _max: { sortOrder: true },
   });
-  const status = "BACKLOG";
   const plannedStartAt = values.plannedStartAt
     ? new Date(values.plannedStartAt)
     : values.startDate

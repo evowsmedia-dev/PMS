@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { toast } from "sonner";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,8 @@ import {
 } from "@/components/ui/select";
 import { createProjectTaskAction } from "@/lib/actions/tasks";
 import {
+  TASK_STATUS_ORDER,
+  TASK_STATUS_LABEL,
   TASK_TYPE_ORDER,
   TASK_TYPE_LABEL,
   TASK_PRIORITY_ORDER,
@@ -24,6 +27,25 @@ import {
 import type { ActionState } from "@/lib/actions/profile";
 
 const initialState: ActionState = {};
+
+function calculateDefaultTestEstimate(devEstimate: number) {
+  return Math.round(Math.max(0, devEstimate || 0) * 0.3 * 2) / 2;
+}
+
+function TaskFormSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="space-y-3 rounded-md border p-3">
+      <h2 className="text-sm font-semibold">{title}</h2>
+      {children}
+    </section>
+  );
+}
 
 interface Option {
   id: string;
@@ -59,12 +81,27 @@ export function TaskProjectCreateForm({
   const [state, formAction, pending] = useActionState(action, initialState);
   const [deps, setDeps] = useState<string[]>([]);
   const [depPick, setDepPick] = useState("");
+  const [devEstimateHours, setDevEstimateHours] = useState("0");
+  const [testEstimateHours, setTestEstimateHours] = useState("0");
+  const [testEstimateSource, setTestEstimateSource] = useState("AUTO");
 
   useEffect(() => {
     if (state.error) toast.error(state.error);
   }, [state]);
 
   const taskLabel = (id: string) => tasks.find((t) => t.id === id)?.label ?? id;
+
+  function updateDevEstimate(value: string) {
+    setDevEstimateHours(value);
+    if (testEstimateSource === "AUTO") {
+      setTestEstimateHours(String(calculateDefaultTestEstimate(Number(value))));
+    }
+  }
+
+  function updateTestEstimate(value: string) {
+    setTestEstimateHours(value);
+    setTestEstimateSource("MANUAL");
+  }
 
   return (
     <form action={formAction} className="space-y-4">
@@ -81,84 +118,103 @@ export function TaskProjectCreateForm({
         </div>
       ) : null}
 
-      <div className="space-y-2">
-        <Label htmlFor="title">Tiêu đề</Label>
-        <Input id="title" name="title" required />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="description">Mô tả</Label>
-        <Textarea id="description" name="description" rows={3} />
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <div className="space-y-2">
-          <Label htmlFor="type">Loại</Label>
-          <Select name="type" defaultValue="TASK">
-            <SelectTrigger id="type" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {TASK_TYPE_ORDER.map((t) => (
-                <SelectItem key={t} value={t}>
-                  {TASK_TYPE_LABEL[t]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="priority">Độ ưu tiên</Label>
-          <Select name="priority" defaultValue="MEDIUM">
-            <SelectTrigger id="priority" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {TASK_PRIORITY_ORDER.map((p) => (
-                <SelectItem key={p} value={p}>
-                  {TASK_PRIORITY_LABEL[p]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="assigneeId">Người thực hiện</Label>
-          <Select name="assigneeId">
-            <SelectTrigger id="assigneeId" className="w-full">
-              <SelectValue placeholder="Chưa gán" />
-            </SelectTrigger>
-            <SelectContent>
-              {members.map((m) => (
-                <SelectItem key={m.userId} value={m.userId}>
-                  {m.fullName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <OptionalSelect name="epicId" label="Epic" placeholder="Không thuộc epic" options={epics} />
-        <OptionalSelect name="sprintId" label="Sprint" placeholder="Không thuộc sprint" options={sprints} />
-        <OptionalSelect
-          name="milestoneId"
-          label="Milestone"
-          placeholder="Không thuộc milestone"
-          options={milestones}
-        />
-      </div>
-
-      {tasks.length > 0 ? (
+      <TaskFormSection title="Thông tin chung">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="rounded-md border bg-background px-3 py-2 text-sm">
+            <p className="text-muted-foreground">Mã</p>
+            <p className="mt-1 font-medium">Tự động tạo khi lưu</p>
+          </div>
+          <div className="rounded-md border bg-background px-3 py-2 text-sm">
+            <p className="text-muted-foreground">Cảnh báo tiến độ / ngày công</p>
+            <p className="mt-1 font-medium">Sẽ tính sau khi tạo task</p>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="title">Tiêu đề</Label>
+          <Input id="title" name="title" required />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="description">Mô tả</Label>
+          <Textarea id="description" name="description" rows={4} />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="acceptanceCriteria">Tiêu chí nghiệm thu</Label>
+          <Textarea id="acceptanceCriteria" name="acceptanceCriteria" rows={3} />
+        </div>
+      </TaskFormSection>
+
+      <TaskFormSection title="Phân loại & kế hoạch">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="space-y-2">
+            <Label htmlFor="status">Trạng thái</Label>
+            <Select name="status" defaultValue="BACKLOG">
+              <SelectTrigger id="status" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TASK_STATUS_ORDER.map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {TASK_STATUS_LABEL[status]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="type">Loại task</Label>
+            <Select name="type" defaultValue="TASK">
+              <SelectTrigger id="type" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TASK_TYPE_ORDER.map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {TASK_TYPE_LABEL[type]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="priority">Độ ưu tiên</Label>
+            <Select name="priority" defaultValue="MEDIUM">
+              <SelectTrigger id="priority" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TASK_PRIORITY_ORDER.map((priority) => (
+                  <SelectItem key={priority} value={priority}>
+                    {TASK_PRIORITY_LABEL[priority]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          {tasks.length > 0 ? (
+            <OptionalSelect
+              name="parentTaskId"
+              label="Task cha"
+              placeholder="Không có task cha"
+              options={tasks}
+              defaultValue={defaultParentTaskId}
+            />
+          ) : (
+            <input type="hidden" name="parentTaskId" value={defaultParentTaskId ?? ""} />
+          )}
+          <OptionalSelect name="epicId" label="Epic" placeholder="Không thuộc epic" options={epics} />
+          <OptionalSelect name="sprintId" label="Sprint" placeholder="Không thuộc sprint" options={sprints} />
           <OptionalSelect
-            name="parentTaskId"
-            label="Task cha (liên quan)"
-            placeholder="Không có task cha"
-            options={tasks}
-            defaultValue={defaultParentTaskId}
+            name="milestoneId"
+            label="Milestone"
+            placeholder="Không thuộc milestone"
+            options={milestones}
           />
+        </div>
+
+        {tasks.length > 0 ? (
           <div className="space-y-2">
             <Label>Phụ thuộc vào</Label>
             {deps.map((id) => (
@@ -171,7 +227,7 @@ export function TaskProjectCreateForm({
                   <button
                     type="button"
                     className="text-muted-foreground hover:text-destructive"
-                    onClick={() => setDeps((prev) => prev.filter((d) => d !== id))}
+                    onClick={() => setDeps((prev) => prev.filter((dependencyId) => dependencyId !== id))}
                   >
                     <X className="size-3" />
                   </button>
@@ -185,10 +241,10 @@ export function TaskProjectCreateForm({
                 </SelectTrigger>
                 <SelectContent>
                   {tasks
-                    .filter((t) => !deps.includes(t.id))
-                    .map((t) => (
-                      <SelectItem key={t.id} value={t.id}>
-                        {t.label}
+                    .filter((task) => !deps.includes(task.id))
+                    .map((task) => (
+                      <SelectItem key={task.id} value={task.id}>
+                        {task.label}
                       </SelectItem>
                     ))}
                 </SelectContent>
@@ -207,77 +263,93 @@ export function TaskProjectCreateForm({
               </Button>
             </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
+      </TaskFormSection>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-        <div className="space-y-2">
-          <Label htmlFor="plannedStartAt">Bắt đầu kế hoạch</Label>
-          <Input id="plannedStartAt" name="plannedStartAt" type="date" />
+      <TaskFormSection title="Giao nhiệm vụ">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <MemberSelect name="assigneeId" label="Developer" placeholder="Chưa gán developer" members={members} />
+          <MemberSelect name="testerId" label="Tester" placeholder="Chưa có tester" members={members} />
+          <MemberSelect name="reviewerId" label="Reviewer" placeholder="Chưa có reviewer" members={members} />
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="startDate">Bắt đầu thực tế</Label>
-          <Input id="startDate" name="startDate" type="date" />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+          <div className="space-y-2">
+            <Label htmlFor="taskMandays">Ngày công task</Label>
+            <Input id="taskMandays" name="taskMandays" type="number" min={0} step="0.25" defaultValue={0} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="devContractMandays">Công khoán Dev</Label>
+            <Input id="devContractMandays" name="devContractMandays" type="number" min={0} step="0.25" defaultValue={0} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="testerContractMandays">Công khoán Tester</Label>
+            <Input id="testerContractMandays" name="testerContractMandays" type="number" min={0} step="0.25" defaultValue={0} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="dueDate">Due date tổng</Label>
+            <Input id="dueDate" name="dueDate" type="date" />
+          </div>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="devDueAt">Dự kiến HTC Dev</Label>
-          <Input id="devDueAt" name="devDueAt" type="date" />
+      </TaskFormSection>
+
+      <TaskFormSection title="Người thực hiện">
+        <input type="hidden" name="plannedStartAt" value="" />
+        <input type="hidden" name="standardEstimateMandays" value="0" />
+        <input type="hidden" name="storyPoint" value="0" />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="space-y-2">
+            <Label htmlFor="startDate">Ngày bắt đầu</Label>
+            <Input id="startDate" name="startDate" type="date" />
+          </div>
+          <div className="rounded-md border bg-background px-3 py-2 text-sm">
+            <p className="text-muted-foreground">Ngày kết thúc</p>
+            <p className="mt-1 font-medium">Theo due date tổng</p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="devDueAt">Ngày dự kiến hoàn thành Dev</Label>
+            <Input id="devDueAt" name="devDueAt" type="date" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="testDueAt">Ngày dự kiến hoàn thành Tester</Label>
+            <Input id="testDueAt" name="testDueAt" type="date" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="devEstimateHours">Dev estimate (h)</Label>
+            <Input
+              id="devEstimateHours"
+              name="devEstimateHours"
+              type="number"
+              min={0}
+              step="0.5"
+              value={devEstimateHours}
+              onChange={(event) => updateDevEstimate(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="testEstimateHours">Test estimate (h)</Label>
+            <Input
+              id="testEstimateHours"
+              name="testEstimateHours"
+              type="number"
+              min={0}
+              step="0.5"
+              value={testEstimateHours}
+              onChange={(event) => updateTestEstimate(event.target.value)}
+            />
+            <input type="hidden" name="testEstimateSource" value={testEstimateSource} />
+          </div>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="testDueAt">Dự kiến HTC Test</Label>
-          <Input id="testDueAt" name="testDueAt" type="date" />
-        </div>
+      </TaskFormSection>
+
+      <TaskFormSection title="Tài liệu liên quan">
+        <RelatedReferencesFields documents={documents} defaultRelatedDocumentId={defaultRelatedDocumentId} />
+      </TaskFormSection>
+
+      <div className="flex flex-wrap gap-2">
+        <Button type="submit" disabled={pending}>
+          {pending ? "Đang tạo..." : "Tạo task"}
+        </Button>
       </div>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
-        <div className="space-y-2">
-          <Label htmlFor="dueDate">Deadline tổng</Label>
-          <Input id="dueDate" name="dueDate" type="date" />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="devEstimateHours">Dev estimate (h)</Label>
-          <Input id="devEstimateHours" name="devEstimateHours" type="number" min={0} step="0.5" defaultValue={0} />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="testEstimateHours">Test estimate (h)</Label>
-          <Input id="testEstimateHours" name="testEstimateHours" type="number" min={0} step="0.5" defaultValue={0} />
-          <Select name="testEstimateSource" defaultValue="AUTO">
-            <SelectTrigger className="h-8 w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="AUTO">Tự động 30%</SelectItem>
-              <SelectItem value="MANUAL">Thủ công</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="standardEstimateMandays">Chuẩn (ngày công)</Label>
-          <Input
-            id="standardEstimateMandays"
-            name="standardEstimateMandays"
-            type="number"
-            min={0}
-            step="0.25"
-            defaultValue={0}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="storyPoint">Story point</Label>
-          <Input id="storyPoint" name="storyPoint" type="number" min={0} step="1" defaultValue={0} />
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="acceptanceCriteria">Tiêu chí nghiệm thu</Label>
-        <Textarea id="acceptanceCriteria" name="acceptanceCriteria" rows={2} />
-      </div>
-
-      <RelatedReferencesFields documents={documents} defaultRelatedDocumentId={defaultRelatedDocumentId} />
-
-      <Button type="submit" disabled={pending}>
-        {pending ? "Đang tạo..." : "Tạo task"}
-      </Button>
     </form>
   );
 }
@@ -311,6 +383,42 @@ function OptionalSelect({
             options.map((o) => (
               <SelectItem key={o.id} value={o.id}>
                 {o.label}
+              </SelectItem>
+            ))
+          )}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+function MemberSelect({
+  name,
+  label,
+  placeholder,
+  members,
+}: {
+  name: string;
+  label: string;
+  placeholder: string;
+  members: { userId: string; fullName: string }[];
+}) {
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={name}>{label}</Label>
+      <Select name={name}>
+        <SelectTrigger id={name} className="w-full">
+          <SelectValue placeholder={placeholder} />
+        </SelectTrigger>
+        <SelectContent>
+          {members.length === 0 ? (
+            <SelectItem value="__none" disabled>
+              Chưa có thành viên
+            </SelectItem>
+          ) : (
+            members.map((member) => (
+              <SelectItem key={member.userId} value={member.userId}>
+                {member.fullName}
               </SelectItem>
             ))
           )}

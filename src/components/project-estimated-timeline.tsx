@@ -136,6 +136,17 @@ function versionType(version: TimelineVersionSummary) {
   return "Cập nhật";
 }
 
+function versionSummary(version: TimelineVersionSummary) {
+  const changedLabels = version.changedFields
+    .slice(0, 3)
+    .map((field) => FIELD_LABELS[field] ?? field)
+    .join(", ");
+  const fieldSummary = changedLabels
+    ? `Thay đổi ${changedLabels}${version.changedFields.length > 3 ? ` +${version.changedFields.length - 3}` : ""}`
+    : "Không có field thay đổi";
+  return `${version.itemTitle}: ${version.changeNote || fieldSummary}`;
+}
+
 export function ProjectEstimatedTimeline({
   projectId,
   rows: initialRows,
@@ -481,51 +492,6 @@ export function ProjectEstimatedTimeline({
             </div>
           ) : null}
         </form>
-
-        <div className="rounded-lg border p-3">
-          <p className="text-sm font-semibold">Lịch sử thay đổi (v{latestTimelineVersion || 0})</p>
-          <ResponsiveTableFrame minWidth="min-w-[760px]" className="mt-2">
-              <table className="data-table w-full border-collapse">
-                <thead className="border-b bg-muted/50 text-left text-muted-foreground">
-                <tr>
-                  <th className="border-r px-2 py-2">Phiên bản</th>
-                  <th className="border-r px-2 py-2">Ngày</th>
-                  <th className="border-r px-2 py-2">Người thực hiện</th>
-                  <th className="border-r px-2 py-2">Ghi chú</th>
-                  <th className="px-2 py-2">Loại</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {historyVersions.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-3 py-6 text-center text-muted-foreground">
-                      Chưa có lịch sử thay đổi.
-                    </td>
-                  </tr>
-                ) : (
-                  historyVersions.map((version) => (
-                    <tr
-                      key={version.id}
-                      className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => setSelectedVersion(version)}
-                    >
-                      <td className="border-r px-2 py-2 font-medium">v{version.versionNo}</td>
-                      <td className="border-r px-2 py-2">
-                        {new Date(version.createdAt).toLocaleString("vi-VN")}
-                      </td>
-                      <td className="border-r px-2 py-2">{version.editedByName}</td>
-                      <td className="border-r px-2 py-2">
-                        <span className="font-medium">{version.itemTitle}</span>
-                        {version.changeNote ? ` · ${version.changeNote}` : ""}
-                      </td>
-                      <td className="px-2 py-2">{versionType(version)}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </ResponsiveTableFrame>
-        </div>
       </div>
 
       <aside className="space-y-3 rounded-lg border p-3">
@@ -560,6 +526,34 @@ export function ProjectEstimatedTimeline({
             </Button>
           </form>
         ) : null}
+        <section className="border-t pt-3">
+          <p className="text-xs font-semibold uppercase text-muted-foreground">
+            Lịch sử thay đổi (v{latestTimelineVersion || 0})
+          </p>
+          <div className="mt-2 max-h-[420px] space-y-2 overflow-y-auto">
+            {historyVersions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Chưa có lịch sử thay đổi.</p>
+            ) : (
+              historyVersions.map((version) => (
+                <button
+                  key={version.id}
+                  type="button"
+                  className="block w-full rounded-md border p-2 text-left text-sm hover:bg-muted/50"
+                  onClick={() => setSelectedVersion(version)}
+                >
+                  <span className="font-semibold">{version.editedByName}</span>
+                  <span className="ml-1 text-[10px] text-muted-foreground">
+                    {new Date(version.createdAt).toLocaleString("vi-VN")}
+                  </span>
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    v{version.versionNo} · {versionType(version)}
+                  </span>
+                  <span className="mt-1 line-clamp-2 block">{versionSummary(version)}</span>
+                </button>
+              ))
+            )}
+          </div>
+        </section>
       </aside>
 
       <Dialog open={Boolean(selectedVersion)} onOpenChange={(open) => !open && setSelectedVersion(null)}>
