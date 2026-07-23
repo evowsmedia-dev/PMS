@@ -816,11 +816,15 @@ function DateAndEffortFields({
         ) : null}
         <ReadOnlyField label="Ngày kết thúc" value={dueDate || "—"} />
         <div className="space-y-2">
-          <Label htmlFor="devDueAt">Ngày dự kiến hoàn thành Dev</Label>
+          <Label htmlFor="devDueAt" className="block whitespace-normal leading-snug">
+            Ngày dự kiến hoàn thành Dev
+          </Label>
           <Input id="devDueAt" name="devDueAt" type="date" defaultValue={devDueAt} disabled={!canEdit} />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="testDueAt">Ngày dự kiến hoàn thành Tester</Label>
+          <Label htmlFor="testDueAt" className="block whitespace-normal leading-snug">
+            Ngày dự kiến hoàn thành Tester
+          </Label>
           <Input id="testDueAt" name="testDueAt" type="date" defaultValue={testDueAt} disabled={!canEdit} />
         </div>
       </div>

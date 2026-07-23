@@ -309,11 +309,15 @@ export function TaskProjectCreateForm({
             <p className="mt-1 font-medium">Theo due date tổng</p>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="devDueAt">Ngày dự kiến hoàn thành Dev</Label>
+            <Label htmlFor="devDueAt" className="block whitespace-normal leading-snug">
+              Ngày dự kiến hoàn thành Dev
+            </Label>
             <Input id="devDueAt" name="devDueAt" type="date" />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="testDueAt">Ngày dự kiến hoàn thành Tester</Label>
+            <Label htmlFor="testDueAt" className="block whitespace-normal leading-snug">
+              Ngày dự kiến hoàn thành Tester
+            </Label>
             <Input id="testDueAt" name="testDueAt" type="date" />
           </div>
           <div className="space-y-2">
