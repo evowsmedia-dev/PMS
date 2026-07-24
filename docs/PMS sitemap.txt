@@ -79,7 +79,7 @@ Ghi chú:
 │   ├── Chỉ hiển thị cho user có quyền `report.view`; user thiếu quyền bị chuyển về `/overview`.
 │   ├── Chia tab theo query `?view=executive|manager`; mặc định `executive` cho quản lý cấp cao.
 │   ├── Tab quản lý cấp cao cập nhật theo tuần/tháng, tập trung health, progress, SPI proxy, effort/cost proxy, rủi ro và nguồn lực.
-│   ├── Tab quản lý cấp trung cập nhật theo giờ/ngày, tập trung task, burndown, cycle/lead time, overdue/blocked, defect và hiệu suất thành viên.
+│   ├── Tab quản lý cấp trung cập nhật theo giờ/ngày, tập trung task, burndown, cycle/lead time, overdue/blocked, defect và hiệu suất thành viên; bảng thành viên có ngày công được giao từ `Task.taskMandays` và tỷ lệ actual/ngày công.
 │   ├── Dữ liệu đọc live từ Task, Bug, TimeLog, Timeline dự toán, Snapshot và ProjectMember; burndown vẫn dùng `DailyProjectSnapshot`.
 │   ├── Button "Đồng bộ" cập nhật snapshot hôm nay, revalidate dữ liệu BI và refresh view hiện tại.
 │   └── Các KPI thiếu dữ liệu như AC/CPI/CV/EAC tài chính, risk exposure, thay đổi phạm vi, overtime hiển thị "Chưa cấu hình dữ liệu".

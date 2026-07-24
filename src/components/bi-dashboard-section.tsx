@@ -253,7 +253,7 @@ function MemberPerformanceTable({ members }: { members: ProjectBiSummary["member
         {members.length === 0 ? (
           <p className="text-sm text-muted-foreground">Dự án chưa có thành viên để phân tích nguồn lực.</p>
         ) : (
-          <ResponsiveTableFrame minWidth="min-w-[840px]">
+          <ResponsiveTableFrame minWidth="min-w-[1040px]">
             <table className="w-full text-sm">
               <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
                 <tr>
@@ -262,7 +262,9 @@ function MemberPerformanceTable({ members }: { members: ProjectBiSummary["member
                   <th className="px-4 py-2 text-right">Task active</th>
                   <th className="px-4 py-2 text-right">Hoàn thành</th>
                   <th className="px-4 py-2 text-right">Quá hạn</th>
+                  <th className="px-4 py-2 text-right">Ngày công được giao</th>
                   <th className="px-4 py-2 text-right">Actual</th>
+                  <th className="px-4 py-2 text-right">Actual / ngày công</th>
                   <th className="px-4 py-2 text-right">Estimate</th>
                   <th className="px-4 py-2 text-right">Utilization</th>
                 </tr>
@@ -275,7 +277,9 @@ function MemberPerformanceTable({ members }: { members: ProjectBiSummary["member
                     <td className="px-4 py-2 text-right">{formatNumber(member.activeTasks)}</td>
                     <td className="px-4 py-2 text-right">{formatNumber(member.completedTasks)}</td>
                     <td className="px-4 py-2 text-right">{formatNumber(member.overdueTasks)}</td>
+                    <td className="px-4 py-2 text-right">{formatNumber(member.assignedMandays)} ngày</td>
                     <td className="px-4 py-2 text-right">{formatNumber(member.actualHours)}h</td>
+                    <td className="px-4 py-2 text-right">{formatNullable(member.assignedMandayUtilizationPercent, "%")}</td>
                     <td className="px-4 py-2 text-right">{formatNumber(member.estimateHours)}h</td>
                     <td className="px-4 py-2 text-right">{formatNullable(member.utilizationPercent, "%")}</td>
                   </tr>

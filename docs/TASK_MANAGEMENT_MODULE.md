@@ -142,6 +142,9 @@ project/portfolio report routes, and refreshes the current view. Metrics that
 need data not yet modeled in PMS, such as financial AC/CPI/CV/EAC, risk exposure,
 scope baseline changes, or overtime classification, are shown as "Chưa cấu hình
 dữ liệu" instead of estimated from fake values.
+The member performance table includes assigned mandays from `Task.taskMandays`
+and compares actual time logs converted to mandays (`actualHours / 8`) against
+that assigned-manday baseline.
 
 `/dashboard/overview` also shows a portfolio BI dashboard across projects the
 current user can see, with an attention table sorted by overdue work, blocked

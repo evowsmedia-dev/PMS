@@ -91,8 +91,11 @@ export interface ProjectBiMemberSummary {
   activeTasks: number;
   completedTasks: number;
   overdueTasks: number;
+  assignedMandays: number;
   actualHours: number;
+  actualMandays: number;
   estimateHours: number;
+  assignedMandayUtilizationPercent: number | null;
   utilizationPercent: number | null;
 }
 
@@ -128,6 +131,7 @@ export async function computeProjectBiMetrics(projectId: string): Promise<Projec
         testEstimateHours: true,
         actualDevHours: true,
         actualTestHours: true,
+        taskMandays: true,
         storyPoint: true,
         sprintId: true,
         assigneeId: true,
@@ -524,7 +528,9 @@ function calculateMemberSummaries(
     const estimateHours = round1(
       assignedTasks.reduce((sum, task) => sum + Number(task.devEstimateHours) + Number(task.testEstimateHours), 0),
     );
+    const assignedMandays = round1(assignedTasks.reduce((sum, task) => sum + Number(task.taskMandays), 0));
     const actualHours = round1(hoursByUser.get(member.userId) ?? 0);
+    const actualMandays = round1(actualHours / 8);
     return {
       userId: member.userId,
       name: member.user?.fullName || member.userId,
@@ -533,8 +539,11 @@ function calculateMemberSummaries(
       activeTasks: activeTasks.length,
       completedTasks: completedTasks.length,
       overdueTasks: overdueTasks.length,
+      assignedMandays,
       actualHours,
+      actualMandays,
       estimateHours,
+      assignedMandayUtilizationPercent: assignedMandays > 0 ? round1((actualMandays / assignedMandays) * 100) : null,
       utilizationPercent: estimateHours > 0 ? round1((actualHours / estimateHours) * 100) : null,
     };
   });
@@ -587,6 +596,7 @@ type TaskMetricInput = {
   testEstimateHours: unknown;
   actualDevHours: unknown;
   actualTestHours: unknown;
+  taskMandays: unknown;
   storyPoint: unknown;
   sprintId: string | null;
   assigneeId: string | null;
