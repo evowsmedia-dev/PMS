@@ -82,15 +82,15 @@ Ghi chú:
 │
 ├── /projects/:projectId/estimated-timeline
 │   ├── Timeline dự toán dự án project-level, hiển thị dưới dạng bảng dữ liệu.
-│   ├── Cột: Tên task/chức năng, ngày bắt đầu, ngày kết thúc, duration, đơn giá, thành tiền, assignee, ghi chú.
-│   ├── Thành tiền được tính tự động = duration * đơn giá; đơn giá mặc định 3,600,000 VND.
+│   ├── Cột: Tên task/chức năng, ngày bắt đầu, ngày kết thúc, ngày công, đơn giá, thành tiền, assignee, ghi chú.
+│   ├── Thành tiền được tính tự động = ngày công * đơn giá; đơn giá mặc định 3,600,000 VND.
 │   ├── Khi bật chỉnh sửa, đơn giá hiển thị thành một field chung duy nhất cho bảng timeline.
 │   ├── Dòng tổng tiền nằm ngay dưới row tiêu đề bảng, nhãn Tổng tiền align trái và số tiền không kèm hậu tố VND.
 │   ├── Có 4 cách nhập/cập nhật: chỉnh sửa trực tiếp trong bảng, đồng bộ từ Task toàn dự án, đồng bộ sang Task, hoặc export/import workbook Excel.
 │   ├── Button workbook hiển thị ngắn là "Export xlsx" và "Import xlsx".
-│   ├── Đồng bộ từ Task lấy task active trong toàn bộ project, bất kể task thuộc module nào; trường chưa có dữ liệu để trống cho user cập nhật tay.
-│   ├── Đồng bộ sang Task cập nhật task đã liên kết theo title, start/end, assignee và map duration thành Standard/Dev/Test estimate.
-│   ├── Import Excel giữ ID để cập nhật dòng cũ, để trống ID để tạo dòng mới; server vẫn tính lại thành tiền theo duration * đơn giá và kiểm tra assignee theo email thành viên dự án.
+│   ├── Đồng bộ từ Task lấy task active trong toàn bộ project, bất kể task thuộc module nào; ngày công lấy từ "Ngày công task", ngày bắt đầu lấy từ "Ngày bắt đầu", ngày kết thúc tự tính theo ngày làm việc thứ 2-thứ 6.
+│   ├── Đồng bộ sang Task cập nhật task đã liên kết theo title, start/end, assignee và map ngày công thành Standard/Dev/Test estimate.
+│   ├── Import Excel giữ ID để cập nhật dòng cũ, để trống ID để tạo dòng mới; server vẫn tính lại thành tiền theo ngày công * đơn giá và kiểm tra assignee theo email thành viên dự án.
 │   ├── Mỗi thay đổi ghi version snapshot theo từng dòng; khi xem version, các nội dung thay đổi được bôi vàng trong dialog lịch sử.
 │   ├── Sidebar comment bên phải hỗ trợ @mention thành viên dự án và tạo notification.
 │   └── Quyền xem dùng `report.view`; quyền sửa/sync/import dùng `task.managePlanning`; bình luận dùng `comment.create`.

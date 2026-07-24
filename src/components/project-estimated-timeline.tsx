@@ -38,7 +38,7 @@ const FIELD_LABELS: Record<string, string> = {
   title: "Tên task/chức năng",
   startDate: "Ngày bắt đầu",
   endDate: "Ngày kết thúc",
-  durationDays: "Duration",
+  durationDays: "Ngày công",
   unitPriceVnd: "Đơn giá",
   amountVnd: "Thành tiền",
   assigneeId: "Người phụ trách",
@@ -107,6 +107,46 @@ function nextAmount(durationDays: string, unitPriceVnd: string) {
   const duration = parsedNumber(durationDays);
   const unitPrice = parsedNumber(unitPriceVnd) ?? MANDAY_RATE_VND;
   return duration !== null && duration > 0 ? String(Math.round(duration * unitPrice)) : "";
+}
+
+function dateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function parseDateKey(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function isWeekend(date: Date) {
+  const day = date.getDay();
+  return day === 0 || day === 6;
+}
+
+function nextBusinessDay(date: Date) {
+  const next = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  while (isWeekend(next)) {
+    next.setDate(next.getDate() + 1);
+  }
+  return next;
+}
+
+function endDateFromMandays(startDate: string, durationDays: string) {
+  const parsedStartDate = parseDateKey(startDate);
+  const duration = parsedNumber(durationDays);
+  if (!parsedStartDate || duration === null || duration <= 0) return "";
+  const workdays = Math.max(1, Math.ceil(duration));
+  const endDate = nextBusinessDay(parsedStartDate);
+  let counted = 1;
+  while (counted < workdays) {
+    endDate.setDate(endDate.getDate() + 1);
+    if (!isWeekend(endDate)) counted += 1;
+  }
+  return dateKey(endDate);
 }
 
 function blankRow(): TimelineRow {
@@ -219,6 +259,10 @@ export function ProjectEstimatedTimeline({
       current.map((row, rowIndex) => {
         if (rowIndex !== index) return row;
         const next = { ...row, ...patch };
+        if (patch.durationDays !== undefined || patch.startDate !== undefined) {
+          const computedEndDate = endDateFromMandays(next.startDate, next.durationDays);
+          if (computedEndDate) next.endDate = computedEndDate;
+        }
         if (patch.durationDays !== undefined) {
           next.unitPriceVnd = unitPriceVnd;
           next.amountVnd = nextAmount(next.durationDays, unitPriceVnd);
@@ -330,7 +374,7 @@ export function ProjectEstimatedTimeline({
                   <th className="border-r px-2 py-2">Tên task/chức năng</th>
                   <th className="border-r px-2 py-2">Ngày bắt đầu</th>
                   <th className="border-r px-2 py-2">Ngày kết thúc</th>
-                  <th className="border-r px-2 py-2">Duration</th>
+                  <th className="border-r px-2 py-2">Ngày công</th>
                   <th className="border-r px-2 py-2">Thành tiền</th>
                   <th className="border-r px-2 py-2">Assignee</th>
                   <th className="border-r px-2 py-2">Ghi chú</th>

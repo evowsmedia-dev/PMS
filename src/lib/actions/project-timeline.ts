@@ -18,7 +18,7 @@ const FIELD_LABELS: Record<string, string> = {
   title: "Tên task/chức năng",
   startDate: "Ngày bắt đầu",
   endDate: "Ngày kết thúc",
-  durationDays: "Duration",
+  durationDays: "Ngày công",
   unitPriceVnd: "Đơn giá",
   amountVnd: "Thành tiền",
   assigneeId: "Người phụ trách",
@@ -69,7 +69,10 @@ function dateToKey(value: Date | string | null | undefined) {
   if (!value) return null;
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return null;
-  return date.toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function decimalToNumber(value: Prisma.Decimal | number | string | null | undefined) {
@@ -82,10 +85,33 @@ function amountFromDuration(durationDays: number | null, unitPriceVnd: number | 
   return durationDays === null ? null : Math.round(durationDays * (unitPriceVnd ?? MANDAY_RATE_VND));
 }
 
-function durationFromDates(startDate: Date | null, endDate: Date | null) {
-  if (!startDate || !endDate) return null;
-  const diff = Math.ceil((endDate.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000)) + 1;
-  return diff > 0 ? diff : null;
+function isWeekend(date: Date) {
+  const day = date.getDay();
+  return day === 0 || day === 6;
+}
+
+function startOfDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function nextBusinessDay(date: Date) {
+  const next = startOfDay(date);
+  while (isWeekend(next)) {
+    next.setDate(next.getDate() + 1);
+  }
+  return next;
+}
+
+function addBusinessMandays(startDate: Date | null, mandays: number | null) {
+  if (!startDate || mandays === null || mandays <= 0) return null;
+  const workdays = Math.max(1, Math.ceil(mandays));
+  const result = nextBusinessDay(startDate);
+  let counted = 1;
+  while (counted < workdays) {
+    result.setDate(result.getDate() + 1);
+    if (!isWeekend(result)) counted += 1;
+  }
+  return result;
 }
 
 function snapshotFromValues(values: {
@@ -237,6 +263,7 @@ async function syncTimelineItemToTask(itemId: string, actorId: string) {
       testEstimateHours: true,
       testEstimateSource: true,
       standardEstimateMandays: true,
+      taskMandays: true,
       actualDevHours: true,
       actualTestHours: true,
       assigneeId: true,
@@ -245,15 +272,15 @@ async function syncTimelineItemToTask(itemId: string, actorId: string) {
   });
   if (!task) return false;
 
-  const estimateMandays = decimalToNumber(item.durationDays) ?? 0;
-  const devEstimateHours = estimateMandays * 8;
+  const taskMandays = decimalToNumber(item.durationDays) ?? 0;
+  const devEstimateHours = taskMandays * 8;
   const testEstimateSource = task.testEstimateSource;
   const derived = deriveTaskEffortFields({
     status: task.status,
     devEstimateHours,
     testEstimateHours: testEstimateSource === "MANUAL" ? decimalToNumber(task.testEstimateHours) : null,
     testEstimateSource,
-    standardEstimateMandays: estimateMandays,
+    standardEstimateMandays: taskMandays,
     actualDevHours: decimalToNumber(task.actualDevHours) ?? 0,
     actualTestHours: decimalToNumber(task.actualTestHours) ?? 0,
     devDueAt: item.endDate,
@@ -297,6 +324,12 @@ async function syncTimelineItemToTask(itemId: string, actorId: string) {
     oldValue: task.standardEstimateMandays,
     newValue: derived.standardEstimateMandays,
   });
+  addTaskHistoryIfChanged(historyEntries, {
+    ...historyBase,
+    field: "taskMandays",
+    oldValue: task.taskMandays,
+    newValue: taskMandays,
+  });
   addTaskHistoryIfChanged(historyEntries, { ...historyBase, field: "assignee", oldValue: task.assigneeId, newValue: item.assigneeId });
 
   await prisma.$transaction(async (tx) => {
@@ -309,6 +342,7 @@ async function syncTimelineItemToTask(itemId: string, actorId: string) {
         dueDate: item.endDate,
         devDueAt: item.endDate,
         assigneeId: item.assigneeId,
+        taskMandays,
         ...derived,
       },
     });
@@ -339,8 +373,9 @@ function parseRows(formData: FormData) {
     const title = String(formData.getAll("title")[index] ?? "").trim();
     const startDate = parseOptionalDate(formData.getAll("startDate")[index] ?? "");
     const endDate = parseOptionalDate(formData.getAll("endDate")[index] ?? "");
-    const manualDuration = parseOptionalNumber(formData.getAll("durationDays")[index] ?? "");
-    const durationDays = manualDuration ?? durationFromDates(startDate, endDate);
+    const durationDays = parseOptionalNumber(formData.getAll("durationDays")[index] ?? "");
+    const computedEndDate = addBusinessMandays(startDate, durationDays);
+    const nextEndDate = computedEndDate ?? endDate;
     const unitPriceVnd = parseOptionalNumber(formData.getAll("unitPriceVnd")[index] ?? "") ?? MANDAY_RATE_VND;
     const assigneeValue = String(formData.getAll("assigneeId")[index] ?? "").trim();
     const note = String(formData.getAll("note")[index] ?? "").trim();
@@ -349,7 +384,7 @@ function parseRows(formData: FormData) {
       id: id || null,
       title,
       startDate,
-      endDate,
+      endDate: nextEndDate,
       durationDays,
       estimateMandays: durationDays,
       unitPriceVnd,
@@ -500,6 +535,7 @@ export async function syncProjectEstimatedTimelineFromTasksAction(projectId: str
       devEstimateHours: true,
       testEstimateHours: true,
       standardEstimateMandays: true,
+      taskMandays: true,
       assigneeId: true,
     },
     orderBy: [{ createdAt: "asc" }],
@@ -513,19 +549,16 @@ export async function syncProjectEstimatedTimelineFromTasksAction(projectId: str
 
   await prisma.$transaction(async (tx) => {
     for (const [index, task] of tasks.entries()) {
-      const startDate = task.plannedStartAt ?? task.startDate ?? null;
-      const endDate = task.testDueAt ?? task.devDueAt ?? task.dueDate ?? null;
-      const estimateFromStandard = decimalToNumber(task.standardEstimateMandays);
-      const effortHours = (decimalToNumber(task.devEstimateHours) ?? 0) + (decimalToNumber(task.testEstimateHours) ?? 0);
-      const estimateMandays = estimateFromStandard && estimateFromStandard > 0 ? estimateFromStandard : effortHours > 0 ? effortHours / 8 : null;
-      const durationDays = durationFromDates(startDate, endDate);
+      const startDate = task.startDate ?? null;
+      const durationDays = decimalToNumber(task.taskMandays);
+      const endDate = addBusinessMandays(startDate, durationDays);
       const unitPriceVnd = decimalToNumber(existingByTask.get(task.id)?.unitPriceVnd) ?? MANDAY_RATE_VND;
       const next = {
         title: task.title,
         startDate,
         endDate,
         durationDays,
-        estimateMandays,
+        estimateMandays: durationDays,
         unitPriceVnd,
         amountVnd: amountFromDuration(durationDays, unitPriceVnd),
         assigneeId: task.assigneeId,
@@ -643,28 +676,26 @@ export async function syncProjectEstimatedTimelineTaskRow({
       devEstimateHours: true,
       testEstimateHours: true,
       standardEstimateMandays: true,
+      taskMandays: true,
       assigneeId: true,
       project: { select: { code: true } },
     },
   });
   if (!task) return;
 
-  const startDate = task.plannedStartAt ?? task.startDate ?? null;
-  const endDate = task.testDueAt ?? task.devDueAt ?? task.dueDate ?? null;
-  const estimateFromStandard = decimalToNumber(task.standardEstimateMandays);
-  const effortHours = (decimalToNumber(task.devEstimateHours) ?? 0) + (decimalToNumber(task.testEstimateHours) ?? 0);
-  const estimateMandays = estimateFromStandard && estimateFromStandard > 0 ? estimateFromStandard : effortHours > 0 ? effortHours / 8 : null;
+  const startDate = task.startDate ?? null;
+  const durationDays = decimalToNumber(task.taskMandays);
+  const endDate = addBusinessMandays(startDate, durationDays);
   const item = await prisma.projectEstimatedTimelineItem.findFirst({
     where: { projectId, taskId: task.id, deletedAt: null },
   });
-  const durationDays = durationFromDates(startDate, endDate);
   const unitPriceVnd = decimalToNumber(item?.unitPriceVnd) ?? MANDAY_RATE_VND;
   const next = {
     title: task.title,
     startDate,
     endDate,
     durationDays,
-    estimateMandays,
+    estimateMandays: durationDays,
     unitPriceVnd,
     amountVnd: amountFromDuration(durationDays, unitPriceVnd),
     assigneeId: task.assigneeId,
@@ -768,7 +799,7 @@ export async function exportProjectEstimatedTimelineAction(projectId: string) {
     "Tên task/chức năng": row.title,
     "Ngày bắt đầu": dateToKey(row.startDate) ?? "",
     "Ngày kết thúc": dateToKey(row.endDate) ?? "",
-    Duration: decimalToNumber(row.durationDays) ?? "",
+    "Ngày công": decimalToNumber(row.durationDays) ?? "",
     "Đơn giá (VND)": decimalToNumber(row.unitPriceVnd) ?? MANDAY_RATE_VND,
     "Thành tiền (VND)": decimalToNumber(row.amountVnd) ?? "",
     "Email người phụ trách": row.assignee?.email ?? "",
@@ -780,7 +811,7 @@ export async function exportProjectEstimatedTimelineAction(projectId: string) {
     "Tên task/chức năng": "",
     "Ngày bắt đầu": "",
     "Ngày kết thúc": "",
-    Duration: "",
+    "Ngày công": "",
     "Đơn giá (VND)": MANDAY_RATE_VND,
     "Thành tiền (VND)": "",
     "Email người phụ trách": "",
@@ -805,7 +836,7 @@ export async function exportProjectEstimatedTimelineAction(projectId: string) {
     XLSX.utils.aoa_to_sheet([
       ["Hướng dẫn"],
       ["Giữ nguyên ID để cập nhật dòng có sẵn. Để trống ID để tạo dòng mới."],
-      ["Thành tiền được hệ thống tính lại = Duration * Đơn giá khi import."],
+      ["Thành tiền được hệ thống tính lại = Ngày công * Đơn giá khi import."],
       ["Người phụ trách nên nhập email thành viên dự án ở cột Email người phụ trách."],
     ]),
     "Help",
@@ -835,7 +866,7 @@ function normalizeHeaderRow(row: Record<string, unknown>) {
     title: value("Tên task/chức năng"),
     startDate: parseOptionalDate(value("Ngày bắt đầu")),
     endDate: parseOptionalDate(value("Ngày kết thúc")),
-    durationDays: parseOptionalNumber(value("Duration")),
+    durationDays: parseOptionalNumber(value("Ngày công")) ?? parseOptionalNumber(value("Duration")),
     unitPriceVnd: parseOptionalNumber(value("Đơn giá (VND)")) ?? MANDAY_RATE_VND,
     assigneeEmail: value("Email người phụ trách").toLowerCase(),
     note: value("Ghi chú") || null,
@@ -868,12 +899,13 @@ export async function importProjectEstimatedTimelineAction(projectId: string, ba
   await prisma.$transaction(async (tx) => {
     for (const [index, row] of rows.entries()) {
       const assigneeId = row.assigneeEmail ? memberByEmail.get(row.assigneeEmail) ?? null : null;
-      const durationDays = row.durationDays ?? durationFromDates(row.startDate, row.endDate);
+      const durationDays = row.durationDays;
+      const endDate = addBusinessMandays(row.startDate, durationDays) ?? row.endDate;
       const amountVnd = amountFromDuration(durationDays, row.unitPriceVnd);
       const next = {
         title: row.title,
         startDate: row.startDate,
-        endDate: row.endDate,
+        endDate,
         durationDays,
         estimateMandays: durationDays,
         unitPriceVnd: row.unitPriceVnd,
