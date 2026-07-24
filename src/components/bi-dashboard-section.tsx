@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { Activity, BarChart3, ChevronRight, Gauge, Users } from "lucide-react";
+import { Activity, BarChart3, ChevronRight, CircleHelp, Gauge, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ResponsiveTableFrame } from "@/components/page-shell";
 import type { BiDashboardMetrics, PortfolioBiMetrics, ProjectBiSummary } from "@/lib/reports/bi-dashboard";
 import { routeSlug } from "@/lib/route-slug";
@@ -64,7 +65,10 @@ export function ProjectBiExecutiveSection({
       <Card>
         <CardHeader className="flex flex-row items-start justify-between gap-3">
           <div>
-            <CardTitle className="text-base">Tổng quan chiến lược dự án</CardTitle>
+            <CardTitle className="flex items-start gap-2 text-base">
+              <span>Tổng quan chiến lược dự án</span>
+              <MetricHelp label="Tổng quan chiến lược dự án" explanation={metricExplanation("Tổng quan chiến lược dự án")} />
+            </CardTitle>
           </div>
           <Button asChild size="sm" variant="outline">
             <Link href={`/projects/${projectRouteSegment}/bi-dashboard?view=manager`}>
@@ -129,7 +133,10 @@ export function AttentionProjectsTable({ projects }: { projects: ProjectBiSummar
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm">Dự án cần chú ý</CardTitle>
+        <CardTitle className="flex items-start justify-between gap-2 text-sm">
+          <span>Dự án cần chú ý</span>
+          <MetricHelp label="Dự án cần chú ý" explanation={metricExplanation("Dự án cần chú ý")} />
+        </CardTitle>
       </CardHeader>
       <CardContent>
         {projects.length === 0 ? (
@@ -202,9 +209,12 @@ function ProgressComparison({ metrics }: { metrics: BiDashboardMetrics }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-sm">
-          <BarChart3 className="size-4" />
-          Tiến độ so với kế hoạch
+        <CardTitle className="flex items-start justify-between gap-2 text-sm">
+          <span className="flex items-center gap-2">
+            <BarChart3 className="size-4" />
+            Tiến độ so với kế hoạch
+          </span>
+          <MetricHelp label="Tiến độ so với kế hoạch" explanation={metricExplanation("Tiến độ so với kế hoạch")} />
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -225,9 +235,12 @@ function ExecutiveRiskPanel({ metrics }: { metrics: BiDashboardMetrics }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-sm">
-          <Gauge className="size-4" />
-          Rủi ro nổi bật
+        <CardTitle className="flex items-start justify-between gap-2 text-sm">
+          <span className="flex items-center gap-2">
+            <Gauge className="size-4" />
+            Rủi ro nổi bật
+          </span>
+          <MetricHelp label="Rủi ro nổi bật" explanation={metricExplanation("Rủi ro nổi bật")} />
         </CardTitle>
       </CardHeader>
       <CardContent className="grid gap-3 sm:grid-cols-2">
@@ -244,9 +257,12 @@ function MemberPerformanceTable({ members }: { members: ProjectBiSummary["member
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-sm">
-          <Users className="size-4" />
-          Hiệu suất thành viên nhóm
+        <CardTitle className="flex items-start justify-between gap-2 text-sm">
+          <span className="flex items-center gap-2">
+            <Users className="size-4" />
+            Hiệu suất thành viên nhóm
+          </span>
+          <MetricHelp label="Hiệu suất thành viên nhóm" explanation={metricExplanation("Hiệu suất thành viên nhóm")} />
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -297,7 +313,10 @@ function UnavailableMetrics({ metrics }: { metrics: BiDashboardMetrics }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm">Chỉ số cần cấu hình thêm dữ liệu</CardTitle>
+        <CardTitle className="flex items-start justify-between gap-2 text-sm">
+          <span>Chỉ số cần cấu hình thêm dữ liệu</span>
+          <MetricHelp label="Chỉ số cần cấu hình thêm dữ liệu" explanation={metricExplanation("Chỉ số cần cấu hình thêm dữ liệu")} />
+        </CardTitle>
       </CardHeader>
       <CardContent className="grid gap-2 md:grid-cols-2">
         {metrics.unavailable.map((metric) => (
@@ -315,9 +334,12 @@ function SummaryPanel({ title, items }: { title: string; items: string[] }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-sm">
-          <Activity className="size-4" />
-          {title}
+        <CardTitle className="flex items-start justify-between gap-2 text-sm">
+          <span className="flex items-center gap-2">
+            <Activity className="size-4" />
+            {title}
+          </span>
+          <MetricHelp label={title} explanation={metricExplanation(title)} />
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -347,12 +369,16 @@ function MetricCard({
   variant?: "neutral" | "success" | "warning" | "danger";
 }) {
   const badgeVariant = variant ?? (warn ? "warning" : "neutral");
+  const explanation = metricExplanation(label);
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
+        <CardTitle className="flex items-start justify-between gap-2 text-xs font-medium text-muted-foreground">
           <span>{label}</span>
-          {warn || variant ? <Badge variant={badgeVariant} className="status-badge">Live</Badge> : null}
+          <span className="flex items-center gap-1">
+            {warn || variant ? <Badge variant={badgeVariant} className="status-badge">Live</Badge> : null}
+            <MetricHelp label={label} explanation={explanation} />
+          </span>
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -379,11 +405,47 @@ function ProgressRow({ label, value }: { label: string; value: number | null }) 
 }
 
 function MiniStat({ label, value }: { label: string; value: string }) {
+  const explanation = metricExplanation(label);
   return (
     <div className="rounded-[10px] border bg-muted/30 p-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <MetricHelp label={label} explanation={explanation} />
+      </div>
       <p className="mt-1 text-lg font-semibold">{value}</p>
     </div>
+  );
+}
+
+function MetricHelp({
+  label,
+  explanation,
+}: {
+  label: string;
+  explanation: { meaning: string; example: string };
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={`Giải thích chỉ số ${label}`}
+          className="inline-flex size-5 shrink-0 items-center justify-center rounded-full border bg-background text-muted-foreground hover:text-foreground"
+        >
+          <CircleHelp className="size-3.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-80">
+        <div className="space-y-2">
+          <p className="text-sm font-semibold text-foreground">{label}</p>
+          <p className="text-sm leading-6 text-muted-foreground">{explanation.meaning}</p>
+          <div className="rounded-md border bg-muted/30 p-2 text-sm leading-6">
+            <span className="font-medium">Ví dụ: </span>
+            <span className="text-muted-foreground">{explanation.example}</span>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -404,6 +466,126 @@ function healthStatus(metrics: ProjectBiSummary) {
     return { label: "Chưa đủ dữ liệu", helper: "Cần task/time log để đánh giá", variant: "neutral" as const };
   }
   return { label: "Ổn định", helper: "Chưa ghi nhận tín hiệu rủi ro chính", variant: "success" as const };
+}
+
+function metricExplanation(label: string) {
+  const explanations: Record<string, { meaning: string; example: string }> = {
+    "Sức khỏe dự án": {
+      meaning: "Đánh giá nhanh tình trạng dự án dựa trên task quá hạn, task blocked và SPI proxy.",
+      example: "Nếu có 3 task quá hạn hoặc SPI dưới 0.8, trạng thái sẽ chuyển sang Cần chú ý.",
+    },
+    "Tiến độ tổng": {
+      meaning: "Tỷ lệ task đã hoàn thành trên tổng task active của dự án hoặc danh mục.",
+      example: "Hoàn thành 8 trên 20 task thì tiến độ tổng là 40%.",
+    },
+    "SPI proxy": {
+      meaning: "Chỉ số so sánh tiến độ thực tế với tiến độ kế hoạch. Giá trị dưới 1 thường cho thấy chậm nhịp.",
+      example: "Actual progress 40% và target 50% thì SPI proxy = 0.8x.",
+    },
+    "Dự toán timeline": {
+      meaning: "Tổng chi phí dự toán lấy từ Timeline dự toán của dự án.",
+      example: "10 ngày công x 3.600.000 VND thì dự toán timeline là 36.000.000 VND.",
+    },
+    "Tổng dự án": {
+      meaning: "Số dự án active trong phạm vi quyền xem của user hiện tại.",
+      example: "Admin thấy 12 dự án active; user thường chỉ thấy các dự án mình là thành viên.",
+    },
+    "Tỷ lệ hoàn thành": {
+      meaning: "Tỷ lệ task đã Done trên tổng task được tính, không tính task Cancelled.",
+      example: "15 task Done trên 30 task được tính thì tỷ lệ hoàn thành là 50%.",
+    },
+    "Task cần chú ý": {
+      meaning: "Tổng số task quá hạn và task blocked cần quản lý xem xét.",
+      example: "2 task quá hạn và 1 task blocked thì Task cần chú ý là 3.",
+    },
+    "Actual / Estimate": {
+      meaning: "So sánh tổng giờ thực tế đã log với tổng giờ estimate của task.",
+      example: "Actual 80h so với estimate 100h cho thấy đã dùng 80% effort dự kiến.",
+    },
+    "Progress thực tế": {
+      meaning: "Tỷ lệ effort thực tế so với effort estimate của các task được tính.",
+      example: "Đã log 40h trên estimate 100h thì progress thực tế là 40%.",
+    },
+    "Target kế hoạch": {
+      meaning: "Tỷ lệ tiến độ kỳ vọng tại thời điểm hiện tại dựa trên ngày bắt đầu/kết thúc kế hoạch.",
+      example: "Dự án đi qua nửa timeline kế hoạch thì target kế hoạch khoảng 50%.",
+    },
+    "Đúng hạn": {
+      meaning: "Tỷ lệ task Done trước hoặc đúng due date trong các task Done có due date.",
+      example: "8/10 task hoàn thành đúng hạn thì chỉ số đúng hạn là 80%.",
+    },
+    "Cycle time": {
+      meaning: "Thời gian trung bình từ lúc bắt đầu xử lý đến khi task Done.",
+      example: "Ba task mất 2, 4, 6 ngày thì cycle time trung bình là 4 ngày.",
+    },
+    "Lead time": {
+      meaning: "Thời gian trung bình từ lúc task được tạo đến khi task Done.",
+      example: "Task tạo ngày 1 và Done ngày 6 thì lead time là 5 ngày.",
+    },
+    Velocity: {
+      meaning: "Số story point trung bình hoàn thành theo sprint có task Done.",
+      example: "Team hoàn thành 40 story point trong 2 sprint thì velocity là 20 SP/sprint.",
+    },
+    "Resource utilization": {
+      meaning: "Tỷ lệ giờ thực tế đã log so với capacity proxy của thành viên dự án.",
+      example: "Team có capacity proxy 320h và log 160h thì utilization là 50%.",
+    },
+    "Defect rate": {
+      meaning: "Tỷ lệ bug mở so với số task deliverable đã hoàn thành.",
+      example: "2 bug mở trên 10 task Done thì defect rate là 20%.",
+    },
+    "Issue resolution": {
+      meaning: "Tỷ lệ bug đã Closed hoặc Verified trên tổng bug.",
+      example: "6 bug đã xử lý trên tổng 8 bug thì issue resolution là 75%.",
+    },
+    "Burndown rate": {
+      meaning: "Tỷ lệ khối lượng còn lại mới nhất so với snapshot đầu kỳ.",
+      example: "Ban đầu còn 20 task, hiện còn 5 task thì burndown rate là 25%.",
+    },
+    "Effort variance": {
+      meaning: "Chênh lệch phần trăm giữa actual effort và estimate effort.",
+      example: "Actual 120h so với estimate 100h thì effort variance là +20%.",
+    },
+    "Schedule variance": {
+      meaning: "Chênh lệch giữa tiến độ thực tế và target kế hoạch.",
+      example: "Actual 45% và target 60% thì schedule variance là -15%.",
+    },
+    "Completion rate": {
+      meaning: "Tỷ lệ task đã hoàn thành trong phạm vi đang tính.",
+      example: "12 task Done trên 40 task active/non-cancelled thì completion rate là 30%.",
+    },
+    "EV proxy": {
+      meaning: "Earned Value proxy, dùng progress thực tế khi chưa có ngân sách BAC thật.",
+      example: "Progress thực tế 35% thì EV proxy hiển thị 35%.",
+    },
+    "PV proxy": {
+      meaning: "Planned Value proxy, dùng target kế hoạch khi chưa có ngân sách BAC thật.",
+      example: "Theo timeline hôm nay đáng lẽ đạt 50% thì PV proxy là 50%.",
+    },
+    "Task quá hạn": {
+      meaning: "Số task chưa Done nhưng đã quá due date hoặc quá hạn Dev/Test.",
+      example: "Một task due hôm qua và chưa Done sẽ được tính là task quá hạn.",
+    },
+    "Task blocked": {
+      meaning: "Số task đang có trạng thái Blocked hoặc bị chặn bởi dependency chưa hoàn thành.",
+      example: "Task B phụ thuộc Task A chưa Done thì Task B có thể bị tính blocked.",
+    },
+    "Bug mở": {
+      meaning: "Số bug chưa Closed hoặc Verified.",
+      example: "Bug status Open hoặc Reopened sẽ được tính là bug mở.",
+    },
+    "Critical bug": {
+      meaning: "Số bug có mức độ Critical hoặc Blocker.",
+      example: "Bug làm người dùng không đăng nhập được thường được xếp Critical/Blocker.",
+    },
+  };
+
+  return (
+    explanations[label] ?? {
+      meaning: "Chỉ số này được tính từ dữ liệu live hiện có trong PMS.",
+      example: "Khi task, bug hoặc time log thay đổi, chỉ số sẽ cập nhật sau refresh hoặc auto-refresh.",
+    }
+  );
 }
 
 function formatNullable(value: number | null, suffix: string) {
