@@ -81,6 +81,15 @@ function decimalToNumber(value: Prisma.Decimal | number | string | null | undefi
   return Number.isFinite(number) ? number : null;
 }
 
+function timelineLookupKey(value: string | null | undefined) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function amountFromDuration(durationDays: number | null, unitPriceVnd: number | null) {
   return durationDays === null ? null : Math.round(durationDays * (unitPriceVnd ?? MANDAY_RATE_VND));
 }
@@ -367,6 +376,26 @@ async function syncTimelineItemToTask(itemId: string, actorId: string) {
   return true;
 }
 
+async function findReusableTimelineItem(projectId: string, task: { id: string; title: string }) {
+  const item = await prisma.projectEstimatedTimelineItem.findFirst({
+    where: { projectId, taskId: task.id, deletedAt: null },
+  });
+  if (item) return item;
+
+  const sameTitleRows = await prisma.projectEstimatedTimelineItem.findMany({
+    where: {
+      projectId,
+      taskId: null,
+      deletedAt: null,
+      title: { equals: task.title, mode: "insensitive" },
+    },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    take: 5,
+  });
+  const taskTitleKey = timelineLookupKey(task.title);
+  return sameTitleRows.find((row) => timelineLookupKey(row.title) === taskTitleKey) ?? null;
+}
+
 function parseRows(formData: FormData) {
   const ids = formData.getAll("itemId").map(String);
   return ids.map((id, index) => {
@@ -544,6 +573,12 @@ export async function syncProjectEstimatedTimelineFromTasksAction(projectId: str
     where: { projectId, deletedAt: null },
   });
   const existingByTask = new Map(existing.filter((item) => item.taskId).map((item) => [item.taskId!, item]));
+  const reusableByTitle = new Map<string, (typeof existing)[number]>();
+  for (const item of existing) {
+    if (item.taskId) continue;
+    const key = timelineLookupKey(item.title);
+    if (key && !reusableByTitle.has(key)) reusableByTitle.set(key, item);
+  }
   let created = 0;
   let updated = 0;
 
@@ -565,7 +600,9 @@ export async function syncProjectEstimatedTimelineFromTasksAction(projectId: str
         sortOrder: index,
       };
       const snapshot = snapshotFromValues({ ...next, note: null });
-      const item = existingByTask.get(task.id);
+      const taskTitleKey = timelineLookupKey(task.title);
+      const item = existingByTask.get(task.id) ?? reusableByTitle.get(taskTitleKey);
+      if (item?.taskId === null) reusableByTitle.delete(taskTitleKey);
       if (!item) {
         const row = await tx.projectEstimatedTimelineItem.create({
           data: { projectId, taskId: task.id, ...next, note: null },
@@ -586,11 +623,12 @@ export async function syncProjectEstimatedTimelineFromTasksAction(projectId: str
       const nextSnapshot = snapshotFromValues({ ...next, note: item.note });
       const oldSnapshot = snapshotFromValues(item);
       const changed = changedFields(oldSnapshot, nextSnapshot);
-      if (changed.length === 0 && item.sortOrder === index) continue;
+      const shouldLinkTask = item.taskId !== task.id;
+      if (changed.length === 0 && item.sortOrder === index && !shouldLinkTask) continue;
       const nextVersionNo = changed.length > 0 ? item.currentVersionNo + 1 : item.currentVersionNo;
       await tx.projectEstimatedTimelineItem.update({
         where: { id: item.id },
-        data: { ...next, currentVersionNo: nextVersionNo },
+        data: { taskId: task.id, ...next, currentVersionNo: nextVersionNo },
       });
       if (changed.length > 0) {
         await tx.projectEstimatedTimelineVersion.create({
@@ -686,9 +724,7 @@ export async function syncProjectEstimatedTimelineTaskRow({
   const startDate = task.startDate ?? null;
   const durationDays = decimalToNumber(task.taskMandays);
   const endDate = addBusinessMandays(startDate, durationDays);
-  const item = await prisma.projectEstimatedTimelineItem.findFirst({
-    where: { projectId, taskId: task.id, deletedAt: null },
-  });
+  const item = await findReusableTimelineItem(projectId, task);
   const unitPriceVnd = decimalToNumber(item?.unitPriceVnd) ?? MANDAY_RATE_VND;
   const next = {
     title: task.title,
@@ -729,12 +765,14 @@ export async function syncProjectEstimatedTimelineTaskRow({
     const oldSnapshot = snapshotFromValues(item);
     const nextSnapshot = snapshotFromValues({ ...next, note: item.note });
     const changed = changedFields(oldSnapshot, nextSnapshot);
-    if (changed.length === 0) return;
+    const shouldLinkTask = item.taskId !== task.id;
+    if (changed.length === 0 && !shouldLinkTask) return;
     const nextVersionNo = item.currentVersionNo + 1;
     await prisma.$transaction([
       prisma.projectEstimatedTimelineItem.update({
         where: { id: item.id },
         data: {
+          taskId: task.id,
           ...next,
           currentVersionNo: nextVersionNo,
         },

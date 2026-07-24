@@ -89,6 +89,7 @@ Ghi chú:
 │   ├── Có 4 cách nhập/cập nhật: chỉnh sửa trực tiếp trong bảng, đồng bộ từ Task toàn dự án, đồng bộ sang Task, hoặc export/import workbook Excel.
 │   ├── Button workbook hiển thị ngắn là "Export xlsx" và "Import xlsx".
 │   ├── Đồng bộ từ Task lấy task active trong toàn bộ project, bất kể task thuộc module nào; ngày công lấy từ "Ngày công task", ngày bắt đầu lấy từ "Ngày bắt đầu", ngày kết thúc tự tính theo ngày làm việc thứ 2-thứ 6.
+│   ├── Khi đồng bộ, row timeline đã link bằng taskId được ưu tiên; row chưa link nhưng trùng tên task sẽ được gắn lại với task để tránh giữ dữ liệu cũ.
 │   ├── Đồng bộ sang Task cập nhật task đã liên kết theo title, start/end, assignee và map ngày công thành Standard/Dev/Test estimate.
 │   ├── Import Excel giữ ID để cập nhật dòng cũ, để trống ID để tạo dòng mới; server vẫn tính lại thành tiền theo ngày công * đơn giá và kiểm tra assignee theo email thành viên dự án.
 │   ├── Mỗi thay đổi ghi version snapshot theo từng dòng; khi xem version, các nội dung thay đổi được bôi vàng trong dialog lịch sử.

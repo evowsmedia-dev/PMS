@@ -157,7 +157,9 @@ values are displayed without repeating the VND suffix in the table. Users with
 the timeline, sync linked timeline rows back into Task, or export/import an Excel
 workbook via the short buttons **Export xlsx** and **Import xlsx**. Sync from Task
 uses task title, task `startDate`, task `taskMandays`, computed working-day end date
-(Monday-Friday only), and assignee where present; sync back to Task maps timeline
+(Monday-Friday only), and assignee where present. Existing rows linked by `taskId`
+are updated first; unlinked rows with the same task title are claimed and linked
+to prevent stale forecast rows. Sync back to Task maps timeline
 mandays to Standard/Dev/Test estimate and updates linked task title/start/end/assignee. Missing task fields
 remain blank for manual completion. Every create/update writes a row version
 snapshot and changed-field list; selecting a history version shows highlighted

@@ -14,7 +14,7 @@ function dateKey(value: Date | null | undefined) {
 function decimalText(value: unknown) {
   if (value === null || value === undefined) return "";
   const number = Number(value);
-  return Number.isFinite(number) && number > 0 ? String(number) : "";
+  return Number.isFinite(number) ? String(number) : "";
 }
 
 function changedFieldsFromVersion(version: { changedFields: unknown } | undefined) {
