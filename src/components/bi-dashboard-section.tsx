@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Activity, BarChart3, ChevronRight, Clock, Gauge, Users } from "lucide-react";
+import { Activity, BarChart3, ChevronRight, Gauge, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -54,7 +54,6 @@ export function ProjectBiExecutiveSection({
   const health = healthStatus(metrics);
   return (
     <div className="space-y-4">
-      <FrequencyNote title="Góc nhìn cấp cao" cadence="Cập nhật chiến lược theo tuần/tháng, dữ liệu hiện tại đọc trực tiếp từ DB khi refresh." />
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Sức khỏe dự án" value={health.label} helper={health.helper} variant={health.variant} />
         <MetricCard label="Tiến độ tổng" value={formatNullable(metrics.progress.completionRatePercent, "%")} helper={`${metrics.counts.completedTasks}/${metrics.counts.tasks} task`} />
@@ -92,7 +91,6 @@ export function ProjectBiExecutiveSection({
 export function ProjectBiManagerSection({ metrics, summary }: { metrics: ProjectBiSummary; summary: string[] }) {
   return (
     <div className="space-y-4">
-      <FrequencyNote title="Góc nhìn cấp trung" cadence="Cập nhật vận hành theo giờ/ngày qua auto-refresh và revalidate sau thao tác task/time log/bug." />
       <BiMetricGrid metrics={metrics} />
       <div className="grid gap-4 lg:grid-cols-2">
         <ProgressComparison metrics={metrics} />
@@ -329,18 +327,6 @@ function SummaryPanel({ title, items }: { title: string; items: string[] }) {
         </ul>
       </CardContent>
     </Card>
-  );
-}
-
-function FrequencyNote({ title, cadence }: { title: string; cadence: string }) {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/20 px-3 py-2 text-sm">
-      <span className="font-medium">{title}</span>
-      <span className="inline-flex items-center gap-2 text-muted-foreground">
-        <Clock className="size-4" />
-        {cadence}
-      </span>
-    </div>
   );
 }
 
