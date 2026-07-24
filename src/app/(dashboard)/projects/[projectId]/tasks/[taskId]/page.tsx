@@ -125,6 +125,7 @@ export default async function ProjectTaskDetailPage({
   }
 
   const roleCtx = { systemRole: session.user.systemRole };
+  const canViewTask = await canAccess(roleCtx, "task.view", projectRole);
   const canEdit = await canAccess(roleCtx, "task.edit", projectRole);
   const canCreate = await canAccess(roleCtx, "task.create", projectRole);
   const canComment = await canAccess(roleCtx, "comment.create", projectRole);
@@ -297,13 +298,13 @@ export default async function ProjectTaskDetailPage({
             <section className="border-t pt-4">
               <p className="text-sm font-semibold">Log time</p>
               <div className="mt-2 space-y-2">
-                <TaskTimeLogForm projectId={projectId} moduleId={taskModuleId} taskId={task.id} canEdit={canEdit} />
+                <TaskTimeLogForm projectId={projectId} moduleId={taskModuleId} taskId={task.id} canEdit={canViewTask} />
                 <TaskTimeLogList
                   projectId={projectId}
                   moduleId={taskModuleId}
                   taskId={task.id}
                   currentUserId={session.user.id}
-                  canEdit={canEdit}
+                  canEdit={canViewTask}
                   canDeleteAny={canDeleteAnyTimeLog}
                   timeLogs={task.timeLogs.map((log) => ({
                     id: log.id,

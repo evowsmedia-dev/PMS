@@ -75,6 +75,36 @@ async function nextTaskCode(projectId: string): Promise<string> {
   return `${prefix}-${count + 1}`;
 }
 
+async function authorizeTaskTimeLog(projectId: string, moduleId: string | null, taskId: string) {
+  const session = await auth();
+  if (!session?.user) return { error: "Bạn cần đăng nhập." as const };
+
+  const projectRole = await getProjectRole(session.user.id, projectId);
+  if (!(await canAccess({ systemRole: session.user.systemRole }, "task.view", projectRole))) {
+    return { error: "Bạn không có quyền xem task này." as const };
+  }
+
+  const task = await prisma.task.findFirst({
+    where: scopedTaskWhere(projectId, moduleId, taskId),
+    select: { id: true, moduleId: true },
+  });
+  if (!task) return { error: "Không tìm thấy task." as const };
+
+  if (task.moduleId) {
+    const assignedModuleIds = await getAssignedModuleIdsForUser({
+      projectId,
+      userId: session.user.id,
+      systemRole: session.user.systemRole,
+      projectRole,
+    });
+    if (!canAccessModule(assignedModuleIds, task.moduleId)) {
+      return { error: "Bạn không có quyền truy cập phân hệ của task này." as const };
+    }
+  }
+
+  return { session, projectRole, task };
+}
+
 function parseTaskForm(formData: FormData) {
   const optionalValue = (key: string) => {
     const value = String(formData.get(key) ?? "");
@@ -2995,19 +3025,8 @@ export async function addTaskTimeLogAction(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const session = await auth();
-  if (!session?.user) return { error: "Bạn cần đăng nhập." };
-
-  const projectRole = await getProjectRole(session.user.id, projectId);
-  if (!(await canAccess({ systemRole: session.user.systemRole }, "task.edit", projectRole))) {
-    return { error: "Bạn không có quyền log giờ cho task này." };
-  }
-
-  const task = await prisma.task.findFirst({
-    where: scopedTaskWhere(projectId, moduleId, taskId),
-    select: { id: true },
-  });
-  if (!task) return { error: "Không tìm thấy task." };
+  const authorized = await authorizeTaskTimeLog(projectId, moduleId, taskId);
+  if ("error" in authorized) return { error: authorized.error };
 
   const parsed = taskTimeLogSchema.safeParse({
     workType: formData.get("workType") || "DEV",
@@ -3022,8 +3041,8 @@ export async function addTaskTimeLogAction(
 
   const timeLog = await prisma.timeLog.create({
     data: {
-      taskId,
-      userId: session.user.id,
+      taskId: authorized.task.id,
+      userId: authorized.session.user.id,
       workType: values.workType,
       workDate: new Date(values.workDate),
       hours: values.hours,
@@ -3031,13 +3050,13 @@ export async function addTaskTimeLogAction(
     },
   });
 
-  await refreshTaskDerivedFields(taskId);
+  await refreshTaskDerivedFields(authorized.task.id);
 
   await logAudit({
-    actorId: session.user.id,
+    actorId: authorized.session.user.id,
     action: "UPDATE",
     entityType: "Task",
-    entityId: taskId,
+    entityId: authorized.task.id,
     projectId,
     metadata: {
       field: "timeLog",
@@ -3047,7 +3066,7 @@ export async function addTaskTimeLogAction(
     },
   });
 
-  revalidateTaskPaths(projectId, moduleId, taskId);
+  revalidateTaskPaths(projectId, moduleId, authorized.task.id);
   revalidatePath(`/projects/${projectId}/overview`);
   return { success: "Đã ghi nhận giờ làm." };
 }
@@ -3060,19 +3079,14 @@ export async function updateTaskTimeLogAction(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const session = await auth();
-  if (!session?.user) return { error: "Bạn cần đăng nhập." };
-
-  const projectRole = await getProjectRole(session.user.id, projectId);
-  if (!(await canAccess({ systemRole: session.user.systemRole }, "task.edit", projectRole))) {
-    return { error: "Bạn không có quyền chỉnh sửa log giờ cho task này." };
-  }
+  const authorized = await authorizeTaskTimeLog(projectId, moduleId, taskId);
+  if ("error" in authorized) return { error: authorized.error };
 
   const timeLog = await prisma.timeLog.findFirst({
     where: {
       id: timeLogId,
-      taskId,
-      userId: session.user.id,
+      taskId: authorized.task.id,
+      userId: authorized.session.user.id,
       task: { projectId, deletedAt: null, ...(moduleId ? { moduleId } : {}) },
     },
     select: { id: true },
@@ -3100,13 +3114,13 @@ export async function updateTaskTimeLogAction(
     },
   });
 
-  await refreshTaskDerivedFields(taskId);
+  await refreshTaskDerivedFields(authorized.task.id);
 
   await logAudit({
-    actorId: session.user.id,
+    actorId: authorized.session.user.id,
     action: "UPDATE",
     entityType: "Task",
-    entityId: taskId,
+    entityId: authorized.task.id,
     projectId,
     metadata: {
       field: "timeLog",
@@ -3116,7 +3130,7 @@ export async function updateTaskTimeLogAction(
     },
   });
 
-  revalidateTaskPaths(projectId, moduleId, taskId);
+  revalidateTaskPaths(projectId, moduleId, authorized.task.id);
   revalidatePath(`/projects/${projectId}/overview`);
   return { success: "Đã cập nhật log giờ." };
 }
