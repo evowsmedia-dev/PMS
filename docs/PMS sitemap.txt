@@ -15,9 +15,10 @@ Ghi chú:
 ├── /dashboard/overview
 │   ├── Dashboard tổng hợp.
 │   ├── Chỉ số dự án, phân hệ, tài liệu, task.
-│   ├── BI Dashboard tổng quan theo các dự án user có quyền xem.
+│   ├── BI Dashboard portfolio tổng hợp tất cả dự án user có quyền xem; admin thấy toàn bộ project active.
+│   ├── Dữ liệu live từ Task, Bug, TimeLog, Timeline dự toán, Snapshot và ProjectMember; auto-refresh mỗi 5 phút.
 │   ├── KPI phase 1: progress actual/target, SPI proxy, completion/on-time, cycle/lead time, velocity, burndown, effort variance, defect, issue resolution, resource utilization.
-│   ├── Bảng "Dự án cần chú ý" xếp theo overdue, blocked, bug mở và SPI proxy.
+│   ├── Bảng "Dự án cần chú ý" xếp theo overdue, blocked, bug mở và SPI proxy; click dự án để drill-down vào `/projects/:projectCode/bi-dashboard?view=executive`.
 │   ├── Chỉ số chưa có nguồn dữ liệu hiện hữu hiển thị "Chưa cấu hình dữ liệu".
 │   └── Dữ liệu phân hệ lấy từ tổng số module còn hiển thị của các dự án.
 │
@@ -76,7 +77,10 @@ Ghi chú:
 ├── /projects/:projectId/bi-dashboard
 │   ├── Module BI Dashboard riêng dưới menu sidebar của Tổng quan dự án.
 │   ├── Chỉ hiển thị cho user có quyền `report.view`; user thiếu quyền bị chuyển về `/overview`.
-│   ├── Dùng `docs/BI_dashboard_rule.md` làm source công thức, nhưng chỉ tự động hóa KPI có dữ liệu live từ task/bug/time log/snapshot/member.
+│   ├── Chia tab theo query `?view=executive|manager`; mặc định `executive` cho quản lý cấp cao.
+│   ├── Tab quản lý cấp cao cập nhật theo tuần/tháng, tập trung health, progress, SPI proxy, effort/cost proxy, rủi ro và nguồn lực.
+│   ├── Tab quản lý cấp trung cập nhật theo giờ/ngày, tập trung task, burndown, cycle/lead time, overdue/blocked, defect và hiệu suất thành viên.
+│   ├── Dữ liệu đọc live từ Task, Bug, TimeLog, Timeline dự toán, Snapshot và ProjectMember; burndown vẫn dùng `DailyProjectSnapshot`.
 │   ├── Button "Đồng bộ" cập nhật snapshot hôm nay, revalidate dữ liệu BI và refresh view hiện tại.
 │   └── Các KPI thiếu dữ liệu như AC/CPI/CV/EAC tài chính, risk exposure, thay đổi phạm vi, overtime hiển thị "Chưa cấu hình dữ liệu".
 │

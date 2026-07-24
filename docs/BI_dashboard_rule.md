@@ -62,3 +62,10 @@
 - **Tự động hóa**: Tất cả các công thức trên đều có thể lập trình tự động tính toán từ dữ liệu đầu vào (giờ công, ngày tháng, chi phí, v.v.) để giảm sai sót và tiết kiệm thời gian.
 - **Cài ngưỡng cảnh báo**: Thiết lập các ngưỡng cho `SPI < 0.8`, `CPI < 0.9`, `Cycle Time > X ngày`, v.v. để hệ thống tự động thông báo cho quản lý.
 - **Cá nhân hóa Dashboard**: Cho phép người dùng lựa chọn nhóm chỉ số phù hợp với vai trò (quản lý cấp cao hay cấp trung).
+
+## Mapping hiện tại trong PMS
+
+- `/dashboard/overview` là BI dashboard portfolio tổng hợp tất cả dự án user có quyền xem; admin thấy toàn bộ dự án active. Dữ liệu auto-refresh theo chu kỳ cấp cao và click từng dự án để drill-down vào BI riêng của dự án.
+- `/projects/:projectId/bi-dashboard?view=executive` là tab mặc định cho quản lý cấp cao của một dự án, tập trung health, progress, SPI proxy, effort/cost proxy, rủi ro và nguồn lực.
+- `/projects/:projectId/bi-dashboard?view=manager` là tab quản lý cấp trung, tập trung task, burndown, cycle/lead time, overdue/blocked, defect và hiệu suất thành viên; dữ liệu auto-refresh theo chu kỳ vận hành.
+- Chỉ số tự động chỉ dùng dữ liệu thật hiện có: `Task`, `Bug`, `TimeLog`, `ProjectEstimatedTimelineItem`, `DailyProjectSnapshot`, `Sprint`, `ProjectMember`. Chỉ số chưa có nguồn dữ liệu như AC/CPI/CV/EAC tài chính, overtime thật, risk register và scope baseline phải hiển thị "Chưa cấu hình dữ liệu".

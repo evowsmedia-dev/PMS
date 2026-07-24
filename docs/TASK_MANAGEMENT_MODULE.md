@@ -129,16 +129,19 @@ a new `DocumentVersion` instead of autosaving over history.
 
 The project BI dashboard now lives in `/projects/:projectId/bi-dashboard` as a
 separate project-sidebar module under **Tổng quan dự án**, rather than inside the
-overview page. It is derived from `docs/BI_dashboard_rule.md` and uses current
-`Task`, `Bug`, `TimeLog`, `DailyProjectSnapshot`, `Sprint`, and `ProjectMember`
-data to calculate progress, target progress, SPI proxy, completion/on-time
-rates, cycle/lead time, velocity, burndown, effort variance, defect rate, issue
-resolution, and resource utilization. The page includes a **Đồng bộ** action that
-upserts today's `DailyProjectSnapshot`, revalidates the project/portfolio report
-routes, and refreshes the current view. Metrics that need data not yet modeled
-in PMS, such as financial AC/CPI/CV/EAC, risk exposure, scope baseline changes,
-or overtime classification, are shown as "Chưa cấu hình dữ liệu" instead of
-estimated from fake values.
+overview page. It is derived from `docs/BI_dashboard_rule.md` and is split into
+two tabs: **Quản lý cấp cao** (`?view=executive`, default, week/month cadence)
+and **Quản lý cấp trung** (`?view=manager`, hour/day cadence). It uses current
+`Task`, `Bug`, `TimeLog`, `ProjectEstimatedTimelineItem`,
+`DailyProjectSnapshot`, `Sprint`, and `ProjectMember` data to calculate progress,
+target progress, SPI proxy, completion/on-time rates, cycle/lead time, velocity,
+burndown, effort variance, defect rate, issue resolution, resource utilization,
+timeline forecast amount, and member performance. The page includes a **Đồng bộ**
+action that upserts today's `DailyProjectSnapshot`, revalidates the
+project/portfolio report routes, and refreshes the current view. Metrics that
+need data not yet modeled in PMS, such as financial AC/CPI/CV/EAC, risk exposure,
+scope baseline changes, or overtime classification, are shown as "Chưa cấu hình
+dữ liệu" instead of estimated from fake values.
 
 `/dashboard/overview` also shows a portfolio BI dashboard across projects the
 current user can see, with an attention table sorted by overdue work, blocked
@@ -284,7 +287,10 @@ project per day; the overview burndown reads from these rows. Scheduled daily at
 **BI dashboard phase 1** — `src/lib/reports/bi-dashboard.ts` is the shared
 calculation layer for `/dashboard/overview` and `/projects/:projectId/bi-dashboard`.
 It follows the KPI groups in `docs/BI_dashboard_rule.md`, but only automates
-metrics backed by existing live data. EVM financial metrics and risk/scope
+metrics backed by existing live data. `/dashboard/overview` is the portfolio BI
+dashboard across visible projects and links into each project BI dashboard;
+`/projects/:projectId/bi-dashboard` is the project-specific dashboard with
+executive/manager tabs and auto-refresh. EVM financial metrics and risk/scope
 metrics without current source data stay neutral and explicitly report "Chưa cấu
 hình dữ liệu".
 

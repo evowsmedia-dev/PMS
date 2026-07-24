@@ -59,6 +59,12 @@ export interface ProjectBiSummary extends BiDashboardMetrics {
   projectName: string;
   projectCode: string;
   riskScore: number;
+  forecast: {
+    timelineItems: number;
+    timelineMandays: number;
+    timelineAmountVnd: number;
+  };
+  members: ProjectBiMemberSummary[];
 }
 
 export interface PortfolioBiMetrics {
@@ -77,6 +83,19 @@ export interface PortfolioBiMetrics {
   attentionProjects: ProjectBiSummary[];
 }
 
+export interface ProjectBiMemberSummary {
+  userId: string;
+  name: string;
+  role: string;
+  assignedTasks: number;
+  activeTasks: number;
+  completedTasks: number;
+  overdueTasks: number;
+  actualHours: number;
+  estimateHours: number;
+  utilizationPercent: number | null;
+}
+
 export async function computeProjectBiMetrics(projectId: string): Promise<ProjectBiSummary | null> {
   const project = await prisma.project.findFirst({
     where: { id: projectId, deletedAt: null },
@@ -86,12 +105,12 @@ export async function computeProjectBiMetrics(projectId: string): Promise<Projec
       code: true,
       startDate: true,
       endDate: true,
-      members: { select: { userId: true } },
+      members: { select: { userId: true, role: true, user: { select: { fullName: true } } } },
     },
   });
   if (!project) return null;
 
-  const [tasks, bugs, timeLogHours, snapshots] = await Promise.all([
+  const [tasks, bugs, timeLogs, snapshots, timelineAggregate] = await Promise.all([
     prisma.task.findMany({
       where: { projectId, deletedAt: null },
       select: {
@@ -111,6 +130,7 @@ export async function computeProjectBiMetrics(projectId: string): Promise<Projec
         actualTestHours: true,
         storyPoint: true,
         sprintId: true,
+        assigneeId: true,
         isBlocked: true,
         isDevOverdue: true,
         isTestOverdue: true,
@@ -120,16 +140,22 @@ export async function computeProjectBiMetrics(projectId: string): Promise<Projec
       where: { projectId, deletedAt: null },
       select: { id: true, status: true, severity: true },
     }),
-    prisma.timeLog.aggregate({
+    prisma.timeLog.findMany({
       where: { task: { projectId, deletedAt: null } },
-      _sum: { hours: true },
+      select: { userId: true, hours: true },
     }),
     prisma.dailyProjectSnapshot.findMany({
       where: { projectId },
       orderBy: { snapshotDate: "asc" },
       take: 60,
     }),
+    prisma.projectEstimatedTimelineItem.aggregate({
+      where: { projectId, deletedAt: null },
+      _count: { id: true },
+      _sum: { durationDays: true, amountVnd: true },
+    }),
   ]);
+  const timeLogHours = timeLogs.reduce((sum, log) => sum + Number(log.hours), 0);
 
   const metrics = calculateBiMetrics({
     projectStartDate: project.startDate,
@@ -137,7 +163,7 @@ export async function computeProjectBiMetrics(projectId: string): Promise<Projec
     memberCount: project.members.length,
     tasks,
     bugs,
-    timeLogHours: Number(timeLogHours._sum.hours ?? 0),
+    timeLogHours,
     snapshots,
   });
 
@@ -147,6 +173,12 @@ export async function computeProjectBiMetrics(projectId: string): Promise<Projec
     projectCode: project.code,
     ...metrics,
     riskScore: scoreProjectRisk(metrics),
+    forecast: {
+      timelineItems: timelineAggregate._count.id,
+      timelineMandays: round1(Number(timelineAggregate._sum.durationDays ?? 0)),
+      timelineAmountVnd: Number(timelineAggregate._sum.amountVnd ?? 0),
+    },
+    members: calculateMemberSummaries(project.members, tasks, timeLogs),
   };
 }
 
@@ -470,6 +502,44 @@ function scoreProjectRisk(project: BiDashboardMetrics) {
   );
 }
 
+function calculateMemberSummaries(
+  members: { userId: string; user?: { fullName?: string | null }; role?: string }[],
+  tasks: TaskMetricInput[],
+  timeLogs: { userId: string; hours: unknown }[],
+): ProjectBiMemberSummary[] {
+  const now = new Date();
+  const hoursByUser = new Map<string, number>();
+  for (const log of timeLogs) {
+    hoursByUser.set(log.userId, round1((hoursByUser.get(log.userId) ?? 0) + Number(log.hours)));
+  }
+
+  return members.map((member) => {
+    const assignedTasks = tasks.filter((task) => task.assigneeId === member.userId && task.status !== CANCELLED_STATUS);
+    const activeTasks = assignedTasks.filter((task) => task.status !== DONE_STATUS);
+    const completedTasks = assignedTasks.filter((task) => task.status === DONE_STATUS);
+    const overdueTasks = activeTasks.filter((task) => {
+      const due = getTaskDueDate(task);
+      return (due && due < now) || task.isDevOverdue || task.isTestOverdue;
+    });
+    const estimateHours = round1(
+      assignedTasks.reduce((sum, task) => sum + Number(task.devEstimateHours) + Number(task.testEstimateHours), 0),
+    );
+    const actualHours = round1(hoursByUser.get(member.userId) ?? 0);
+    return {
+      userId: member.userId,
+      name: member.user?.fullName || member.userId,
+      role: member.role ?? "",
+      assignedTasks: assignedTasks.length,
+      activeTasks: activeTasks.length,
+      completedTasks: completedTasks.length,
+      overdueTasks: overdueTasks.length,
+      actualHours,
+      estimateHours,
+      utilizationPercent: estimateHours > 0 ? round1((actualHours / estimateHours) * 100) : null,
+    };
+  });
+}
+
 function averageDays(values: number[]) {
   if (values.length === 0) return null;
   return round1(values.reduce((sum, value) => sum + value / DAY_MS, 0) / values.length);
@@ -519,6 +589,7 @@ type TaskMetricInput = {
   actualTestHours: unknown;
   storyPoint: unknown;
   sprintId: string | null;
+  assigneeId: string | null;
   isBlocked: boolean;
   isDevOverdue: boolean;
   isTestOverdue: boolean;

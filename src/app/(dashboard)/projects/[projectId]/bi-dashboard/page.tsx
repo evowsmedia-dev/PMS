@@ -5,16 +5,22 @@ import { canAccess } from "@/lib/rbac";
 import { getProjectRole } from "@/lib/project-role";
 import { computeProjectBiMetrics } from "@/lib/reports/bi-dashboard";
 import type { ProjectBiSummary } from "@/lib/reports/bi-dashboard";
-import { ProjectBiDashboardSection } from "@/components/bi-dashboard-section";
+import {
+  ProjectBiDashboardTabs,
+  ProjectBiExecutiveSection,
+  ProjectBiManagerSection,
+} from "@/components/bi-dashboard-section";
+import { BiDashboardAutoRefresh } from "@/components/bi-dashboard-auto-refresh";
 import { BiDashboardSyncButton } from "@/components/bi-dashboard-sync-button";
 import { PageSection, PageToolbar } from "@/components/page-shell";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { projectCodeRouteSegment, projectRouteWhere } from "@/lib/route-slug";
 
 export default async function ProjectBiDashboardPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ projectId: string }>;
+  searchParams: Promise<{ view?: string }>;
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
@@ -40,29 +46,23 @@ export default async function ProjectBiDashboardPage({
   const metrics = await computeProjectBiMetrics(projectId);
   if (!metrics) notFound();
   const summary = buildBiSummary(metrics);
+  const sp = await searchParams;
+  const activeView = sp.view === "manager" ? "manager" : "executive";
 
   return (
     <PageSection>
+      <BiDashboardAutoRefresh intervalMs={activeView === "manager" ? 60_000 : 300_000} />
       <PageToolbar
         title="BI Dashboard"
         description={`${project.code} - ${project.name}`}
         actions={<BiDashboardSyncButton projectId={projectId} />}
       />
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">Nhận xét tóm tắt</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ul className="space-y-2 text-sm text-muted-foreground">
-            {summary.map((item) => (
-              <li key={item} className="leading-6">
-                {item}
-              </li>
-            ))}
-          </ul>
-        </CardContent>
-      </Card>
-      <ProjectBiDashboardSection metrics={metrics} />
+      <ProjectBiDashboardTabs activeView={activeView} projectRouteSegment={projectRouteSegment} />
+      {activeView === "manager" ? (
+        <ProjectBiManagerSection metrics={metrics} summary={summary} />
+      ) : (
+        <ProjectBiExecutiveSection metrics={metrics} projectRouteSegment={projectRouteSegment} summary={summary} />
+      )}
     </PageSection>
   );
 }

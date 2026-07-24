@@ -3,7 +3,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageShell, PageSection } from "@/components/page-shell";
-import { AttentionProjectsTable, PortfolioBiDashboardSection } from "@/components/bi-dashboard-section";
+import { PortfolioBiDashboardSection } from "@/components/bi-dashboard-section";
+import { BiDashboardAutoRefresh } from "@/components/bi-dashboard-auto-refresh";
 import { computePortfolioBiMetrics } from "@/lib/reports/bi-dashboard";
 
 export default async function DashboardOverviewPage() {
@@ -37,6 +38,7 @@ export default async function DashboardOverviewPage() {
   return (
     <PageShell size="standard">
       <PageSection>
+        <BiDashboardAutoRefresh intervalMs={300_000} />
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="pb-2">
@@ -63,8 +65,7 @@ export default async function DashboardOverviewPage() {
             <CardContent className="text-2xl font-semibold">{taskCount}</CardContent>
           </Card>
         </div>
-        <PortfolioBiDashboardSection metrics={biMetrics.aggregate} />
-        <AttentionProjectsTable projects={biMetrics.attentionProjects} />
+        <PortfolioBiDashboardSection portfolio={biMetrics} />
       </PageSection>
     </PageShell>
   );
