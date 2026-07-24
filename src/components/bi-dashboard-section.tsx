@@ -65,7 +65,6 @@ export function ProjectBiExecutiveSection({
         <CardHeader className="flex flex-row items-start justify-between gap-3">
           <div>
             <CardTitle className="text-base">Tổng quan chiến lược dự án</CardTitle>
-            <p className="mt-1 text-sm text-muted-foreground">Tập trung vào tiến độ, effort, rủi ro và nguồn lực để ra quyết định nhanh.</p>
           </div>
           <Button asChild size="sm" variant="outline">
             <Link href={`/projects/${projectRouteSegment}/bi-dashboard?view=manager`}>
